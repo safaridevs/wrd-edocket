@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use App\Services\CaseService;
+use App\Services\DocumentService;
+use App\Services\DocumentValidationService;
+use App\Services\NotificationService;
+use App\Services\WorkflowService;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        $this->app->singleton(NotificationService::class);
+        $this->app->singleton(CaseService::class);
+        $this->app->singleton(DocumentService::class);
+        $this->app->singleton(DocumentValidationService::class);
+        $this->app->singleton(WorkflowService::class);
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        //
+    }
+}
