@@ -22,7 +22,6 @@ return new class extends Migration
             $table->foreignId('updated_by_user_id')->nullable()->constrained('users');
             
             $table->index('case_no');
-            $table->fullText('caption');
             $table->timestamps();
         });
     }

@@ -10,7 +10,8 @@ class Document extends Model
     protected $fillable = [
         'case_id', 'doc_type', 'original_filename', 'stored_filename', 'mime',
         'size_bytes', 'checksum', 'storage_uri', 'uploaded_by_user_id', 'uploaded_at',
-        'stamped', 'stamp_text', 'approved', 'approved_by_user_id', 'approved_at', 'rejected_reason'
+        'stamped', 'stamp_text', 'approved', 'approved_by_user_id', 'approved_at', 'rejected_reason',
+        'pleading_type'
     ];
 
     protected $casts = [
@@ -30,7 +31,7 @@ class Document extends Model
 
     public function uploader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(User::class, 'uploaded_by_user_id');
     }
 
     public function stamp(): void

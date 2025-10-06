@@ -8,12 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CaseParty extends Model
 {
     protected $fillable = [
-        'case_id', 'name', 'type', 'email', 'contact_info', 'is_served'
+        'case_id', 'person_id', 'role', 'service_enabled', 'attorney_id', 'representation'
     ];
 
     protected $casts = [
-        'contact_info' => 'array',
-        'is_served' => 'boolean'
+        'service_enabled' => 'boolean'
     ];
 
     public function case(): BelongsTo
@@ -24,5 +23,10 @@ class CaseParty extends Model
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
+    }
+
+    public function attorney(): BelongsTo
+    {
+        return $this->belongsTo(Attorney::class);
     }
 }

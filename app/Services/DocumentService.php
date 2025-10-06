@@ -13,10 +13,11 @@ class DocumentService
 {
     public function __construct(
         private NotificationService $notificationService,
-        private DocumentValidationService $validationService
+        private DocumentValidationService $validationService,
+        private PdfStampingService $pdfStampingService
     ) {}
 
-    public function uploadDocument(CaseModel $case, UploadedFile $file, string $documentType, User $uploader): Document
+    public function uploadDocument(CaseModel $case, UploadedFile $file, string $documentType, User $uploader, string $pleadingType = 'none'): Document
     {
         // Validate file
         $errors = $this->validationService->validateFile($file);
@@ -24,22 +25,31 @@ class DocumentService
             throw new \InvalidArgumentException(implode(', ', $errors));
         }
 
+        if (!$file || !$file->isValid()) {
+            throw new \InvalidArgumentException('Invalid file provided');
+        }
+        
         $filename = $this->generateFilename($file);
+        if (!$filename) {
+            throw new \InvalidArgumentException('Could not generate filename');
+        }
+        
         $namingCompliant = $this->validationService->validateNaming($file->getClientOriginalName(), $case->case_number);
         
         $path = $file->storeAs("cases/{$case->id}/documents", $filename, 'private');
 
         $document = Document::create([
             'case_id' => $case->id,
-            'filename' => $filename,
+            'doc_type' => $documentType,
             'original_filename' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'file_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'document_type' => $documentType,
+            'stored_filename' => $filename,
+            'mime' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'checksum' => md5_file($file->getPathname()),
+            'storage_uri' => $path,
             'uploaded_by_user_id' => $uploader->id,
-            'naming_compliant' => $namingCompliant,
-            'sync_status' => ['edocket' => 'pending']
+            'uploaded_at' => now(),
+            'pleading_type' => $pleadingType
         ]);
 
         AuditLog::log('upload_doc', $uploader, $case, ['filename' => $document->original_filename]);
@@ -52,16 +62,22 @@ class DocumentService
 
     private function generateFilename(UploadedFile $file): string
     {
-        return time() . '_' . str_replace(' ', '_', $file->getClientOriginalName());
+        $originalName = $file->getClientOriginalName();
+        if (!$originalName) {
+            $originalName = 'document_' . time() . '.pdf';
+        }
+        return time() . '_' . str_replace(' ', '_', $originalName);
     }
 
     private function autoStamp(Document $document, User $user): void
     {
-        if (in_array($document->document_type, ['filing', 'issuance']) && $document->file_type === 'application/pdf') {
+        // Only stamp pleading documents (request_pre_hearing or request_to_docket)
+        if (in_array($document->pleading_type, ['request_pre_hearing', 'request_to_docket']) && $document->mime === 'application/pdf') {
             $stamp = $this->validationService->generateStamp($user);
             $document->update([
-                'is_stamped' => true,
+                'stamped' => true,
                 'stamped_at' => now(),
+                'stamp_text' => $stamp,
                 'initials' => $user->initials
             ]);
             
@@ -69,7 +85,7 @@ class DocumentService
                 $document->uploader,
                 'document_stamped',
                 'Document Stamped',
-                "Document {$document->original_filename} has been stamped.",
+                "Pleading document {$document->original_filename} has been officially stamped.",
                 $document->case
             );
         }
@@ -77,12 +93,61 @@ class DocumentService
 
     public function stampDocument(Document $document, User $user): bool
     {
-        if (!$user->canApplyStamp()) {
+        // Only HU Admin can manually stamp documents
+        if ($user->role !== 'hu_admin') {
             return false;
         }
-
-        $document->stamp();
+        
+        // Only stamp pleading documents
+        if (!in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing'])) {
+            return false;
+        }
+        
+        // Don't stamp if already stamped
+        if ($document->stamped) {
+            return false;
+        }
+        
+        $stampText = $this->generateStampText($document->case, $user);
+        
+        // Apply visual stamp to PDF
+        $pdfStamped = $this->pdfStampingService->stampPdf($document, $user);
+        
+        $document->update([
+            'stamped' => true,
+            'stamp_text' => $stampText,
+            'stamped_at' => now()
+        ]);
+        
+        AuditLog::log('stamp_document', $user, $document->case, [
+            'document_id' => $document->id,
+            'document_type' => $document->pleading_type,
+            'stamp_text' => $stampText,
+            'pdf_stamped' => $pdfStamped
+        ]);
+        
+        // Notify document uploader
+        $this->notificationService->notify(
+            $document->uploader,
+            'document_stamped',
+            'Document E-Stamped',
+            "Your pleading document '{$document->original_filename}' has been officially e-stamped.",
+            $document->case
+        );
+        
         return true;
+    }
+    
+    private function generateStampText(CaseModel $case, User $user): string
+    {
+        $stampDate = now()->format('M d, Y');
+        $stampTime = now()->format('g:i A');
+        
+        return "FILED\n" .
+               "New Mexico Office of the State Engineer\n" .
+               "Water Rights Hearing Unit\n" .
+               "{$stampDate} at {$stampTime}\n" .
+               "Case No: {$case->case_no}";
     }
 
     private function syncToRepositories(Document $document): void
@@ -107,6 +172,20 @@ class DocumentService
 
     public function downloadDocument(Document $document): string
     {
-        return Storage::disk('private')->path($document->file_path);
+        if (!$document->storage_uri) {
+            throw new \Exception('Document storage path not found');
+        }
+        
+        // Check if file exists in public storage (newer uploads)
+        if (Storage::disk('public')->exists($document->storage_uri)) {
+            return Storage::disk('public')->path($document->storage_uri);
+        }
+        
+        // Check if file exists in private storage (older uploads)
+        if (Storage::disk('private')->exists($document->storage_uri)) {
+            return Storage::disk('private')->path($document->storage_uri);
+        }
+        
+        throw new \Exception('Document file not found in storage');
     }
 }

@@ -8,15 +8,28 @@ use App\Models\User;
 
 class NotificationService
 {
-    public function notify(User $user, string $type, string $title, string $message, ?CaseModel $case = null): Notification
+    public function notify($recipient, string $type, string $title, string $message, ?CaseModel $case = null): Notification
     {
+        $userId = null;
+        $email = null;
+        
+        if ($recipient instanceof User) {
+            $userId = $recipient->id;
+            $email = $recipient->email;
+        } elseif ($recipient instanceof \App\Models\Person) {
+            $email = $recipient->email;
+        } elseif ($recipient instanceof \App\Models\Attorney) {
+            $email = $recipient->email;
+        }
+        
         return Notification::create([
             'case_id' => $case?->id,
             'notification_type' => $type,
             'payload_json' => [
                 'title' => $title,
                 'message' => $message,
-                'user_id' => $user->id
+                'email' => $email,
+                'user_id' => $userId
             ],
             'sent_at' => now()
         ]);

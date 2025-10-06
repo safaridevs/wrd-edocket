@@ -55,132 +55,88 @@
                 <!-- OSE File Numbers -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">OSE File Numbers</label>
+                    <p class="text-sm text-amber-600 mb-3">⚠️ Changing OSE file numbers will affect the naming convention of uploaded documents.</p>
                     <div id="ose-numbers" class="space-y-2">
                         @forelse($case->oseFileNumbers as $index => $oseNumber)
-                            <div class="flex gap-2">
-                                <select name="ose_numbers[{{ $index }}][basin_code]" class="border-gray-300 rounded-md">
-                                    <option value="RG" {{ $oseNumber->basin_code == 'RG' ? 'selected' : '' }}>Rio Grande</option>
-                                    <option value="PE" {{ $oseNumber->basin_code == 'PE' ? 'selected' : '' }}>Pecos</option>
-                                    <option value="CA" {{ $oseNumber->basin_code == 'CA' ? 'selected' : '' }}>Canadian</option>
+                            @php
+                                $fromParts = $oseNumber->file_no_from ? explode('-', $oseNumber->file_no_from, 2) : ['', ''];
+                                $toParts = $oseNumber->file_no_to ? explode('-', $oseNumber->file_no_to, 2) : ['', ''];
+                                $fromBasin = $fromParts[0] ?? '';
+                                $fromNumber = $fromParts[1] ?? '';
+                                $toBasin = $toParts[0] ?? '';
+                                $toNumber = $toParts[1] ?? '';
+                            @endphp
+                            <div class="grid grid-cols-5 gap-2">
+                                <select name="ose_numbers[{{ $index }}][basin_code_from]" class="border-gray-300 rounded-md">
+                                    <option value="">Basin</option>
+                                    @foreach($basinCodes as $code)
+                                        <option value="{{ $code->initial }}" {{ $fromBasin == $code->initial ? 'selected' : '' }}>{{ $code->initial }}</option>
+                                    @endforeach
                                 </select>
-                                <input type="text" name="ose_numbers[{{ $index }}][file_no_from]" placeholder="From" value="{{ $oseNumber->file_no_from }}" class="border-gray-300 rounded-md">
-                                <input type="text" name="ose_numbers[{{ $index }}][file_no_to]" placeholder="To" value="{{ $oseNumber->file_no_to }}" class="border-gray-300 rounded-md">
+                                <input type="text" name="ose_numbers[{{ $index }}][file_no_from]" placeholder="From" value="{{ $fromNumber }}" class="border-gray-300 rounded-md">
+                                <span class="flex items-center justify-center text-gray-500">to</span>
+                                <select name="ose_numbers[{{ $index }}][basin_code_to]" class="border-gray-300 rounded-md">
+                                    <option value="">Basin</option>
+                                    @foreach($basinCodes as $code)
+                                        <option value="{{ $code->initial }}" {{ $toBasin == $code->initial ? 'selected' : '' }}>{{ $code->initial }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="text" name="ose_numbers[{{ $index }}][file_no_to]" placeholder="To" value="{{ $toNumber }}" class="border-gray-300 rounded-md">
                             </div>
                         @empty
-                            <div class="flex gap-2">
-                                <select name="ose_numbers[0][basin_code]" class="border-gray-300 rounded-md">
-                                    <option value="RG">Rio Grande</option>
-                                    <option value="PE">Pecos</option>
-                                    <option value="CA">Canadian</option>
+                            <div class="grid grid-cols-5 gap-2">
+                                <select name="ose_numbers[0][basin_code_from]" class="border-gray-300 rounded-md">
+                                    <option value="">Basin</option>
+                                    @foreach($basinCodes as $code)
+                                        <option value="{{ $code->initial }}">{{ $code->initial }}</option>
+                                    @endforeach
                                 </select>
                                 <input type="text" name="ose_numbers[0][file_no_from]" placeholder="From" class="border-gray-300 rounded-md">
+                                <span class="flex items-center justify-center text-gray-500">to</span>
+                                <select name="ose_numbers[0][basin_code_to]" class="border-gray-300 rounded-md">
+                                    <option value="">Basin</option>
+                                    @foreach($basinCodes as $code)
+                                        <option value="{{ $code->initial }}">{{ $code->initial }}</option>
+                                    @endforeach
+                                </select>
                                 <input type="text" name="ose_numbers[0][file_no_to]" placeholder="To" class="border-gray-300 rounded-md">
                             </div>
                         @endforelse
                     </div>
-                    <button type="button" onclick="addOseNumber()" class="mt-2 text-blue-600 text-sm">+ Add Another</button>
                 </div>
 
-                <!-- Parties -->
+                <!-- Management Links -->
                 <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Parties</h3>
-                    
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Applicants *</label>
-                        <div id="applicants" class="space-y-2">
-                            @php $partyData = $case->metadata ?? []; @endphp
-                            @if(isset($partyData['applicants']) && count($partyData['applicants']) > 0)
-                                @foreach($partyData['applicants'] as $index => $applicant)
-                                    <input type="text" name="applicants[{{ $index }}]" placeholder="Applicant name" value="{{ $applicant }}" required class="block w-full border-gray-300 rounded-md">
-                                @endforeach
-                            @else
-                                <input type="text" name="applicants[0]" placeholder="Applicant name" required class="block w-full border-gray-300 rounded-md">
-                            @endif
-                        </div>
-                        <button type="button" onclick="addParty('applicants')" class="mt-2 text-blue-600 text-sm">+ Add Applicant</button>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Protestants</label>
-                        <div id="protestants" class="space-y-2">
-                            @if(isset($partyData['protestants']) && count($partyData['protestants']) > 0)
-                                @foreach($partyData['protestants'] as $index => $protestant)
-                                    <input type="text" name="protestants[{{ $index }}]" placeholder="Protestant name" value="{{ $protestant }}" class="block w-full border-gray-300 rounded-md">
-                                @endforeach
-                            @else
-                                <input type="text" name="protestants[0]" placeholder="Protestant name" class="block w-full border-gray-300 rounded-md">
-                            @endif
-                        </div>
-                        <button type="button" onclick="addParty('protestants')" class="mt-2 text-blue-600 text-sm">+ Add Protestant</button>
-                    </div>
-                </div>
-
-                <!-- Existing Documents -->
-                @if($case->documents->count() > 0)
-                    <div class="mb-6">
-                        <h3 class="text-lg font-medium mb-4">Existing Documents</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            @foreach($case->documents as $document)
-                                <div class="p-3 border rounded-md">
-                                    <p class="font-medium">{{ ucfirst(str_replace('_', ' ', $document->document_type)) }}</p>
-                                    <p class="text-sm text-gray-600">{{ $document->filename }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                <!-- Document Uploads -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Upload New Documents (Optional)</h3>
+                    <h3 class="text-lg font-medium mb-4">Case Management</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Application (PDF)</label>
-                            <input type="file" name="documents[application]" accept=".pdf" class="mt-1 block w-full">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Notice of Publication (DOCX)</label>
-                            <input type="file" name="documents[notice_publication]" accept=".docx" class="mt-1 block w-full">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Request to Docket (PDF)</label>
-                            <input type="file" name="documents[request_to_docket]" accept=".pdf" class="mt-1 block w-full">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Protest Letters (PDF)</label>
-                            <input type="file" name="documents[protest_letter][]" accept=".pdf" multiple class="mt-1 block w-full">
-                        </div>
+                        <a href="{{ route('cases.parties.manage', $case) }}" class="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">Manage Parties</h4>
+                                    <p class="text-sm text-gray-600">{{ $case->parties->count() }} parties</p>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </a>
+                        <a href="{{ route('cases.documents.manage', $case) }}" class="p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">Manage Documents</h4>
+                                    <p class="text-sm text-gray-600">{{ $case->documents->count() }} documents</p>
+                                </div>
+                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                            </div>
+                        </a>
                     </div>
                 </div>
 
-                <!-- Service List -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Service List</h3>
-                    <div id="service-list" class="space-y-2">
-                        @forelse($case->serviceList as $index => $service)
-                            <div class="grid grid-cols-4 gap-2">
-                                <input type="text" name="service_list[{{ $index }}][name]" placeholder="Name" value="{{ $service->person->first_name }} {{ $service->person->last_name }}" class="border-gray-300 rounded-md">
-                                <input type="email" name="service_list[{{ $index }}][email]" placeholder="Email" value="{{ $service->email }}" class="border-gray-300 rounded-md">
-                                <input type="text" name="service_list[{{ $index }}][address]" placeholder="Address" value="{{ $service->person->address_line1 }}" class="border-gray-300 rounded-md">
-                                <select name="service_list[{{ $index }}][method]" class="border-gray-300 rounded-md">
-                                    <option value="email" {{ $service->service_method == 'email' ? 'selected' : '' }}>Email</option>
-                                    <option value="mail" {{ $service->service_method == 'mail' ? 'selected' : '' }}>Mail</option>
-                                </select>
-                            </div>
-                        @empty
-                            <div class="grid grid-cols-4 gap-2">
-                                <input type="text" name="service_list[0][name]" placeholder="Name" class="border-gray-300 rounded-md">
-                                <input type="email" name="service_list[0][email]" placeholder="Email" class="border-gray-300 rounded-md">
-                                <input type="text" name="service_list[0][address]" placeholder="Address" class="border-gray-300 rounded-md">
-                                <select name="service_list[0][method]" class="border-gray-300 rounded-md">
-                                    <option value="email">Email</option>
-                                    <option value="mail">Mail</option>
-                                </select>
-                            </div>
-                        @endforelse
-                    </div>
-                    <button type="button" onclick="addServiceEntry()" class="mt-2 text-blue-600 text-sm">+ Add Service Entry</button>
-                </div>
+
+
+
 
                 <!-- Affirmation -->
                 <div class="mb-6">
@@ -209,47 +165,5 @@
         </div>
     </div>
 
-    <script>
-        let oseCount = {{ $case->oseFileNumbers->count() ?: 1 }};
-        let applicantCount = {{ isset($partyData['applicants']) ? count($partyData['applicants']) : 1 }};
-        let protestantCount = {{ isset($partyData['protestants']) ? count($partyData['protestants']) : 1 }};
-        let serviceCount = {{ $case->serviceList->count() ?: 1 }};
 
-        function addOseNumber() {
-            document.getElementById('ose-numbers').insertAdjacentHTML('beforeend', `
-                <div class="flex gap-2">
-                    <select name="ose_numbers[${oseCount}][basin_code]" class="border-gray-300 rounded-md">
-                        <option value="RG">Rio Grande</option>
-                        <option value="PE">Pecos</option>
-                        <option value="CA">Canadian</option>
-                    </select>
-                    <input type="text" name="ose_numbers[${oseCount}][file_no_from]" placeholder="From" class="border-gray-300 rounded-md">
-                    <input type="text" name="ose_numbers[${oseCount}][file_no_to]" placeholder="To" class="border-gray-300 rounded-md">
-                </div>
-            `);
-            oseCount++;
-        }
-
-        function addParty(type) {
-            const count = type === 'applicants' ? applicantCount++ : protestantCount++;
-            document.getElementById(type).insertAdjacentHTML('beforeend', 
-                `<input type="text" name="${type}[${count}]" placeholder="${type.slice(0, -1)} name" class="block w-full border-gray-300 rounded-md">`
-            );
-        }
-
-        function addServiceEntry() {
-            document.getElementById('service-list').insertAdjacentHTML('beforeend', `
-                <div class="grid grid-cols-4 gap-2">
-                    <input type="text" name="service_list[${serviceCount}][name]" placeholder="Name" class="border-gray-300 rounded-md">
-                    <input type="email" name="service_list[${serviceCount}][email]" placeholder="Email" class="border-gray-300 rounded-md">
-                    <input type="text" name="service_list[${serviceCount}][address]" placeholder="Address" class="border-gray-300 rounded-md">
-                    <select name="service_list[${serviceCount}][method]" class="border-gray-300 rounded-md">
-                        <option value="email">Email</option>
-                        <option value="mail">Mail</option>
-                    </select>
-                </div>
-            `);
-            serviceCount++;
-        }
-    </script>
 </x-app-layout>

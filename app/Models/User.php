@@ -120,6 +120,31 @@ class User extends Authenticatable
         return $this->role === 'party';
     }
 
+    public function canUploadDocuments(): bool
+    {
+        return in_array($this->role, ['alu_clerk', 'party']) || $this->isHearingUnit();
+    }
+
+    public function canSubmitToHU(): bool
+    {
+        return in_array($this->role, ['alu_clerk', 'party']);
+    }
+
+    public function canAccessCase(CaseModel $case): bool
+    {
+        if ($this->role !== 'party') {
+            return true;
+        }
+        
+        // Check if user email matches any person or attorney in the case
+        return $case->parties()->whereHas('person', function($query) {
+            $query->where('email', $this->email);
+        })->exists() || 
+        $case->parties()->whereHas('attorney', function($query) {
+            $query->where('email', $this->email);
+        })->exists();
+    }
+
     public function canManageUsers(): bool
     {
         return $this->role === 'admin';
@@ -132,12 +157,22 @@ class User extends Authenticatable
 
     public function canAssignAttorneys(): bool
     {
+        return in_array($this->role, ['alu_mgr', 'alu_clerk']);
+    }
+
+    public function canAssignHydrologyExperts(): bool
+    {
         return $this->role === 'alu_mgr';
     }
 
     public function canTransmitMaterials(): bool
     {
         return in_array($this->role, ['wrd', 'wrap_dir', 'alu_clerk']);
+    }
+
+    public function canModifyPersons(): bool
+    {
+        return in_array($this->role, ['hu_admin', 'hu_clerk']);
     }
 
     public function getPermissions(): array

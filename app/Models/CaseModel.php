@@ -12,7 +12,7 @@ class CaseModel extends Model
     
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
-        'created_by_user_id', 'updated_by_user_id', 'metadata',
+        'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'metadata',
         'submitted_at', 'accepted_at', 'closed_at'
     ];
 
@@ -23,6 +23,20 @@ class CaseModel extends Model
         'metadata' => 'array'
     ];
 
+    // Handle JSON for SQL Server compatibility
+    public function getMetadataAttribute($value)
+    {
+        if (is_string($value)) {
+            return json_decode($value, true) ?? [];
+        }
+        return $value ?? [];
+    }
+
+    public function setMetadataAttribute($value)
+    {
+        $this->attributes['metadata'] = is_array($value) ? json_encode($value) : $value;
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
@@ -31,6 +45,16 @@ class CaseModel extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by_user_id');
+    }
+
+    public function assignedAttorney(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_attorney_id');
+    }
+
+    public function assignedHydrologyExpert(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_hydrology_expert_id');
     }
 
     public function documents(): HasMany
@@ -72,7 +96,8 @@ class CaseModel extends Model
     {
         $validTransitions = [
             'draft' => ['submitted_to_hu'],
-            'submitted_to_hu' => ['active', 'draft'],
+            'submitted_to_hu' => ['active', 'rejected'],
+            'rejected' => ['submitted_to_hu'],
             'active' => ['closed'],
             'closed' => ['archived'],
             'archived' => []

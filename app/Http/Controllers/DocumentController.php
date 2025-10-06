@@ -15,6 +15,11 @@ class DocumentController extends Controller
 
     public function store(Request $request, CaseModel $case)
     {
+        // Check if party user can access this case
+        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+            abort(403, 'You can only file documents to cases you are associated with.');
+        }
+
         $validated = $request->validate([
             'document' => 'required|file|mimes:pdf|max:102400',
             'doc_type' => 'required|string|in:filing_other,protest_letter,aggrieval_letter,affidavit_publication'
@@ -42,7 +47,8 @@ class DocumentController extends Controller
                 $case,
                 $file,
                 $validated['doc_type'],
-                Auth::user()
+                Auth::user(),
+                'none' // Party documents are not pleading documents
             );
 
             return redirect()->route('cases.show', $case)->with('success', 'Document uploaded successfully and submitted for review.');
@@ -58,8 +64,23 @@ class DocumentController extends Controller
         return Response::download($filePath, $document->original_filename);
     }
 
+    public function preview(Document $document)
+    {
+        $filePath = $this->documentService->downloadDocument($document);
+        
+        return Response::file($filePath, [
+            'Content-Type' => $document->mime,
+            'Content-Disposition' => 'inline; filename="' . $document->original_filename . '"'
+        ]);
+    }
+
     public function fileForm(CaseModel $case)
     {
+        // Check if party user can access this case
+        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+            abort(403, 'You can only file documents to cases you are associated with.');
+        }
+
         $case->load(['serviceList.person']);
         return view('documents.file', compact('case'));
     }
