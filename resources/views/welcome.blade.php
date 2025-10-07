@@ -18,10 +18,11 @@
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center space-x-4">
                         <div class="flex-shrink-0">
-                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket System</h1>
+                            <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         </div>
-                        <div class="hidden md:block">
-                            <p class="text-sm text-gray-600">New Mexico Office of the State Engineer</p>
+                        <div>
+                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket System</h1>
+                            <p class="text-sm text-gray-600 hidden md:block">New Mexico Office of the State Engineer</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
