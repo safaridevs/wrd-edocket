@@ -34,6 +34,43 @@
                 </div>
             </div>
 
+            <!-- Role Switcher -->
+            @if(config('app.env') !== 'production')
+            <div class="hidden sm:flex sm:items-center sm:ms-6">
+                <x-dropdown align="right" width="48">
+                    <x-slot name="trigger">
+                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition ease-in-out duration-150">
+                            <div>{{ session('impersonated_role') ? 'As: ' . ucfirst(str_replace('_', ' ', session('impersonated_role'))) : 'Switch Role' }}</div>
+                            <div class="ms-1">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </button>
+                    </x-slot>
+                    <x-slot name="content">
+                        @foreach(['alu_clerk', 'alu_atty', 'alu_mgr', 'hu_admin', 'hu_clerk', 'party', 'admin', 'hydrology_expert'] as $role)
+                            <form method="POST" action="{{ route('impersonate.switch') }}" class="block">
+                                @csrf
+                                <input type="hidden" name="role" value="{{ $role }}">
+                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    {{ ucfirst(str_replace('_', ' ', $role)) }}
+                                </button>
+                            </form>
+                        @endforeach
+                        @if(session('impersonated_role'))
+                            <form method="POST" action="{{ route('impersonate.stop') }}" class="block border-t">
+                                @csrf
+                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                    Stop Impersonation
+                                </button>
+                            </form>
+                        @endif
+                    </x-slot>
+                </x-dropdown>
+            </div>
+            @endif
+
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">

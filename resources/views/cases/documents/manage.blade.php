@@ -70,47 +70,59 @@
                 @if($case->documents->count() > 0)
                     <div class="space-y-4" id="documentList">
                         @foreach($case->documents->sortByDesc('uploaded_at') as $document)
-                        <div class="border rounded-lg p-4 bg-gray-50 document-item" data-type="{{ $document->doc_type }}">
+                        <div class="border rounded-lg p-4 bg-gray-50 document-item relative" data-type="{{ $document->doc_type }}">
+                            @if($document->stamped)
+                                <div class="absolute top-2 right-2 text-red-600 text-sm font-medium">
+                                    Electronically Filed
+                                </div>
+                            @endif
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
-                                    <div class="flex items-center space-x-3 mb-2">
-                                        <h4 class="font-medium">{{ $document->original_filename }}</h4>
-                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</span>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center space-x-3">
+                                            <h4 class="font-medium">{{ $document->original_filename }}</h4>
+                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</span>
+                                            
+                                            @if($document->approved)
+                                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Approved</span>
+                                            @elseif($document->rejected_reason)
+                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">✗ Rejected</span>
+                                            @else
+                                                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">⏳ Pending</span>
+                                            @endif
+
+
+
+                                            @php
+                                                $hasNamingIssue = !preg_match('/^\d{4}-\d{2}-\d{2} - .+ - .+\.pdf$/', $document->original_filename);
+                                                $isRequiredDoc = in_array($document->doc_type, ['application', 'notice_publication']);
+                                                $hasFileIssue = !$document->storage_uri || !Storage::disk('public')->exists($document->storage_uri);
+                                            @endphp
+
+                                            @if($hasNamingIssue)
+                                                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded" title="Document name doesn't follow naming convention: YYYY-MM-DD - [Type] - [OSE Numbers].pdf">
+                                                    ⚠️ Naming Issue
+                                                </span>
+                                            @endif
+
+                                            @if($hasFileIssue)
+                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded" title="File is missing or corrupted">
+                                                    ❌ File Issue
+                                                </span>
+                                            @endif
+
+                                            @if($document->doc_type === 'notice_publication' && !$document->approved)
+                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded" title="Notice of Publication requires approval">
+                                                    ❌ Requires Review
+                                                </span>
+                                            @endif
+                                        </div>
                                         
-                                        @if($document->approved)
-                                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Approved</span>
-                                        @elseif($document->rejected_reason)
-                                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">✗ Rejected</span>
-                                        @else
-                                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">⏳ Pending</span>
-                                        @endif
-
-                                        @if($document->stamped)
-                                            <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">📋 Stamped</span>
-                                        @endif
-
-                                        @php
-                                            $hasNamingIssue = !preg_match('/^\d{4}-\d{2}-\d{2} - .+ - .+\.pdf$/', $document->original_filename);
-                                            $isRequiredDoc = in_array($document->doc_type, ['application', 'notice_publication']);
-                                            $hasFileIssue = !$document->storage_uri || !Storage::disk('public')->exists($document->storage_uri);
-                                        @endphp
-
-                                        @if($hasNamingIssue)
-                                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded" title="Document name doesn't follow naming convention: YYYY-MM-DD - [Type] - [OSE Numbers].pdf">
-                                                ⚠️ Naming Issue
-                                            </span>
-                                        @endif
-
-                                        @if($hasFileIssue)
-                                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded" title="File is missing or corrupted">
-                                                ❌ File Issue
-                                            </span>
-                                        @endif
-
-                                        @if($document->doc_type === 'notice_publication' && !$document->approved)
-                                            <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded" title="Notice of Publication requires approval">
-                                                ❌ Requires Review
-                                            </span>
+                                        @if(!$document->stamped && $document->approved && in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                                            <button onclick="stampDocument({{ $document->id }})" 
+                                                    class="text-red-600 hover:text-red-800 text-sm">
+                                                📋 Stamp
+                                            </button>
                                         @endif
                                     </div>
                                     
@@ -184,13 +196,6 @@
                                             <button onclick="approveDocument({{ $document->id }})" 
                                                     class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
                                                 ✓ Approve
-                                            </button>
-                                        @endif
-                                        
-                                        @if(!$document->stamped && $document->approved)
-                                            <button onclick="stampDocument({{ $document->id }})" 
-                                                    class="text-purple-600 hover:text-purple-800 text-sm bg-purple-50 px-3 py-1 rounded whitespace-nowrap">
-                                                📋 Stamp
                                             </button>
                                         @endif
                                         

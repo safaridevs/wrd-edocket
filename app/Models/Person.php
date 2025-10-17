@@ -28,11 +28,13 @@ class Person extends Model
     public function getFullNameAttribute(): string
     {
         if ($this->type === 'company') {
-            return $this->organization;
+            return $this->organization ?: 'Unknown Organization';
         }
         
-        return trim(implode(' ', array_filter([
+        $name = trim(implode(' ', array_filter([
             $this->prefix, $this->first_name, $this->middle_name, $this->last_name, $this->suffix
         ])));
+        
+        return $name ?: 'Unknown Person';
     }
 }

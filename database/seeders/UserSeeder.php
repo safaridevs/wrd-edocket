@@ -81,6 +81,14 @@ class UserSeeder extends Seeder
                 'role' => 'admin',
                 'initials' => 'SA',
                 'phone' => '505-123-4575'
+            ],
+            [
+                'name' => 'Dr. Alex Hydro',
+                'email' => 'hydro@example.com',
+                'password' => Hash::make('password'),
+                'role' => 'hydrology_expert',
+                'initials' => 'AH',
+                'phone' => '505-123-4576'
             ]
         ];
 

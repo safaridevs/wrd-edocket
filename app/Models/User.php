@@ -68,71 +68,76 @@ class User extends Authenticatable
 
     public function hasRole(string $role): bool
     {
-        return $this->role === $role;
+        return $this->getCurrentRole() === $role;
+    }
+    
+    public function getCurrentRole(): string
+    {
+        return session('impersonated_role', $this->role);
     }
 
     // Role checks
-    public function isWRDExpert(): bool { return $this->role === 'wrd_expert'; }
-    public function isWRAPDirector(): bool { return $this->role === 'wrap_director'; }
-    public function isALUManagingAtty(): bool { return $this->role === 'alu_managing_atty'; }
-    public function isALULawClerk(): bool { return $this->role === 'alu_law_clerk'; }
-    public function isALUAttorney(): bool { return $this->role === 'alu_attorney'; }
-    public function isHydrologyExpert(): bool { return $this->role === 'hydrology_expert'; }
-    public function isHUAdmin(): bool { return $this->role === 'hu_admin'; }
-    public function isHULawClerk(): bool { return $this->role === 'hu_law_clerk'; }
-    public function isInterestedParty(): bool { return $this->role === 'interested_party'; }
-    public function isSystemAdmin(): bool { return $this->role === 'system_admin'; }
-    public function isHearingUnit(): bool { return in_array($this->role, ['hu_admin', 'hu_clerk']); }
+    public function isWRDExpert(): bool { return $this->getCurrentRole() === 'wrd_expert'; }
+    public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_director'; }
+    public function isALUManagingAtty(): bool { return $this->getCurrentRole() === 'alu_managing_atty'; }
+    public function isALULawClerk(): bool { return $this->getCurrentRole() === 'alu_law_clerk'; }
+    public function isALUAttorney(): bool { return $this->getCurrentRole() === 'alu_attorney'; }
+    public function isHydrologyExpert(): bool { return $this->getCurrentRole() === 'hydrology_expert'; }
+    public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
+    public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_law_clerk'; }
+    public function isInterestedParty(): bool { return $this->getCurrentRole() === 'interested_party'; }
+    public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'system_admin'; }
+    public function isHearingUnit(): bool { return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']); }
 
     // Permission methods
     public function canCreateCase(): bool
     {
-        return in_array($this->role, ['alu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_clerk']);
     }
 
     public function canReadCase(): bool
     {
-        return !in_array($this->role, []);
+        return !in_array($this->getCurrentRole(), []);
     }
 
     public function canWriteCase(): bool
     {
-        return in_array($this->role, ['alu_clerk', 'alu_atty', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAcceptFilings(): bool
     {
-        return in_array($this->role, ['hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']);
     }
 
     public function canRejectFilings(): bool
     {
-        return $this->role === 'hu_admin';
+        return $this->getCurrentRole() === 'hu_admin';
     }
 
     public function canApplyStamp(): bool
     {
-        return in_array($this->role, ['hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']);
     }
 
     public function canFileToCase(): bool
     {
-        return $this->role === 'party';
+        return $this->getCurrentRole() === 'party';
     }
 
     public function canUploadDocuments(): bool
     {
-        return in_array($this->role, ['alu_clerk', 'party']) || $this->isHearingUnit();
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isHearingUnit();
     }
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->role, ['alu_clerk', 'party']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']);
     }
 
     public function canAccessCase(CaseModel $case): bool
     {
-        if ($this->role !== 'party') {
+        if ($this->getCurrentRole() !== 'party') {
             return true;
         }
         
@@ -147,32 +152,32 @@ class User extends Authenticatable
 
     public function canManageUsers(): bool
     {
-        return $this->role === 'admin';
+        return $this->getCurrentRole() === 'admin';
     }
 
     public function canAssignExperts(): bool
     {
-        return $this->role === 'wrap_dir';
+        return $this->getCurrentRole() === 'wrap_dir';
     }
 
     public function canAssignAttorneys(): bool
     {
-        return in_array($this->role, ['alu_mgr', 'alu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk']);
     }
 
     public function canAssignHydrologyExperts(): bool
     {
-        return $this->role === 'alu_mgr';
+        return $this->getCurrentRole() === 'alu_mgr';
     }
 
     public function canTransmitMaterials(): bool
     {
-        return in_array($this->role, ['wrd', 'wrap_dir', 'alu_clerk']);
+        return in_array($this->getCurrentRole(), ['wrd', 'wrap_dir', 'alu_clerk']);
     }
 
     public function canModifyPersons(): bool
     {
-        return in_array($this->role, ['hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']);
     }
 
     public function getPermissions(): array

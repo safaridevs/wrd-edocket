@@ -9,6 +9,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\CaseInitiationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ImpersonationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -129,6 +130,10 @@ Route::middleware('auth')->group(function () {
     
     // User approval routes
     Route::post('admin/users/{user}/approve', [AdminController::class, 'approveUser'])->middleware('permission:manage_users')->name('admin.users.approve');
+    
+    // Impersonation routes
+    Route::post('impersonate/switch', [ImpersonationController::class, 'switchRole'])->name('impersonate.switch');
+    Route::post('impersonate/stop', [ImpersonationController::class, 'stopImpersonation'])->name('impersonate.stop');
 });
 
 require __DIR__.'/auth.php';
