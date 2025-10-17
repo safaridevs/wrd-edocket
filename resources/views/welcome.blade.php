@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>OSE E-Docket System - New Mexico Office of the State Engineer</title>
-        <script src="https://cdn.tailwindcss.com"></script>
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
         <style>
             .hero-pattern {
                 background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f1f5f9' fill-opacity='0.4'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -18,10 +18,11 @@
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center space-x-4">
                         <div class="flex-shrink-0">
-                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket System</h1>
+                            <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         </div>
-                        <div class="hidden md:block">
-                            <p class="text-sm text-gray-600">New Mexico Office of the State Engineer</p>
+                        <div>
+                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket System</h1>
+                            <p class="text-sm text-gray-600 hidden md:block">New Mexico Office of the State Engineer</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">

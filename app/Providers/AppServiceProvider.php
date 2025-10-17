@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 use App\Services\CaseService;
 use App\Services\DocumentService;
 use App\Services\DocumentValidationService;
@@ -28,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (config('app.env') === 'production') {
+            \URL::forceScheme('https');
+            // Force secure assets in production
+            \URL::forceRootUrl(config('app.url'));
+        }
     }
 }
