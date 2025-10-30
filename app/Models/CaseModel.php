@@ -12,7 +12,7 @@ class CaseModel extends Model
     
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
-        'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'metadata',
+        'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
         'submitted_at', 'accepted_at', 'closed_at'
     ];
 
@@ -55,6 +55,63 @@ class CaseModel extends Model
     public function assignedHydrologyExpert(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_hydrology_expert_id');
+    }
+
+    public function assignedAluClerk(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_alu_clerk_id');
+    }
+
+    public function assignedWrd(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_wrd_id');
+    }
+
+    // New many-to-many relationships
+    public function hydrologyExperts()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', 'hydrology_expert')
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    public function wrds()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', 'wrd')
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    public function aluClerks()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', 'alu_clerk')
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    public function aluAttorneys()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', 'alu_attorney')
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(CaseAssignment::class, 'case_id');
+    }
+
+    public function getAttorneysForParty($personId)
+    {
+        return $this->parties()
+            ->where('person_id', $personId)
+            ->whereNotNull('attorney_id')
+            ->with('attorney')
+            ->get();
     }
 
     public function documents(): HasMany
@@ -134,6 +191,33 @@ class CaseModel extends Model
         ]);
 
         return true;
+    }
+
+    public function canUserUploadDocuments($user): bool
+    {
+        // ALU and HU staff can always upload
+        if (in_array($user->role, ['alu_clerk', 'alu_managing_attorney', 'hu_admin', 'hu_clerk'])) {
+            return true;
+        }
+
+        // Parties can upload if case allows it
+        if ($user->role === 'party' && in_array($this->status, ['active', 'approved'])) {
+            $isParty = $this->parties()->whereHas('person', function($query) use ($user) {
+                $query->where('email', $user->email);
+            })->exists();
+            
+            if ($isParty) return true;
+        }
+
+        // Attorneys can upload for their clients
+        $attorney = Attorney::where('email', $user->email)->first();
+        if ($attorney && in_array($this->status, ['active', 'approved'])) {
+            return $this->parties()
+                ->where('attorney_id', $attorney->id)
+                ->exists();
+        }
+
+        return false;
     }
 
     public static function generateCaseNumber(): string

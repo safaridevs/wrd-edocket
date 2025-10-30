@@ -27,7 +27,7 @@
 
             <form method="POST" action="{{ route('cases.store') }}" enctype="multipart/form-data" class="bg-white shadow-sm rounded-lg p-6">
                 @csrf
-                
+
                 <!-- Case Type -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Case Type *</label>
@@ -109,16 +109,16 @@
                 <!-- Parties with Contact Information -->
                 <div class="mb-6">
                     <h3 class="text-lg font-medium mb-4">Parties & Contact Information</h3>
-                    
+
                     <div id="parties-list" class="space-y-6">
                         <!-- First Applicant (Required) -->
                         <div class="border rounded-lg p-4 bg-gray-50">
                             <div class="flex justify-between items-center mb-4">
                                 <h4 class="font-medium text-gray-900">Applicant 1 *</h4>
                             </div>
-                            
+
                             <input type="hidden" name="parties[0][role]" value="applicant">
-                            
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Type *</label>
@@ -136,7 +136,7 @@
                                     </select>
                                 </div>
                             </div>
-                            
+
                             <!-- Individual Fields -->
                             <div id="individual-fields-0" class="{{ old('parties.0.type') == 'individual' ? '' : 'hidden' }}">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -150,7 +150,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Company Fields -->
                             <div id="company-fields-0" class="{{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
                                 <div class="mb-4">
@@ -158,7 +158,7 @@
                                     <input type="text" name="parties[0][organization]" value="{{ old('parties.0.organization') }}" class="mt-1 block w-full border-gray-300 rounded-md">
                                 </div>
                             </div>
-                            
+
                             <!-- Representation -->
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Representation</label>
@@ -179,11 +179,11 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Attorney Fields -->
                             <div id="attorney-fields-0" class="{{ (old('parties.0.representation') == 'attorney' || old('parties.0.type') == 'company') ? '' : 'hidden' }} border-t pt-4 mt-4">
                                 <h5 class="font-medium text-gray-700 mb-3">Attorney Information</h5>
-                                
+
                                 <div class="mb-4">
                                     <label class="flex items-center mb-2">
                                         <input type="radio" name="parties[0][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_id') ? 'checked' : '' }}>
@@ -199,7 +199,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                
+
                                 <div class="mb-4">
                                     <label class="flex items-center mb-2">
                                         <input type="radio" name="parties[0][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(0)" {{ !old('parties.0.attorney_id') ? 'checked' : '' }}>
@@ -229,7 +229,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <!-- Common Contact Fields -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -241,7 +241,7 @@
                                     <input type="text" name="parties[0][phone]" value="{{ old('parties.0.phone') }}" class="mt-1 block w-full border-gray-300 rounded-md">
                                 </div>
                             </div>
-                            
+
                             <!-- Address -->
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Address</label>
@@ -254,7 +254,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="mt-4 space-x-2">
                         <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Applicant</button>
                         <button type="button" onclick="addParty('protestant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Protestant</button>
@@ -265,76 +265,81 @@
                 <!-- Document Uploads -->
                 <div class="mb-6">
                     <h3 class="text-lg font-medium mb-4">Document Uploads</h3>
-                    
+
+                    @php
+                        $requiredDocs = $documentTypes->where('is_required', true)->where('is_pleading', false);
+                        $pleadingDocs = $documentTypes->where('is_pleading', true);
+                        $optionalDocs = $documentTypes->where('is_required', false)->where('is_pleading', false);
+                    @endphp
+
                     <!-- Required Documents -->
+                    @if($requiredDocs->count() > 0)
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-900 mb-3">Required Documents</h4>
-                        <div class="border rounded-lg p-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Application (PDF) *</label>
-                            <input type="file" name="documents[application]" accept=".pdf" required class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                            <p class="text-xs text-gray-500 mt-1">Name format: YYYY-MM-DD Application (e.g., 2025-07-18 Application.pdf)</p>
-                            <div id="application-preview" class="mt-2 text-sm text-green-600 hidden"></div>
+                        @foreach($requiredDocs as $docType)
+                        <div class="border rounded-lg p-4 mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ $docType->name }} (PDF) *</label>
+                            <input type="file" name="documents[{{ $docType->code }}][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2">
+                            <p class="text-xs text-gray-500 mt-1">Name format: YYYY-MM-DD {{ $docType->name }} (e.g., 2025-07-18 {{ $docType->name }}.pdf)</p>
                         </div>
+                        @endforeach
                     </div>
-                    
+                    @endif
+
                     <!-- Pleading Document -->
+                    @if($pleadingDocs->count() > 0)
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-900 mb-3">Pleading Document</h4>
                         <div class="border rounded-lg p-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type *</label>
                             <div class="grid grid-cols-2 gap-4 mb-4">
+                                @foreach($pleadingDocs as $docType)
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="pleading_type" value="request_pre_hearing" required class="mr-3" onchange="updatePleadingLabel()">
+                                    <input type="radio" name="pleading_type" value="{{ $docType->code }}" required class="mr-3" onchange="updatePleadingLabel()">
                                     <div>
-                                        <div class="font-medium">Request for Pre-Hearing</div>
-                                        <div class="text-xs text-gray-500">For pre-hearing conference requests</div>
+                                        <div class="font-medium">{{ $docType->name }}</div>
+                                        <div class="text-xs text-gray-500">{{ $docType->code === 'request_pre_hearing' ? 'For pre-hearing conference requests' : 'For docketing requests' }}</div>
                                     </div>
                                 </label>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="pleading_type" value="request_to_docket" required class="mr-3" onchange="updatePleadingLabel()">
-                                    <div>
-                                        <div class="font-medium">Request to Docket</div>
-                                        <div class="text-xs text-gray-500">For docketing requests</div>
-                                    </div>
-                                </label>
+                                @endforeach
                             </div>
-                            
+
                             <label id="pleading-file-label" class="block text-sm font-medium text-gray-700 mb-2">Select Pleading Type First</label>
-                            <input type="file" name="documents[request_to_docket]" accept=".pdf" required class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="pleading-file-input">
+                            <input type="file" name="documents[pleading][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="pleading-file-input">
                             <p class="text-xs text-gray-500 mt-1">Choose pleading type above to enable file upload</p>
-                            <div id="pleading-preview" class="mt-2 text-sm text-green-600 hidden"></div>
                         </div>
                     </div>
-                    
+                    @endif
+
                     <!-- Optional Documents -->
+                    @if($optionalDocs->count() > 0)
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-900 mb-3">Optional Documents</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="border rounded-lg p-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Notice of Publication (PDF)</label>
-                                <input type="file" name="documents[notice_publication][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                                <p class="text-xs text-gray-500 mt-1">Upload with any filename - will be renamed to: YYYY-MM-DD Notice of Publication.pdf</p>
-                                <div id="notice-preview" class="mt-2 text-sm text-green-600 hidden"></div>
-                            </div>
-                            
-                            <div class="border rounded-lg p-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Protest Letters (PDF)</label>
-                                <input type="file" name="documents[protest_letter][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                                <p class="text-xs text-gray-500 mt-1">Upload with any filename - will be renamed to: YYYY-MM-DD Protest Letter.pdf</p>
-                                <div id="protest-preview" class="mt-2 text-sm text-green-600 hidden"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-4">
-                            <div class="border rounded-lg p-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Supporting Documents (PDF)</label>
-                                <input type="file" name="documents[supporting][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                                <p class="text-xs text-gray-500 mt-1">Upload with any filename - will be renamed to: YYYY-MM-DD Supporting Document.pdf</p>
-                                <div id="supporting-preview" class="mt-2 text-sm text-green-600 hidden"></div>
+                        <div id="optional-documents" class="space-y-4">
+                            <!-- Initial optional document upload -->
+                            <div class="border rounded-lg p-4 optional-doc-item">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
+                                        <select name="optional_docs[0][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(0)">
+                                            <option value="">Select document type...</option>
+                                            @foreach($optionalDocs as $docType)
+                                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">File Upload</label>
+                                        <input type="file" name="optional_docs[0][files][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
                             </div>
                         </div>
+                        <button type="button" onclick="addOptionalDocument()" class="mt-3 text-blue-600 text-sm hover:text-blue-800">+ Add Another Optional Document</button>
                     </div>
-                    
+                    @endif
+
                     <!-- Upload Progress -->
                     <div id="upload-progress" class="hidden">
                         <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
@@ -364,9 +369,6 @@
                     <button type="submit" name="action" value="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
                         Save Draft
                     </button>
-                    <button type="submit" name="action" value="validate" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Validate
-                    </button>
                     <button type="submit" name="action" value="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
                         Submit to HU
                     </button>
@@ -379,7 +381,7 @@
     </div>
 
     <script>
-        let oseCount = 1, partyCount = 1;
+        let oseCount = 1, partyCount = 1, optionalDocCount = 1;
 
         function showToSection(index) {
             document.getElementById(`to-section-${index}`).classList.remove('hidden');
@@ -389,11 +391,11 @@
         function hideToSection(index) {
             const toSection = document.getElementById(`to-section-${index}`);
             const addButton = document.getElementById(`add-to-${index}`);
-            
+
             // Clear the to fields
             toSection.querySelector('select').selectedIndex = 0;
             toSection.querySelector('input').value = '';
-            
+
             toSection.classList.add('hidden');
             addButton.classList.remove('hidden');
         }
@@ -432,9 +434,9 @@
                         <h4 class="font-medium text-gray-900">${roleTitle} ${partyCount + 1}</h4>
                         <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-600 text-sm hover:text-red-800">Remove</button>
                     </div>
-                    
+
                     <input type="hidden" name="parties[${partyCount}][role]" value="${role}">
-                    
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Type *</label>
@@ -452,7 +454,7 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div id="individual-fields-${partyCount}" class="hidden">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
@@ -465,14 +467,14 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div id="company-fields-${partyCount}" class="hidden">
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
                             <input type="text" name="parties[${partyCount}][organization]" class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
                     </div>
-                    
+
                     <!-- Representation -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">Representation</label>
@@ -493,11 +495,11 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Attorney Fields -->
                     <div id="attorney-fields-${partyCount}" class="hidden border-t pt-4 mt-4">
                         <h5 class="font-medium text-gray-700 mb-3">Attorney Information</h5>
-                        
+
                         <div class="mb-4">
                             <label class="flex items-center mb-2">
                                 <input type="radio" name="parties[${partyCount}][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
@@ -513,7 +515,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        
+
                         <div class="mb-4">
                             <label class="flex items-center mb-2">
                                 <input type="radio" name="parties[${partyCount}][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(${partyCount})" checked>
@@ -543,7 +545,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Email *</label>
@@ -554,7 +556,7 @@
                             <input type="text" name="parties[${partyCount}][phone]" class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
                     </div>
-                    
+
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">Address</label>
                         <input type="text" name="parties[${partyCount}][address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
@@ -576,7 +578,7 @@
             const individualRep = document.querySelector(`#representation-${index} .individual-representation`);
             const companyRep = document.querySelector(`#representation-${index} .company-representation`);
             const attorneyFields = document.getElementById(`attorney-fields-${index}`);
-            
+
             if (typeSelect.value === 'individual') {
                 individualFields.classList.remove('hidden');
                 companyFields.classList.add('hidden');
@@ -612,22 +614,22 @@
                 }
             }
         }
-        
+
         function toggleAttorneyFields(index) {
             const attorneyFields = document.getElementById(`attorney-fields-${index}`);
             const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
-            
+
             if (attorneyFields) {
                 attorneyFields.classList.toggle('hidden', !attorneySelected);
             }
         }
-        
+
         function toggleAttorneyOption(index) {
             const option = document.querySelector(`input[name="parties[${index}][attorney_option]"]:checked`)?.value;
             const existingSelect = document.querySelector(`select[name="parties[${index}][attorney_id]"]`);
             const newFields = document.getElementById(`new-attorney-${index}`);
             const newInputs = newFields?.querySelectorAll('input');
-            
+
             if (option === 'existing') {
                 if (existingSelect) existingSelect.disabled = false;
                 if (newFields) newFields.classList.add('opacity-50');
@@ -641,24 +643,70 @@
                 if (newInputs) newInputs.forEach(input => input.disabled = false);
             }
         }
-        
+
         function updatePleadingLabel() {
             const selectedType = document.querySelector('input[name="pleading_type"]:checked');
             const fileLabel = document.getElementById('pleading-file-label');
             const fileInput = document.getElementById('pleading-file-input');
-            
+
             if (selectedType) {
-                const typeText = selectedType.value === 'request_pre_hearing' ? 'Request for Pre-Hearing' : 'Request to Docket';
+                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
                 fileLabel.textContent = `${typeText} Document (PDF) *`;
+                fileInput.name = 'documents[pleading][]';
                 fileInput.disabled = false;
                 fileInput.style.opacity = '1';
+                fileInput.required = true;
             } else {
                 fileLabel.textContent = 'Select Pleading Type First';
                 fileInput.disabled = true;
                 fileInput.style.opacity = '0.5';
+                fileInput.required = false;
             }
         }
-        
+
+        function updateOptionalDocLabel(index) {
+            const select = document.querySelector(`select[name="optional_docs[${index}][type]"]`);
+            const fileInput = document.querySelector(`input[name="optional_docs[${index}][files][]"]`);
+
+            if (select.value) {
+                fileInput.disabled = false;
+                fileInput.style.opacity = '1';
+            } else {
+                fileInput.disabled = true;
+                fileInput.style.opacity = '0.5';
+                fileInput.value = '';
+            }
+        }
+
+        function addOptionalDocument() {
+            const optionalDocsContainer = document.getElementById('optional-documents');
+            const optionalDocOptions = `@foreach($optionalDocs as $docType)<option value="{{ $docType->code }}">{{ $docType->name }}</option>@endforeach`;
+
+            optionalDocsContainer.insertAdjacentHTML('beforeend', `
+                <div class="border rounded-lg p-4 optional-doc-item">
+                    <div class="flex justify-between items-start mb-3">
+                        <h5 class="font-medium text-gray-700">Optional Document ${optionalDocCount + 1}</h5>
+                        <button type="button" onclick="this.closest('.optional-doc-item').remove()" class="text-red-600 text-sm hover:text-red-800">Remove</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
+                            <select name="optional_docs[${optionalDocCount}][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(${optionalDocCount})">
+                                <option value="">Select document type...</option>
+                                ${optionalDocOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">File Upload</label>
+                            <input type="file" name="optional_docs[${optionalDocCount}][files][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
+                </div>
+            `);
+            optionalDocCount++;
+        }
+
         // File preview functionality
         document.addEventListener('DOMContentLoaded', function() {
             // Add file change listeners for previews
@@ -669,11 +717,11 @@
                 'documents[protest_letter][]': 'protest-preview',
                 'documents[supporting][]': 'supporting-preview'
             };
-            
+
             Object.entries(fileInputs).forEach(([inputName, previewId]) => {
                 const input = document.querySelector(`input[name="${inputName}"]`);
                 const preview = document.getElementById(previewId);
-                
+
                 if (input && preview) {
                     input.addEventListener('change', function() {
                         if (this.files.length > 0) {
@@ -690,16 +738,16 @@
                     });
                 }
             });
-            
+
             // Form submission progress
             const form = document.querySelector('form');
             const progressDiv = document.getElementById('upload-progress');
-            
+
             form.addEventListener('submit', function() {
                 progressDiv.classList.remove('hidden');
             });
         });
-        
+
         // File size validation
         function validateFileSize(input, maxSizeMB = 10) {
             const files = input.files;
@@ -712,7 +760,7 @@
             }
             return true;
         }
-        
+
         // Add file size validation to all file inputs
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('input[type="file"]').forEach(input => {

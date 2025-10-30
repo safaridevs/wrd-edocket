@@ -126,15 +126,9 @@
                                     <div class="grid grid-cols-2 gap-3">
                                         <select name="documents[other][0][type]" class="border-gray-300 rounded-md text-sm">
                                             <option value="">Select Document Type</option>
-                                            <option value="affidavit">Affidavit</option>
-                                            <option value="exhibit">Exhibit</option>
-                                            <option value="correspondence">Correspondence</option>
-                                            <option value="technical_report">Technical Report</option>
-                                            <option value="request_to_docket">Request to Docket</option>
-                                            <option value="request_for_pre_hearing">Request for Pre-Hearing</option>
-                                            <option value="motion">Motion</option>
-                                            <option value="order">Order</option>
-                                            <option value="other">Other</option>
+                                            @foreach($documentTypes as $docType)
+                                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                            @endforeach
                                         </select>
                                         <input type="file" name="documents[other][0][file]" accept=".pdf,.docx,.doc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
                                     </div>
@@ -164,12 +158,9 @@
                                 <div class="grid grid-cols-2 gap-3">
                                     <select name="documents[other][0][type]" class="border-gray-300 rounded-md text-sm">
                                         <option value="">Select Document Type</option>
-                                        <option value="affidavit">Affidavit</option>
-                                        <option value="exhibit">Exhibit</option>
-                                        <option value="correspondence">Correspondence</option>
-                                        <option value="technical_report">Technical Report</option>
-                                        <option value="motion">Motion</option>
-                                        <option value="other">Other</option>
+                                        @foreach($documentTypes as $docType)
+                                        <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                        @endforeach
                                     </select>
                                     <input type="file" name="documents[other][0][file]" accept=".pdf,.docx,.doc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
                                 </div>
@@ -262,22 +253,12 @@
             const newField = document.createElement('div');
             newField.className = 'grid grid-cols-2 gap-3 mt-3';
             
-            const isParty = {{ auth()->user()->role === 'party' ? 'true' : 'false' }};
-            const pleadingOptions = isParty ? '' : `
-                <option value="request_to_docket">Request to Docket</option>
-                <option value="request_for_pre_hearing">Request for Pre-Hearing</option>`;
+            const documentOptions = `@foreach($documentTypes as $docType)<option value="{{ $docType->code }}">{{ $docType->name }}</option>@endforeach`;
             
             newField.innerHTML = `
                 <select name="documents[other][${otherDocumentCount}][type]" class="border-gray-300 rounded-md text-sm">
                     <option value="">Select Document Type</option>
-                    <option value="affidavit">Affidavit</option>
-                    <option value="exhibit">Exhibit</option>
-                    <option value="correspondence">Correspondence</option>
-                    <option value="technical_report">Technical Report</option>
-                    ${pleadingOptions}
-                    <option value="motion">Motion</option>
-                    <option value="order">Order</option>
-                    <option value="other">Other</option>
+                    ${documentOptions}
                 </select>
                 <input type="file" name="documents[other][${otherDocumentCount}][file]" accept=".pdf,.docx,.doc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
             `;

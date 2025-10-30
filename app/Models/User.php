@@ -70,7 +70,7 @@ class User extends Authenticatable
     {
         return $this->getCurrentRole() === $role;
     }
-    
+
     public function getCurrentRole(): string
     {
         return session('impersonated_role', $this->role);
@@ -122,52 +122,76 @@ class User extends Authenticatable
 
     public function canFileToCase(): bool
     {
-        return $this->getCurrentRole() === 'party';
+        return $this->getCurrentRole() === 'party' || $this->isAttorney();
     }
 
     public function canUploadDocuments(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isHearingUnit();
+        // ALU staff and HU staff can always upload
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isHearingUnit()) {
+            return true;
+        }
+        
+        // Attorneys can upload documents for any case where they represent clients
+        return $this->isAttorney();
     }
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isAttorney();
     }
 
     public function canAccessCase(CaseModel $case): bool
     {
+        // Non-party roles (staff) can access all cases
         if ($this->getCurrentRole() !== 'party') {
             return true;
         }
-        
-        // Check if user email matches any person or attorney in the case
-        return $case->parties()->whereHas('person', function($query) {
-            $query->where('email', $this->email);
-        })->exists() || 
-        $case->parties()->whereHas('attorney', function($query) {
+
+        // Check if user email matches any person in the case (direct party)
+        $isParty = $case->parties()->whereHas('person', function($query) {
             $query->where('email', $this->email);
         })->exists();
+
+        if ($isParty) return true;
+
+        // Check if attorney represents any client in this case
+        $attorney = Attorney::where('email', $this->email)->first();
+        if ($attorney) {
+            return $case->parties()->where('attorney_id', $attorney->id)->exists();
+        }
+
+        return false;
     }
 
     public function canManageUsers(): bool
     {
-        return $this->getCurrentRole() === 'admin';
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
     }
 
     public function canAssignExperts(): bool
     {
-        return $this->getCurrentRole() === 'wrap_dir';
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
     }
 
     public function canAssignAttorneys(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+    }
+
+    public function attorneyRecord()
+    {
+        return Attorney::where('email', $this->email)->first();
+    }
+
+    public function isAttorney(): bool
+    {
+        return Attorney::where('email', $this->email)->exists();
     }
 
     public function canAssignHydrologyExperts(): bool
     {
-        return $this->getCurrentRole() === 'alu_mgr';
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
     }
 
     public function canTransmitMaterials(): bool
@@ -178,6 +202,11 @@ class User extends Authenticatable
     public function canModifyPersons(): bool
     {
         return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']);
+    }
+
+    public function canUpdateOwnContact(): bool
+    {
+        return in_array($this->getCurrentRole(), ['party', 'attorney']) || $this->canModifyPersons();
     }
 
     public function getPermissions(): array

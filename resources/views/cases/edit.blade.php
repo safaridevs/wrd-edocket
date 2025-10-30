@@ -151,9 +151,6 @@
                     <button type="submit" name="action" value="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
                         Save Draft
                     </button>
-                    <button type="submit" name="action" value="validate" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Validate
-                    </button>
                     <button type="submit" name="action" value="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
                         Submit to HU
                     </button>

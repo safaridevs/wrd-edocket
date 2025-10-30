@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CaseModel;
 use App\Models\Notification;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
@@ -20,6 +21,22 @@ class NotificationService
             $email = $recipient->email;
         } elseif ($recipient instanceof \App\Models\Attorney) {
             $email = $recipient->email;
+        }
+        
+        // Send actual email
+        if ($email) {
+            try {
+                Mail::raw($message, function ($mail) use ($email, $title) {
+                    $mail->to($email)
+                         ->subject($title);
+                });
+            } catch (\Exception $e) {
+                \Log::error('Failed to send email notification', [
+                    'email' => $email,
+                    'title' => $title,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
         
         return Notification::create([

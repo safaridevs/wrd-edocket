@@ -14,6 +14,11 @@ class Attorney extends Model
         'email',
         'phone',
         'bar_number',
+        'address_line1',
+        'address_line2',
+        'city',
+        'state',
+        'zip',
     ];
 
     public function parties()

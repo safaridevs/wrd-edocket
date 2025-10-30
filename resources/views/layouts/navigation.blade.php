@@ -91,6 +91,23 @@
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
+                        
+                        @php
+                            $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
+                            $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
+                        @endphp
+                        
+                        @if($hasPersonRecord)
+                            <x-dropdown-link :href="route('party.contact.edit')">
+                                {{ __('Contact Information') }}
+                            </x-dropdown-link>
+                        @endif
+                        
+                        @if($hasAttorneyRecord)
+                            <x-dropdown-link :href="route('attorney.profile.edit')">
+                                {{ __('Attorney Profile') }}
+                            </x-dropdown-link>
+                        @endif
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
@@ -153,6 +170,23 @@
                 <x-responsive-nav-link :href="route('profile.edit')">
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
+                
+                @php
+                    $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
+                    $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
+                @endphp
+                
+                @if($hasPersonRecord)
+                    <x-responsive-nav-link :href="route('party.contact.edit')">
+                        {{ __('Contact Information') }}
+                    </x-responsive-nav-link>
+                @endif
+                
+                @if($hasAttorneyRecord)
+                    <x-responsive-nav-link :href="route('attorney.profile.edit')">
+                        {{ __('Attorney Profile') }}
+                    </x-responsive-nav-link>
+                @endif
 
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">

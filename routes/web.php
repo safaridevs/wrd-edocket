@@ -102,7 +102,25 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorney'])->name('cases.assign-attorney.store');
     Route::get('cases/{case}/assign-hydrology-expert', [CaseController::class, 'assignHydrologyExpertForm'])->name('cases.assign-hydrology-expert');
     Route::post('cases/{case}/assign-hydrology-expert', [CaseController::class, 'assignHydrologyExpert'])->name('cases.assign-hydrology-expert.store');
+    Route::get('cases/{case}/assign-alu-clerk', [CaseController::class, 'assignAluClerkForm'])->name('cases.assign-alu-clerk');
+    Route::post('cases/{case}/assign-alu-clerk', [CaseController::class, 'assignAluClerk'])->name('cases.assign-alu-clerk.store');
+    Route::get('cases/{case}/assign-wrd', [CaseController::class, 'assignWrdForm'])->name('cases.assign-wrd');
+    Route::post('cases/{case}/assign-wrd', [CaseController::class, 'assignWrd'])->name('cases.assign-wrd.store');
     Route::post('cases/{case}/notify-parties', [CaseController::class, 'notifyParties'])->name('cases.notify-parties');
+    
+    // Attorney representation routes
+    Route::get('cases/{case}/attorney-representation', [\App\Http\Controllers\AttorneyController::class, 'show'])->name('cases.attorney-representation');
+    Route::post('cases/{case}/attorney/add-client', [\App\Http\Controllers\AttorneyController::class, 'addClient'])->name('attorney.add-client');
+    Route::patch('attorney-relationships/{relationship}/terminate', [\App\Http\Controllers\AttorneyController::class, 'terminateRepresentation'])->name('attorney.terminate-representation');
+    Route::get('attorney/my-clients', [\App\Http\Controllers\AttorneyController::class, 'myClients'])->name('attorney.my-clients');
+    
+    // Attorney profile management
+    Route::get('attorney/profile/edit', [\App\Http\Controllers\AttorneyController::class, 'editProfile'])->name('attorney.profile.edit');
+    Route::patch('attorney/profile', [\App\Http\Controllers\AttorneyController::class, 'updateProfile'])->name('attorney.profile.update');
+    
+    // Party contact management
+    Route::get('party/contact/edit', [\App\Http\Controllers\PartyContactController::class, 'edit'])->name('party.contact.edit');
+    Route::patch('party/contact', [\App\Http\Controllers\PartyContactController::class, 'update'])->name('party.contact.update');
     
     // Attorney management routes
     Route::get('cases/{case}/parties/{party}/attorney', [CaseController::class, 'showAttorneyManagement']);

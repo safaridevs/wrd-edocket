@@ -11,7 +11,13 @@ class PersonController extends Controller
 {
     public function edit(CaseModel $case, Person $person)
     {
-        if (!Auth::user()->canModifyPersons()) {
+        $user = Auth::user();
+        
+        // Allow if user can modify persons OR if editing own contact info
+        $canEdit = $user->canModifyPersons() || 
+                  ($user->canUpdateOwnContact() && $person->email === $user->email);
+        
+        if (!$canEdit) {
             abort(403);
         }
         
@@ -20,7 +26,13 @@ class PersonController extends Controller
 
     public function update(Request $request, CaseModel $case, Person $person)
     {
-        if (!Auth::user()->canModifyPersons()) {
+        $user = Auth::user();
+        
+        // Allow if user can modify persons OR if updating own contact info
+        $canUpdate = $user->canModifyPersons() || 
+                    ($user->canUpdateOwnContact() && $person->email === $user->email);
+        
+        if (!$canUpdate) {
             abort(403);
         }
 

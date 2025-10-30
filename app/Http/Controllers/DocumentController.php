@@ -33,7 +33,7 @@ class DocumentController extends Controller
 
         $file = $request->file('document');
         $filename = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        
+
         // Validate naming convention
         $pattern = '/^\d{4}-\d{2}-\d{2}\s—\s.+\s—\s.+\s—\s' . preg_quote($case->case_no) . '$/';
         if (!preg_match($pattern, $filename)) {
@@ -60,14 +60,14 @@ class DocumentController extends Controller
     public function download(Document $document)
     {
         $filePath = $this->documentService->downloadDocument($document);
-        
+
         return Response::download($filePath, $document->original_filename);
     }
 
     public function preview(Document $document)
     {
         $filePath = $this->documentService->downloadDocument($document);
-        
+
         return Response::file($filePath, [
             'Content-Type' => $document->mime,
             'Content-Disposition' => 'inline; filename="' . $document->original_filename . '"'
@@ -90,7 +90,7 @@ class DocumentController extends Controller
         if ($this->documentService->stampDocument($document, Auth::user())) {
             return back()->with('success', 'Document stamped successfully.');
         }
-        
+
         return back()->with('error', 'Unable to stamp document.');
     }
 }

@@ -37,9 +37,22 @@
                             <p class="text-sm font-medium text-gray-600">My Cases</p>
                             <p class="text-2xl font-bold text-gray-900">
                                 @if(auth()->user()->role === 'party')
-                                    {{ \App\Models\CaseModel::whereHas('parties.person', function($query) {
-                                        $query->where('email', auth()->user()->email);
-                                    })->whereIn('status', ['active', 'approved'])->count() }}
+                                    @php
+                                        $directCasesCount = \App\Models\CaseModel::whereHas('parties.person', function($query) {
+                                            $query->where('email', auth()->user()->email);
+                                        })->whereIn('status', ['active', 'approved'])->count();
+                                        
+                                        $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                                        $attorneyCasesCount = 0;
+                                        if ($attorney) {
+                                            $attorneyCasesCount = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
+                                                $query->where('attorney_id', $attorney->id);
+                                            })->whereIn('status', ['active', 'approved'])->count();
+                                        }
+                                        
+                                        $totalCases = $directCasesCount + $attorneyCasesCount;
+                                    @endphp
+                                    {{ $totalCases }}
                                 @else
                                     {{ auth()->user()->createdCases()->count() }}
                                 @endif
@@ -118,13 +131,25 @@
                         </div>
                         <div class="p-6">
                             @php
-                                $recentCases = auth()->user()->role === 'party' 
-                                    ? \App\Models\CaseModel::whereHas('parties.person', function($query) {
+                                if (auth()->user()->role === 'party') {
+                                    $directCases = \App\Models\CaseModel::whereHas('parties.person', function($query) {
                                         $query->where('email', auth()->user()->email);
-                                    })->whereIn('status', ['active', 'approved'])->latest()->take(5)->get()
-                                    : (auth()->user()->isHearingUnit() 
+                                    })->whereIn('status', ['active', 'approved'])->get();
+                                    
+                                    $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                                    $attorneyCases = collect();
+                                    if ($attorney) {
+                                        $attorneyCases = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
+                                            $query->where('attorney_id', $attorney->id);
+                                        })->whereIn('status', ['active', 'approved'])->get();
+                                    }
+                                    
+                                    $recentCases = $directCases->merge($attorneyCases)->sortByDesc('created_at')->take(5);
+                                } else {
+                                    $recentCases = auth()->user()->isHearingUnit() 
                                         ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->latest()->take(5)->get()
-                                        : auth()->user()->createdCases()->latest()->take(5)->get());
+                                        : auth()->user()->createdCases()->latest()->take(5)->get();
+                                }
                             @endphp
                             
                             @if($recentCases->count() > 0)
@@ -138,6 +163,29 @@
                                             <div>
                                                 <h4 class="font-medium text-gray-900">{{ $case->case_no }}</h4>
                                                 <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} • {{ $case->created_at->format('M j, Y') }}</p>
+                                                @php
+                                                    $userRole = null;
+                                                    // Check if direct party
+                                                    $isDirectParty = $case->parties()->whereHas('person', function($query) {
+                                                        $query->where('email', auth()->user()->email);
+                                                    })->first();
+                                                    
+                                                    if ($isDirectParty) {
+                                                        $userRole = ucfirst($isDirectParty->role) . ' (Self)';
+                                                    } else {
+                                                        // Check if attorney using consolidated system
+                                                        $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                                                        if ($attorney) {
+                                                            $clientParty = $case->parties()->where('attorney_id', $attorney->id)->with('person')->first();
+                                                            if ($clientParty) {
+                                                                $userRole = 'Attorney for ' . $clientParty->person->full_name;
+                                                            }
+                                                        }
+                                                    }
+                                                @endphp
+                                                @if($userRole)
+                                                    <p class="text-xs text-blue-600 font-medium">{{ $userRole }}</p>
+                                                @endif
                                             </div>
                                         </div>
                                         <div class="flex items-center space-x-3">
@@ -178,6 +226,39 @@
 
                 <!-- Quick Actions & Info -->
                 <div class="space-y-6">
+                    <!-- My Role -->
+                    @if(auth()->user()->role === 'party')
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-gray-900">My Role</h3>
+                        </div>
+                        <div class="p-6">
+                            @php
+                                $person = \App\Models\Person::where('email', auth()->user()->email)->first();
+                                $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                            @endphp
+                            
+                            @if($person)
+                                <div class="flex items-center space-x-2 mb-3">
+                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                    <span class="text-sm font-medium text-gray-700">Party: {{ $person->full_name }}</span>
+                                </div>
+                            @endif
+                            
+                            @if($attorney)
+                                <div class="flex items-center space-x-2 mb-3">
+                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                    <span class="text-sm font-medium text-gray-700">Attorney: {{ $attorney->name }}</span>
+                                </div>
+                                @php
+                                    $clientCount = \App\Models\CaseParty::where('attorney_id', $attorney->id)->count();
+                                @endphp
+                                <p class="text-xs text-gray-500">Representing {{ $clientCount }} client(s)</p>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Quick Actions -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div class="p-6 border-b border-gray-200">

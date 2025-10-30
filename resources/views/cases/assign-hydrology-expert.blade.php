@@ -10,16 +10,18 @@
                     @csrf
                     
                     <div class="mb-6">
-                        <label for="expert_id" class="block text-sm font-medium text-gray-700 mb-2">Select Hydrology Expert</label>
-                        <select name="expert_id" id="expert_id" required class="block w-full border-gray-300 rounded-md">
-                            <option value="">Choose an expert...</option>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Hydrology Experts</label>
+                        <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
                             @foreach($experts as $expert)
-                                <option value="{{ $expert->id }}" {{ $case->assigned_hydrology_expert_id == $expert->id ? 'selected' : '' }}>
-                                    {{ $expert->name }} ({{ $expert->email }})
-                                </option>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="expert_ids[]" value="{{ $expert->id }}" 
+                                           {{ $case->hydrologyExperts->contains($expert->id) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-blue-600 mr-2">
+                                    <span class="text-sm">{{ $expert->name }} ({{ $expert->email }})</span>
+                                </label>
                             @endforeach
-                        </select>
-                        @error('expert_id')
+                        </div>
+                        @error('expert_ids')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>

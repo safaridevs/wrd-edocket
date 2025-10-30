@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
+use App\Models\CaseAssignment;
 use App\Models\OseFileNumber;
 use App\Services\CaseService;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class CaseController extends Controller
             // ALU Manager sees all cases
             $cases = CaseModel::latest()->get();
         } elseif ($user->role === 'party') {
-            // Party users see active and approved cases
+            // Party users (including attorneys) see all active and approved cases
             $cases = CaseModel::whereIn('status', ['active', 'approved'])->latest()->get();
         } else {
             // Other users see only their created cases
@@ -41,7 +42,8 @@ class CaseController extends Controller
 
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        return view('cases.create', compact('basinCodes', 'attorneys'));
+        $documentTypes = \App\Models\DocumentType::forCaseCreation()->orderBy('sort_order')->get();
+        return view('cases.create', compact('basinCodes', 'attorneys', 'documentTypes'));
     }
 
     public function store(Request $request)
@@ -84,15 +86,21 @@ class CaseController extends Controller
             'ose_numbers.*.file_no_to' => 'nullable|string|max:50',
             'pleading_type' => 'required|in:request_pre_hearing,request_to_docket',
             'documents' => 'nullable|array',
-            'documents.application' => 'required|file|mimes:pdf|max:10240',
+            'documents.application' => 'required|array',
+            'documents.application.*' => 'required|file|mimes:pdf|max:10240',
             'documents.notice_publication' => 'nullable|array',
             'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.request_to_docket' => 'required|file|mimes:pdf|max:10240',
+            'documents.pleading' => 'nullable|array',
+            'documents.pleading.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.protest_letter' => 'nullable|array',
             'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.supporting' => 'nullable|array',
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
             'assigned_attorney_id' => 'nullable|exists:users,id',
+            'optional_docs' => 'nullable|array',
+            'optional_docs.*.type' => 'nullable|string',
+            'optional_docs.*.files' => 'nullable|array',
+            'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:10240',
             'affirmation' => 'required|accepted',
             'action' => 'required|in:draft,validate,submit'
         ]);
@@ -120,7 +128,7 @@ class CaseController extends Controller
             abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
         }
 
-        $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
+        $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'assignedAluClerk', 'assignedWrd', 'aluAttorneys', 'hydrologyExperts', 'aluClerks', 'wrds', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
         return view('cases.show', compact('case'));
     }
 
@@ -243,8 +251,8 @@ class CaseController extends Controller
 
     public function approve(CaseModel $case)
     {
-        if (!Auth::user()->role === 'hu_admin') {
-            abort(403, 'Only HU Admin can approve cases.');
+        if (!in_array(Auth::user()->role, ['hu_admin', 'hu_clerk'])) {
+            abort(403, 'Only HU Admin and HU Clerk can approve cases.');
         }
 
         if ($this->caseService->approveCase($case, Auth::user())) {
@@ -271,12 +279,22 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'attorney_id' => 'required|exists:users,id'
+            'attorney_ids' => 'required|array|min:1',
+            'attorney_ids.*' => 'exists:users,id'
         ]);
 
-        $case->update(['assigned_attorney_id' => $validated['attorney_id']]);
+        $case->assignments()->where('assignment_type', 'alu_attorney')->delete();
+        
+        foreach ($validated['attorney_ids'] as $attorneyId) {
+            CaseAssignment::create([
+                'case_id' => $case->id,
+                'user_id' => $attorneyId,
+                'assignment_type' => 'alu_attorney',
+                'assigned_by' => Auth::id()
+            ]);
+        }
 
-        return redirect()->route('cases.show', $case)->with('success', 'Attorney assigned successfully.');
+        return redirect()->route('cases.show', $case)->with('success', 'Attorneys assigned successfully.');
     }
 
     public function assignHydrologyExpertForm(CaseModel $case)
@@ -296,12 +314,94 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'expert_id' => 'required|exists:users,id'
+            'expert_ids' => 'required|array|min:1',
+            'expert_ids.*' => 'exists:users,id'
         ]);
 
-        $case->update(['assigned_hydrology_expert_id' => $validated['expert_id']]);
+        // Remove existing assignments
+        $case->assignments()->where('assignment_type', 'hydrology_expert')->delete();
+        
+        // Add new assignments
+        foreach ($validated['expert_ids'] as $expertId) {
+            CaseAssignment::create([
+                'case_id' => $case->id,
+                'user_id' => $expertId,
+                'assignment_type' => 'hydrology_expert',
+                'assigned_by' => Auth::id()
+            ]);
+        }
 
-        return redirect()->route('cases.show', $case)->with('success', 'Hydrology expert assigned successfully.');
+        return redirect()->route('cases.show', $case)->with('success', 'Hydrology experts assigned successfully.');
+    }
+
+    public function assignAluClerkForm(CaseModel $case)
+    {
+        if (!Auth::user()->canAssignAttorneys()) {
+            abort(403);
+        }
+
+        $clerks = \App\Models\User::where('role', 'alu_clerk')->get();
+        return view('cases.assign-alu-clerk', compact('case', 'clerks'));
+    }
+
+    public function assignAluClerk(Request $request, CaseModel $case)
+    {
+        if (!Auth::user()->canAssignAttorneys()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'clerk_ids' => 'required|array|min:1',
+            'clerk_ids.*' => 'exists:users,id'
+        ]);
+
+        $case->assignments()->where('assignment_type', 'alu_clerk')->delete();
+        
+        foreach ($validated['clerk_ids'] as $clerkId) {
+            CaseAssignment::create([
+                'case_id' => $case->id,
+                'user_id' => $clerkId,
+                'assignment_type' => 'alu_clerk',
+                'assigned_by' => Auth::id()
+            ]);
+        }
+
+        return redirect()->route('cases.show', $case)->with('success', 'ALU Clerks assigned successfully.');
+    }
+
+    public function assignWrdForm(CaseModel $case)
+    {
+        if (!Auth::user()->canAssignAttorneys()) {
+            abort(403);
+        }
+
+        $wrds = \App\Models\User::where('role', 'wrd')->get();
+        return view('cases.assign-wrd', compact('case', 'wrds'));
+    }
+
+    public function assignWrd(Request $request, CaseModel $case)
+    {
+        if (!Auth::user()->canAssignAttorneys()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'wrd_ids' => 'required|array|min:1',
+            'wrd_ids.*' => 'exists:users,id'
+        ]);
+
+        $case->assignments()->where('assignment_type', 'wrd')->delete();
+        
+        foreach ($validated['wrd_ids'] as $wrdId) {
+            CaseAssignment::create([
+                'case_id' => $case->id,
+                'user_id' => $wrdId,
+                'assignment_type' => 'wrd',
+                'assigned_by' => Auth::id()
+            ]);
+        }
+
+        return redirect()->route('cases.show', $case)->with('success', 'WRDs assigned successfully.');
     }
 
     public function notifyParties(Request $request, CaseModel $case)
@@ -338,10 +438,16 @@ class CaseController extends Controller
         }
 
         $case->load(['documents.uploader']);
-        \Log::info('Upload documents page - Case ID: ' . $case->id . ', Documents count: ' . $case->documents->count());
-        \Log::info('Documents: ' . $case->documents->pluck('original_filename')->toJson());
-
-        return view('cases.upload-documents', compact('case'));
+        
+        if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
+            $documentTypes = \App\Models\DocumentType::where('is_active', true)
+                ->where('category', 'party_upload')
+                ->orderBy('sort_order')->get();
+        } else {
+            $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('sort_order')->get();
+        }
+        
+        return view('cases.upload-documents', compact('case', 'documentTypes'));
     }
 
     public function storeDocuments(Request $request, CaseModel $case)
@@ -360,18 +466,10 @@ class CaseController extends Controller
             }
         }
 
-        $validated = $request->validate([
-            'documents.application' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.notice_publication' => 'nullable|file|mimes:docx|max:10240',
-            'documents.request_to_docket' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.request_for_pre_hearing' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.protest_letter' => 'nullable|array',
-            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.supporting' => 'nullable|array',
-            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.other' => 'nullable|array',
-            'documents.other.*.type' => 'nullable|string|in:affidavit,exhibit,correspondence,technical_report,request_to_docket,request_for_pre_hearing,motion,order,other',
-            'documents.other.*.file' => 'nullable|file|mimes:pdf,docx,doc|max:10240',
+        // Validate the form structure
+        $request->validate([
+            'documents.other.*.type' => 'required|string',
+            'documents.other.*.file' => 'required|file|mimes:pdf,doc,docx|max:10240'
         ]);
 
         try {
@@ -563,13 +661,13 @@ class CaseController extends Controller
                 }
             }
 
-            // Create case party
+            // Create case party with consolidated attorney relationship
             \App\Models\CaseParty::create([
                 'case_id' => $case->id,
                 'person_id' => $person->id,
+                'attorney_id' => $attorneyId,
                 'role' => $validated['role'],
                 'service_enabled' => true,
-                'attorney_id' => $attorneyId,
                 'representation' => $validated['representation']
             ]);
 
@@ -706,19 +804,24 @@ class CaseController extends Controller
     public function manageDocuments(CaseModel $case)
     {
         $case->load(['documents.uploader']);
-        return view('cases.documents.manage', compact('case'));
+        $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('sort_order')->get();
+        return view('cases.documents.manage', compact('case', 'documentTypes'));
     }
 
     public function storeDocument(Request $request, CaseModel $case)
     {
+        $validDocTypes = \App\Models\DocumentType::where('is_active', true)->pluck('code')->toArray();
+        
         $validated = $request->validate([
-            'doc_type' => 'required|in:application,notice_publication,protest_letter,supporting,affidavit,exhibit,correspondence,technical_report,request_to_docket,request_for_pre_hearing,motion,order,other',
+            'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
             'document' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
             'description' => 'nullable|string|max:500'
         ]);
 
         try {
+            \Log::info('Starting document upload', ['doc_type' => $validated['doc_type'], 'case_id' => $case->id]);
+            
             // Load OSE file numbers
             $case->load('oseFileNumbers');
             
@@ -726,24 +829,9 @@ class CaseController extends Controller
             $filename = time() . '_' . $file->getClientOriginalName();
             $path = $file->storeAs('case_documents', $filename, 'public');
             
-            // Apply standardized naming convention: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf
-            $docTypeMap = [
-                'application' => 'Application',
-                'notice_publication' => 'Notice of Publication',
-                'protest_letter' => 'Protest Letter',
-                'supporting' => 'Supporting Document',
-                'affidavit' => 'Affidavit',
-                'exhibit' => 'Exhibit',
-                'correspondence' => 'Correspondence',
-                'technical_report' => 'Technical Report',
-                'request_to_docket' => 'Request to Docket',
-                'request_for_pre_hearing' => 'Request for Pre-Hearing',
-                'motion' => 'Motion',
-                'order' => 'Order',
-                'other' => 'Other Document'
-            ];
-            
-            $displayType = $docTypeMap[$validated['doc_type']] ?? ucfirst(str_replace('_', ' ', $validated['doc_type']));
+            // Get display name from database
+            $documentType = \App\Models\DocumentType::where('code', $validated['doc_type'])->first();
+            $displayType = $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $validated['doc_type']));
             
             // Get OSE file numbers for the case
             $oseString = '';
@@ -797,11 +885,16 @@ class CaseController extends Controller
             ];
             
             // Set pleading type for pleading documents
-            if (in_array($validated['doc_type'], ['request_to_docket', 'request_for_pre_hearing'])) {
-                $documentData['pleading_type'] = $validated['doc_type'];
+            $documentType = \App\Models\DocumentType::where('code', $validated['doc_type'])->first();
+            if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
+                $documentData['pleading_type'] = $validated['pleading_type'];
+            } else {
+                $documentData['pleading_type'] = 'none';
             }
             
-            \App\Models\Document::create($documentData);
+            \Log::info('About to create document', $documentData);
+            $document = \App\Models\Document::create($documentData);
+            \Log::info('Document created successfully', ['document_id' => $document->id, 'doc_type' => $validated['doc_type'], 'pleading_type' => $documentData['pleading_type']]);
 
             return redirect()->route('cases.documents.manage', $case)->with('success', 'Document uploaded successfully.');
 
@@ -860,10 +953,10 @@ class CaseController extends Controller
         $documentService = app(\App\Services\DocumentService::class);
         
         if ($documentService->stampDocument($document, auth()->user())) {
-            return response()->json(['success' => true]);
+            return response()->json(['success' => true, 'message' => 'Document stamped successfully']);
         }
         
-        return response()->json(['success' => false, 'error' => 'Failed to stamp document']);
+        return response()->json(['success' => false, 'error' => 'Document marked as stamped but visual PDF stamping may have failed. Check logs for details.']);
     }
 
     public function unapproveDocument(CaseModel $case, $documentId)

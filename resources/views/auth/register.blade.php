@@ -28,16 +28,6 @@
                 <form method="POST" action="{{ route('register') }}" class="space-y-6">
                     @csrf
 
-                    <!-- Name -->
-                    <div>
-                        <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                        <input id="name" type="text" name="name" value="{{ old('name') }}" required autofocus autocomplete="name"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                        @error('name')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                     <!-- Email -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
@@ -47,6 +37,15 @@
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                         <div id="email-lookup-message" class="mt-2 text-sm"></div>
+                    </div>
+                     <!-- Name -->
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                        <input id="name" type="text" name="name" value="{{ old('name') }}" required autofocus autocomplete="name"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                        @error('name')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <!-- Password -->
@@ -69,6 +68,8 @@
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
+
 
                     <!-- Terms Notice -->
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -125,7 +126,7 @@
                         Create an account to participate in water rights hearings, upload documents, and receive case notifications through our secure system.
                     </p>
                 </div>
-                
+
                 <div class="space-y-6">
                     <div class="bg-blue-800 bg-opacity-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-3">What you can do:</h3>
@@ -166,15 +167,15 @@
             const email = document.getElementById('email').value;
             const nameInput = document.getElementById('name');
             const messageDiv = document.getElementById('email-lookup-message');
-            
+
             if (!email) {
                 messageDiv.innerHTML = '';
                 nameInput.readOnly = false;
                 return;
             }
-            
+
             messageDiv.innerHTML = '<span class="text-blue-600 flex items-center space-x-2"><svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Looking up...</span></span>';
-            
+
             fetch(`/api/lookup-person/${encodeURIComponent(email)}`)
                 .then(response => response.json())
                 .then(data => {

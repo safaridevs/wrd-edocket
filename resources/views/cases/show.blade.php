@@ -35,22 +35,66 @@
                         </div>
                     </div>
                     <div>
-                        <strong>Assigned ALU Attorney:</strong>
+                        <strong>Assigned ALU Attorneys:</strong>
                         <div class="text-sm mt-1">
-                            {{ $case->assignedAttorney?->name ?? 'Not assigned' }}
+                            @if($case->aluAttorneys->count() > 0)
+                                @foreach($case->aluAttorneys as $attorney)
+                                    <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $attorney->name }}</span>
+                                @endforeach
+                            @else
+                                <span class="text-gray-500">Not assigned</span>
+                            @endif
                             @if(auth()->user()->canAssignAttorneys())
                                 <a href="{{ route('cases.assign-attorney', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
-                                    {{ $case->assignedAttorney ? 'Reassign' : 'Assign' }}
+                                    {{ $case->aluAttorneys->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
                             @endif
                         </div>
 
-                        <strong class="mt-2 block">Assigned Hydrology Expert:</strong>
+                        <strong class="mt-3 block">Assigned Hydrology Experts:</strong>
                         <div class="text-sm mt-1">
-                            {{ $case->assignedHydrologyExpert?->name ?? 'Not assigned' }}
+                            @if($case->hydrologyExperts->count() > 0)
+                                @foreach($case->hydrologyExperts as $expert)
+                                    <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $expert->name }}</span>
+                                @endforeach
+                            @else
+                                <span class="text-gray-500">Not assigned</span>
+                            @endif
                             @if(auth()->user()->canAssignHydrologyExperts())
                                 <a href="{{ route('cases.assign-hydrology-expert', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
-                                    {{ $case->assignedHydrologyExpert ? 'Reassign' : 'Assign' }}
+                                    {{ $case->hydrologyExperts->count() > 0 ? 'Manage' : 'Assign' }}
+                                </a>
+                            @endif
+                        </div>
+
+                        <strong class="mt-3 block">Assigned ALU Clerks:</strong>
+                        <div class="text-sm mt-1">
+                            @if($case->aluClerks->count() > 0)
+                                @foreach($case->aluClerks as $clerk)
+                                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $clerk->name }}</span>
+                                @endforeach
+                            @else
+                                <span class="text-gray-500">Not assigned</span>
+                            @endif
+                            @if(auth()->user()->canAssignAttorneys())
+                                <a href="{{ route('cases.assign-alu-clerk', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
+                                    {{ $case->aluClerks->count() > 0 ? 'Manage' : 'Assign' }}
+                                </a>
+                            @endif
+                        </div>
+
+                        <strong class="mt-3 block">Assigned WRDs:</strong>
+                        <div class="text-sm mt-1">
+                            @if($case->wrds->count() > 0)
+                                @foreach($case->wrds as $wrd)
+                                    <span class="inline-block bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $wrd->name }}</span>
+                                @endforeach
+                            @else
+                                <span class="text-gray-500">Not assigned</span>
+                            @endif
+                            @if(auth()->user()->canAssignAttorneys())
+                                <a href="{{ route('cases.assign-wrd', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
+                                    {{ $case->wrds->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
                             @endif
                         </div>
@@ -237,9 +281,9 @@
                         <a href="{{ route('documents.file', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm">File Document</a>
                         @endif
                         @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
-                        <a href="{{ route('cases.documents.upload', $case) }}" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Upload Documents</a>
+                        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Upload Documents</button>
                         @endif
-                        @if($case->status === 'active' && auth()->user()->role === 'hu_admin')
+                        @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                         <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Approve Case</button>
                         <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
                         @elseif($case->status === 'approved')
@@ -515,10 +559,19 @@
                 alert('Failed to assign attorney');
             });
         }
+
+        function showUploadModal() {
+            document.getElementById('uploadModal').classList.remove('hidden');
+        }
+
+        function hideUploadModal() {
+            document.getElementById('uploadModal').classList.add('hidden');
+            document.getElementById('uploadForm').reset();
+        }
     </script>
 
     <!-- Approve Case Modal -->
-    @if($case->status === 'active' && auth()->user()->role === 'hu_admin')
+    @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
     <div id="approveModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -598,4 +651,53 @@
         </div>
     </div>
     @endif
+
+    <!-- Upload Document Modal -->
+    <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Upload Document</h3>
+                    <form id="uploadForm" action="{{ route('cases.documents.upload', $case) }}" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
+                                <select name="documents[other][0][type]" required class="block w-full border-gray-300 rounded-md">
+                                    <option value="">Select document type...</option>
+                                    @php
+                                        $documentTypes = \App\Models\DocumentType::where('is_active', true)
+                                            ->when(auth()->user()->role === 'party', function($query) {
+                                                return $query->where('category', 'party_upload');
+                                            })
+                                            ->orderBy('sort_order')->get();
+                                    @endphp
+                                    @foreach($documentTypes as $docType)
+                                    <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">File *</label>
+                                <input type="file" name="documents[other][0][file]" required accept=".pdf,.doc,.docx" 
+                                       class="block w-full border-gray-300 rounded-md">
+                                <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX (Max: 10MB)</p>
+                                <p class="text-xs text-blue-600 mt-1">File naming convention: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
+                                Cancel
+                            </button>
+                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                Upload Document
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </x-app-layout>

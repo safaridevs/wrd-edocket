@@ -13,15 +13,20 @@
                     @csrf
                     
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Attorney</label>
-                        <select name="attorney_id" required class="mt-1 block w-full border-gray-300 rounded-md">
-                            <option value="">Choose an attorney...</option>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Attorneys</label>
+                        <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
                             @foreach($attorneys as $attorney)
-                                <option value="{{ $attorney->id }}" {{ $case->assigned_attorney_id == $attorney->id ? 'selected' : '' }}>
-                                    {{ $attorney->name }} ({{ $attorney->initials }})
-                                </option>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="attorney_ids[]" value="{{ $attorney->id }}" 
+                                           {{ $case->aluAttorneys->contains($attorney->id) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-blue-600 mr-2">
+                                    <span class="text-sm">{{ $attorney->name }} ({{ $attorney->initials }})</span>
+                                </label>
                             @endforeach
-                        </select>
+                        </div>
+                        @error('attorney_ids')
+                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <div class="flex justify-end space-x-4">

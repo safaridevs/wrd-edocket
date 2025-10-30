@@ -12,7 +12,7 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            
+
             <!-- Case Info -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h3 class="text-lg font-medium mb-2">{{ $case->case_no }}</h3>
@@ -67,7 +67,7 @@
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
                                     @if($party->representation === 'attorney')
-                                        <button onclick="manageAttorney({{ $party->id }})" class="text-green-600 hover:text-green-800 text-sm">Attorney</button>
+                                        <button onclick="manageAttorney({{ $party->id }})" class="text-green-600 hover:text-green-800 text-sm">View Attorney</button>
                                     @endif
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
                                 </div>
@@ -128,7 +128,7 @@
                                     </select>
                                 </div>
                             </div>
-                            
+
                             <div id="individualFields">
                                 <div class="grid grid-cols-4 gap-2">
                                     <input type="text" name="prefix" placeholder="Prefix" class="border-gray-300 rounded-md text-sm">
@@ -141,20 +141,20 @@
                                     <input type="text" name="title" placeholder="Title" class="border-gray-300 rounded-md text-sm">
                                 </div>
                             </div>
-                            
+
                             <div id="companyFields" class="hidden">
                                 <div class="grid grid-cols-2 gap-2">
                                     <input type="text" name="organization" placeholder="Organization" class="border-gray-300 rounded-md">
                                     <input type="text" name="title" placeholder="Title" class="border-gray-300 rounded-md">
                                 </div>
                             </div>
-                            
+
                             <div class="grid grid-cols-3 gap-2">
                                 <input type="email" name="email" placeholder="Email *" required class="border-gray-300 rounded-md">
                                 <input type="text" name="phone_mobile" placeholder="Mobile Phone" class="border-gray-300 rounded-md">
                                 <input type="text" name="phone_office" placeholder="Office Phone" class="border-gray-300 rounded-md">
                             </div>
-                            
+
                             <div>
                                 <h4 class="text-sm font-medium text-gray-700 mb-2">Address</h4>
                                 <div class="space-y-2">
@@ -205,7 +205,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                
+
                                 <div class="space-y-2">
                                     <label class="flex items-center">
                                         <input type="radio" name="attorney_option" value="new" class="mr-2" onchange="toggleAttorneyOption()">
@@ -276,7 +276,7 @@
             const individualRep = document.getElementById('individualRepresentation');
             const companyRep = document.getElementById('companyRepresentation');
             const attorneyFields = document.getElementById('attorneyFields');
-            
+
             if (select.value === 'individual') {
                 individualFields.classList.remove('hidden');
                 companyFields.classList.add('hidden');
@@ -298,7 +298,7 @@
         function toggleRepresentation() {
             const attorneyFields = document.getElementById('attorneyFields');
             const attorneySelected = document.querySelector('input[name="representation"][value="attorney"]:checked');
-            
+
             if (attorneySelected) {
                 attorneyFields.classList.remove('hidden');
             } else {
@@ -311,7 +311,7 @@
             const existingSelect = document.querySelector('select[name="attorney_id"]');
             const newFields = document.getElementById('newAttorneyFields');
             const newInputs = newFields?.querySelectorAll('input');
-            
+
             if (option === 'existing') {
                 existingSelect.disabled = false;
                 newFields.classList.add('opacity-50');
@@ -407,7 +407,7 @@
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Notify Parties - Case {{ $case->case_no }} Approved</h3>
                     <p class="text-sm text-gray-600 mb-4">Select the parties and attorneys to notify about the case approval:</p>
-                    
+
                     <form action="{{ route('cases.notify-parties', $case) }}" method="POST">
                         @csrf
                         <div class="space-y-4">
@@ -418,7 +418,7 @@
                                     Select All
                                 </label>
                             </div>
-                            
+
                             <!-- Case Parties -->
                             <div>
                                 <h4 class="font-medium text-sm mb-3">Case Parties:</h4>
@@ -434,7 +434,7 @@
                                     @endforeach
                                 </div>
                             </div>
-                            
+
                             <!-- Attorneys -->
                             @php
                                 $attorneys = $case->parties->where('representation', 'attorney')->whereNotNull('attorney_id')->pluck('attorney')->unique('id');
@@ -455,14 +455,14 @@
                                 </div>
                             </div>
                             @endif
-                            
+
                             <!-- Custom Message -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Additional Message (Optional)</label>
                                 <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information about the case approval..."></textarea>
                             </div>
                         </div>
-                        
+
                         <div class="flex justify-end space-x-3 mt-6">
                             <button type="button" onclick="hideNotifyModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Send Notifications</button>

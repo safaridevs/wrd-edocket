@@ -5,11 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>OSE E-Docket System - New Mexico Office of the State Engineer</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        <style>
-            .hero-pattern {
-                background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f1f5f9' fill-opacity='0.4'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-            }
-        </style>
     </head>
     <body class="bg-gray-50">
         <!-- Navigation -->
@@ -48,11 +43,11 @@
         </nav>
 
         <!-- Hero Section -->
-        <div class="bg-gradient-to-br from-blue-900 to-blue-800 hero-pattern">
+        <div class="bg-gradient-to-br from-blue-900 to-blue-800">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
                 <div class="text-center">
                     <h1 class="text-4xl md:text-5xl font-bold text-white mb-6">
-                        Water Rights E-Docket System
+                        OSE E-Docket System
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
                         Access approved water rights hearing cases, documents, and proceedings from the New Mexico Office of the State Engineer Hearing Unit.
@@ -123,7 +118,7 @@
                                         Approved
                                     </span>
                                 </div>
-                                
+
                                 <div class="mb-4">
                                     <p class="text-sm text-gray-700 line-clamp-2">{{ Str::limit($case->caption, 100) }}</p>
                                 </div>
@@ -262,7 +257,7 @@
                         © {{ date('Y') }} New Mexico Office of the State Engineer. All rights reserved.
                     </p>
                     <p class="text-gray-500 text-sm mt-2">
-                        For technical support, contact: <a href="mailto:support@ose.nm.gov" class="text-blue-400 hover:text-blue-300">support@ose.nm.gov</a>
+                        For technical support, contact: <a href="mailto:hu.admin@ose.nm.gov" class="text-blue-400 hover:text-blue-300">support@ose.nm.gov</a>
                     </p>
                 </div>
             </div>

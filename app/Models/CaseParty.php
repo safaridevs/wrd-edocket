@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CaseParty extends Model
 {
     protected $fillable = [
-        'case_id', 'person_id', 'role', 'service_enabled', 'attorney_id', 'representation'
+        'case_id', 'person_id', 'attorney_id', 'role', 'service_enabled', 'representation'
     ];
 
     protected $casts = [

@@ -56,12 +56,9 @@
                         </button>
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
                             <option value="">All Types</option>
-                            <option value="application">Application</option>
-                            <option value="notice_publication">Notice of Publication</option>
-                            <option value="protest_letter">Protest Letter</option>
-                            <option value="supporting">Supporting Document</option>
-                            <option value="order">Order</option>
-                            <option value="other">Other</option>
+                            @foreach($documentTypes->unique('code') as $docType)
+                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
@@ -70,12 +67,7 @@
                 @if($case->documents->count() > 0)
                     <div class="space-y-4" id="documentList">
                         @foreach($case->documents->sortByDesc('uploaded_at') as $document)
-                        <div class="border rounded-lg p-4 bg-gray-50 document-item relative" data-type="{{ $document->doc_type }}">
-                            @if($document->stamped)
-                                <div class="absolute top-2 right-2 text-red-600 text-sm font-medium">
-                                    Electronically Filed
-                                </div>
-                            @endif
+                        <div class="border rounded-lg p-4 bg-gray-50 document-item" data-type="{{ $document->doc_type }}">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between mb-2">
@@ -89,6 +81,10 @@
                                                 <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">✗ Rejected</span>
                                             @else
                                                 <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">⏳ Pending</span>
+                                            @endif
+
+                                            @if($document->stamped)
+                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">📋 Electronically Filed</span>
                                             @endif
 
 
@@ -242,19 +238,9 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
                                 <select name="doc_type" required class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
                                     <option value="">Select document type...</option>
-                                    <option value="application">Application</option>
-                                    <option value="notice_publication">Notice of Publication</option>
-                                    <option value="protest_letter">Protest Letter</option>
-                                    <option value="supporting">Supporting Document</option>
-                                    <option value="affidavit">Affidavit</option>
-                                    <option value="exhibit">Exhibit</option>
-                                    <option value="correspondence">Correspondence</option>
-                                    <option value="technical_report">Technical Report</option>
-                                    <option value="request_to_docket">Request to Docket</option>
-                                    <option value="request_for_pre_hearing">Request for Pre-Hearing</option>
-                                    <option value="motion">Motion</option>
-                                    <option value="order">Order</option>
-                                    <option value="other">Other</option>
+                                    @foreach($documentTypes as $docType)
+                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ $docType->name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
 
@@ -306,10 +292,11 @@
         }
 
         function togglePleadingType() {
-            const docType = document.querySelector('select[name="doc_type"]').value;
+            const select = document.querySelector('select[name="doc_type"]');
+            const selectedOption = select.options[select.selectedIndex];
             const pleadingSection = document.getElementById('pleadingTypeSection');
             
-            if (docType === 'application' || docType === 'motion') {
+            if (selectedOption && selectedOption.dataset.isPleading === 'true') {
                 pleadingSection.classList.remove('hidden');
             } else {
                 pleadingSection.classList.add('hidden');

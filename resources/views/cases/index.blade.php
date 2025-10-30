@@ -34,6 +34,31 @@
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">{{ $case->case_no }}</div>
                                     <div class="text-sm text-gray-500">{{ Str::limit($case->caption, 60) }}</div>
+                                    @php
+                                        $userRole = null;
+                                        // Check if direct party
+                                        $isDirectParty = $case->parties()->whereHas('person', function($query) {
+                                            $query->where('email', auth()->user()->email);
+                                        })->first();
+                                        
+                                        if ($isDirectParty) {
+                                            $userRole = ucfirst($isDirectParty->role) . ' (Self)';
+                                        } else {
+                                            // Check if attorney using consolidated system
+                                            $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                                            if ($attorney) {
+                                                $clientParty = $case->parties()->where('attorney_id', $attorney->id)->with('person')->first();
+                                                if ($clientParty) {
+                                                    $userRole = 'Attorney for ' . $clientParty->person->full_name;
+                                                }
+                                            }
+                                        }
+                                    @endphp
+                                    @if($userRole)
+                                        <div class="text-xs text-blue-600 font-medium mt-1">{{ $userRole }}</div>
+                                    @else
+                                        <div class="text-xs text-gray-500 font-medium mt-1">View Only</div>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -57,8 +82,8 @@
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
                                 @endif
                                 
-                                @if($case->status === 'active' && auth()->user()->canFileToCase())
-                                <a href="{{ route('documents.file', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
+                                @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
+                                <a href="{{ route('cases.documents.upload', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
                                 @endif
                             </td>
                         </tr>
