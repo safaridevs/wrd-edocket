@@ -148,7 +148,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <h4 class="font-medium mb-2">Case Parties</h4>
-                        @foreach($case->parties as $index => $party)
+                        @foreach($case->parties->where('role', '!=', 'counsel') as $index => $party)
                         <div class="border rounded-lg mb-3 bg-gray-50">
                             <div class="p-3 cursor-pointer" onclick="togglePartyDetails({{ $index }})">
                                 <div class="flex justify-between items-center">
@@ -156,18 +156,21 @@
                                         <div class="font-medium">{{ $party->person->full_name }}</div>
                                         <div class="text-sm text-gray-600">{{ ucfirst($party->role) }}</div>
                                         <div class="text-xs text-gray-500">{{ $party->person->email }}</div>
-                                        @if($party->representation === 'attorney' && $party->attorney)
+                                        @php
+                                            $hasAttorney = $party->attorneys->count() > 0;
+                                        @endphp
+                                        @if($hasAttorney)
                                             <div class="text-xs text-blue-600 mt-1">
-                                                <span class="bg-blue-100 px-2 py-1 rounded">Represented by: {{ $party->attorney->name }}</span>
+                                                <span class="bg-blue-100 px-2 py-1 rounded">Represented by Attorney</span>
                                             </div>
-                                        @elseif($party->representation === 'self')
+                                        @else
                                             <div class="text-xs text-gray-500 mt-1">
                                                 <span class="bg-gray-100 px-2 py-1 rounded">Self-Represented</span>
                                             </div>
                                         @endif
                                     </div>
                                     <div class="flex items-center space-x-2">
-                                        @if($party->representation === 'attorney')
+                                        @if($hasAttorney)
                                             <button onclick="event.stopPropagation(); manageAttorney({{ $party->id }})" class="text-xs text-green-600 hover:text-green-800">Attorney</button>
                                         @endif
                                         <svg class="w-4 h-4 text-gray-400 transform transition-transform party-chevron-{{ $index }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,20 +221,25 @@
                                         </div>
                                     @endif
 
-                                    @if($party->representation === 'attorney' && $party->attorney)
+                                    @if($hasAttorney)
                                         <div class="md:col-span-2 mt-3 pt-3 border-t">
                                             <strong class="text-blue-700">Attorney Information:</strong>
                                             <div class="mt-2 bg-blue-50 p-3 rounded">
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                                    <div><strong>Name:</strong> {{ $party->attorney->name }}</div>
-                                                    <div><strong>Email:</strong> {{ $party->attorney->email }}</div>
-                                                    @if($party->attorney->phone)
-                                                        <div><strong>Phone:</strong> {{ $party->attorney->phone }}</div>
-                                                    @endif
-                                                    @if($party->attorney->bar_number)
-                                                        <div><strong>Bar Number:</strong> {{ $party->attorney->bar_number }}</div>
-                                                    @endif
-                                                </div>
+                                                @foreach($party->attorneys as $attorneyParty)
+                                                    @php
+                                                        $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                                                    @endphp
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3 last:mb-0">
+                                                        <div><strong>Name:</strong> {{ $attorneyParty->person->full_name }}</div>
+                                                        <div><strong>Email:</strong> {{ $attorneyParty->person->email }}</div>
+                                                        @if($attorneyParty->person->phone_office)
+                                                            <div><strong>Phone:</strong> {{ $attorneyParty->person->phone_office }}</div>
+                                                        @endif
+                                                        @if($attorney && $attorney->bar_number)
+                                                            <div><strong>Bar Number:</strong> {{ $attorney->bar_number }}</div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
                                             </div>
                                         </div>
                                     @endif
@@ -292,27 +300,39 @@
                     </div>
                 </div>
 
-                <!-- Filters -->
-                <div class="mb-4 flex space-x-4">
+                <!-- Filters and Search -->
+                <div class="mb-4 flex flex-wrap gap-4">
+                    <input type="text" id="searchInput" placeholder="Search documents..." class="border-gray-300 rounded-md text-sm flex-1 min-w-64">
                     <select id="docTypeFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Types</option>
-                        <option value="application">Application</option>
-                        <option value="filing_other">Filing</option>
-                        <option value="order">Order</option>
-                        <option value="hearing_video">Hearing Media</option>
+                        @php
+                            $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('name')->get();
+                        @endphp
+                        @foreach($documentTypes as $docType)
+                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                        @endforeach
                     </select>
                     <select id="statusFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Status</option>
-                        <option value="stamped">Stamped</option>
+                        <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
+                        <option value="stamped">E-Stamped</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    <select id="perPageSelect" class="border-gray-300 rounded-md text-sm">
+                        <option value="10">10 per page</option>
+                        <option value="25" selected>25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
                     </select>
                 </div>
 
-                <div class="space-y-2">
+                <div id="documentsContainer" class="space-y-2">
                     @foreach($case->documents->sortByDesc('uploaded_at') as $doc)
-                    <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50"
+                    <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
                          data-doc-type="{{ $doc->doc_type }}"
-                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'approved' : 'pending') }}">
+                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'approved' : ($doc->rejected_reason ? 'rejected' : 'pending')) }}"
+                         data-filename="{{ strtolower($doc->original_filename) }}">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3">
                                 <div class="font-medium">{{ $doc->original_filename }}</div>
@@ -369,6 +389,18 @@
                         </div>
                     </div>
                     @endforeach
+                </div>
+                
+                <!-- Pagination -->
+                <div id="paginationContainer" class="mt-4 flex justify-between items-center">
+                    <div class="text-sm text-gray-600">
+                        Showing <span id="showingFrom">1</span> to <span id="showingTo">25</span> of <span id="totalDocs">{{ $case->documents->count() }}</span> documents
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="prevPage" class="px-3 py-1 border rounded text-sm" disabled>Previous</button>
+                        <span id="pageNumbers" class="flex space-x-1"></span>
+                        <button id="nextPage" class="px-3 py-1 border rounded text-sm">Next</button>
+                    </div>
                 </div>
             </div>
 
@@ -429,25 +461,100 @@
 
 
 
-        // Document filtering
-        document.getElementById('docTypeFilter').addEventListener('change', filterDocuments);
-        document.getElementById('statusFilter').addEventListener('change', filterDocuments);
+        // Document filtering and pagination
+        let currentPage = 1;
+        let itemsPerPage = 25;
+        let filteredDocs = [];
+        
+        document.getElementById('docTypeFilter').addEventListener('change', filterAndPaginate);
+        document.getElementById('statusFilter').addEventListener('change', filterAndPaginate);
+        document.getElementById('searchInput').addEventListener('input', filterAndPaginate);
+        document.getElementById('perPageSelect').addEventListener('change', function() {
+            itemsPerPage = parseInt(this.value);
+            currentPage = 1;
+            filterAndPaginate();
+        });
+        
+        document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                paginateDocuments();
+            }
+        });
+        
+        document.getElementById('nextPage').addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                paginateDocuments();
+            }
+        });
 
-        function filterDocuments() {
+        function filterAndPaginate() {
             const typeFilter = document.getElementById('docTypeFilter').value;
             const statusFilter = document.getElementById('statusFilter').value;
-            const docs = document.querySelectorAll('[data-doc-type]');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const docs = document.querySelectorAll('.document-item');
 
+            filteredDocs = [];
             docs.forEach(doc => {
                 const docType = doc.getAttribute('data-doc-type');
                 const docStatus = doc.getAttribute('data-status');
+                const filename = doc.getAttribute('data-filename');
 
                 const typeMatch = !typeFilter || docType === typeFilter;
                 const statusMatch = !statusFilter || docStatus === statusFilter;
+                const searchMatch = !searchTerm || filename.includes(searchTerm);
 
-                doc.style.display = (typeMatch && statusMatch) ? 'flex' : 'none';
+                if (typeMatch && statusMatch && searchMatch) {
+                    filteredDocs.push(doc);
+                }
             });
+            
+            currentPage = 1;
+            paginateDocuments();
         }
+        
+        function paginateDocuments() {
+            const docs = document.querySelectorAll('.document-item');
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+            
+            // Hide all documents
+            docs.forEach(doc => doc.style.display = 'none');
+            
+            // Show current page documents
+            filteredDocs.slice(startIndex, endIndex).forEach(doc => {
+                doc.style.display = 'flex';
+            });
+            
+            // Update pagination info
+            document.getElementById('showingFrom').textContent = filteredDocs.length > 0 ? startIndex + 1 : 0;
+            document.getElementById('showingTo').textContent = Math.min(endIndex, filteredDocs.length);
+            document.getElementById('totalDocs').textContent = filteredDocs.length;
+            
+            // Update pagination buttons
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+            
+            // Update page numbers
+            const pageNumbers = document.getElementById('pageNumbers');
+            pageNumbers.innerHTML = '';
+            for (let i = 1; i <= Math.min(totalPages, 5); i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.textContent = i;
+                pageBtn.className = `px-2 py-1 border rounded text-sm ${i === currentPage ? 'bg-blue-500 text-white' : ''}`;
+                pageBtn.onclick = () => {
+                    currentPage = i;
+                    paginateDocuments();
+                };
+                pageNumbers.appendChild(pageBtn);
+            }
+        }
+        
+        // Initialize pagination
+        filterAndPaginate();
 
         function stampDocument(docId) {
             if (confirm('Apply stamp to this document?')) {
@@ -568,6 +675,31 @@
             document.getElementById('uploadModal').classList.add('hidden');
             document.getElementById('uploadForm').reset();
         }
+        
+        // Attorney modal functions
+        window.toggleAttorneyFields = function() {
+            const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
+            const existingSelect = document.querySelector('#attorneyModal select[name="attorney_id"]');
+            const newFields = document.getElementById('newAttorneyFields');
+            const newInputs = newFields?.querySelectorAll('input') || [];
+            
+            if (option === 'existing') {
+                existingSelect.disabled = false;
+                newFields?.classList.add('opacity-50');
+                newInputs.forEach(input => input.disabled = true);
+            } else if (option === 'new') {
+                existingSelect.disabled = true;
+                existingSelect.value = '';
+                newFields?.classList.remove('opacity-50');
+                newInputs.forEach(input => input.disabled = false);
+            }
+        };
+        
+        window.handleAttorneyForm = function(event, partyId) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            assignAttorney(partyId, formData);
+        };
     </script>
 
     <!-- Approve Case Modal -->

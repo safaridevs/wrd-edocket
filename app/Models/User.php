@@ -21,11 +21,14 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'sam_account_name',
         'password',
         'role',
         'initials',
         'phone',
         'is_active',
+        'is_ldap_user',
+        'ldap_guid',
     ];
 
     /**
@@ -69,6 +72,11 @@ class User extends Authenticatable
     public function hasRole(string $role): bool
     {
         return $this->getCurrentRole() === $role;
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->getCurrentRole(), $roles);
     }
 
     public function getCurrentRole(): string
@@ -156,9 +164,13 @@ class User extends Authenticatable
         if ($isParty) return true;
 
         // Check if attorney represents any client in this case
-        $attorney = Attorney::where('email', $this->email)->first();
-        if ($attorney) {
-            return $case->parties()->where('attorney_id', $attorney->id)->exists();
+        if ($this->isAttorney()) {
+            return $case->parties()
+                ->whereIn('role', ['counsel'])
+                ->whereHas('person', function($query) {
+                    $query->where('email', $this->email);
+                })
+                ->exists();
         }
 
         return false;

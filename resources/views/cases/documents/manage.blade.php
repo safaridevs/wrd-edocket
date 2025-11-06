@@ -254,10 +254,10 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">File *</label>
-                                <input type="file" name="document" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
-                                       class="block w-full border-gray-300 rounded-md" onchange="validateFile(this)">
-                                <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
+                                <input type="file" name="document[]" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple
+                                       class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
+                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB each)</p>
                             </div>
 
                             <div>
@@ -303,11 +303,21 @@
             }
         }
 
-        function validateFile(input) {
-            const file = input.files[0];
-            if (file && file.size > 10 * 1024 * 1024) {
-                alert('File size must be less than 10MB');
-                input.value = '';
+        function validateFiles(input) {
+            const files = Array.from(input.files);
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            
+            for (let file of files) {
+                if (file.size > maxSize) {
+                    alert(`File "${file.name}" is too large. Each file must be less than 10MB.`);
+                    input.value = '';
+                    return;
+                }
+            }
+            
+            if (files.length > 0) {
+                const fileNames = files.map(f => f.name).join(', ');
+                console.log(`Selected ${files.length} file(s): ${fileNames}`);
             }
         }
 

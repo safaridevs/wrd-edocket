@@ -47,7 +47,10 @@
                                             // Check if attorney using consolidated system
                                             $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
                                             if ($attorney) {
-                                                $clientParty = $case->parties()->where('attorney_id', $attorney->id)->with('person')->first();
+                                                $clientParty = $case->parties()->where('role', 'counsel')
+                                                    ->whereHas('person', function($query) {
+                                                        $query->where('email', auth()->user()->email);
+                                                    })->with('person')->first();
                                                 if ($clientParty) {
                                                     $userRole = 'Attorney for ' . $clientParty->person->full_name;
                                                 }

@@ -69,10 +69,11 @@
                 <form method="POST" action="{{ route('login') }}" class="space-y-6">
                     @csrf
 
-                    <!-- Email -->
+                    <!-- Email or Username -->
                     <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                        <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username"
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email or Username</label>
+                        <input id="email" type="text" name="email" value="{{ old('email') }}" required autofocus autocomplete="username"
+                               placeholder="Enter email address or username"
                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                         @error('email')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>

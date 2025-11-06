@@ -47,9 +47,12 @@
                             <!-- Application -->
                             <div class="border rounded-lg p-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Application (PDF)</label>
-                                <input type="file" name="documents[application]" accept=".pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                <p class="text-xs text-gray-500 mt-1">Upload with any filename - will be renamed to: YYYY-MM-DD Application.pdf</p>
+                                <input type="file" name="documents[application][]" accept=".pdf" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <p class="text-xs text-gray-500 mt-1">Upload multiple files - will be renamed to: YYYY-MM-DD Application.pdf</p>
                                 @error('documents.application')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                                @error('documents.application.*')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -57,9 +60,12 @@
                             <!-- Request to Docket -->
                             <div class="border rounded-lg p-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Request to Docket (PDF) - Pleading Document</label>
-                                <input type="file" name="documents[request_to_docket]" accept=".pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                <p class="text-xs text-blue-600 mt-1">⚡ This document will be automatically stamped when the case is approved</p>
+                                <input type="file" name="documents[request_to_docket][]" accept=".pdf" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <p class="text-xs text-blue-600 mt-1">⚡ These documents will be automatically stamped when the case is approved</p>
                                 @error('documents.request_to_docket')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                                @error('documents.request_to_docket.*')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -67,9 +73,12 @@
                             <!-- Request for Pre-Hearing -->
                             <div class="border rounded-lg p-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Request for Pre-Hearing (PDF) - Pleading Document</label>
-                                <input type="file" name="documents[request_for_pre_hearing]" accept=".pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                <p class="text-xs text-blue-600 mt-1">⚡ This document will be automatically stamped when the case is approved</p>
+                                <input type="file" name="documents[request_for_pre_hearing][]" accept=".pdf" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <p class="text-xs text-blue-600 mt-1">⚡ These documents will be automatically stamped when the case is approved</p>
                                 @error('documents.request_for_pre_hearing')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                                @error('documents.request_for_pre_hearing.*')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
                             </div>

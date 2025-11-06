@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CaseParty extends Model
 {
     protected $fillable = [
-        'case_id', 'person_id', 'attorney_id', 'role', 'service_enabled', 'representation'
+        'case_id', 'person_id', 'role', 'service_enabled', 'client_party_id'
     ];
 
     protected $casts = [
@@ -25,8 +25,15 @@ class CaseParty extends Model
         return $this->belongsTo(Person::class);
     }
 
-    public function attorney(): BelongsTo
+    public function client(): BelongsTo
     {
-        return $this->belongsTo(Attorney::class);
+        return $this->belongsTo(CaseParty::class, 'client_party_id');
     }
+
+    public function attorneys()
+    {
+        return $this->hasMany(CaseParty::class, 'client_party_id')->where('role', 'counsel');
+    }
+
+
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CaseModel;
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Mail;
 
 class NotificationService
@@ -30,6 +31,12 @@ class NotificationService
                     $mail->to($email)
                          ->subject($title);
                 });
+                
+                // Log email notification to audit (use current authenticated user as the sender)
+                $currentUser = auth()->user();
+                if ($currentUser) {
+                    AuditService::logEmailNotification($currentUser, $case, $email, $type, $title);
+                }
             } catch (\Exception $e) {
                 \Log::error('Failed to send email notification', [
                     'email' => $email,

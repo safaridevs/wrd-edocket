@@ -9,17 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop the existing check constraint
-        DB::statement('ALTER TABLE notifications DROP CONSTRAINT CK__notificat__notif__6A85CC04');
+        // Remove any existing notification_type constraints to allow flexible types
+        $constraints = DB::select("SELECT name FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID('notifications') AND definition LIKE '%notification_type%'");
         
-        // Add the new check constraint (no changes needed - case_approved already exists)
-        DB::statement("ALTER TABLE notifications ADD CONSTRAINT CK__notificat__notif__6A85CC04 CHECK (notification_type IN ('case_assignment', 'case_accepted', 'case_rejected', 'case_approved', 'document_filed', 'hearing_scheduled'))");
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE notifications DROP CONSTRAINT {$constraint->name}");
+        }
+        
+        // No need to add constraints - notification_type field should accept any string
     }
 
     public function down(): void
     {
-        // Drop the constraint and recreate without 'case_approved_custom'
-        DB::statement('ALTER TABLE notifications DROP CONSTRAINT CK__notificat__notif__6A85CC04');
-        DB::statement("ALTER TABLE notifications ADD CONSTRAINT CK__notificat__notif__6A85CC04 CHECK (notification_type IN ('case_assignment', 'case_accepted', 'case_rejected', 'case_approved', 'document_filed', 'hearing_scheduled'))");
+        // No rollback needed
     }
 };

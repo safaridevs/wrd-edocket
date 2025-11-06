@@ -59,17 +59,27 @@
                     @enderror
                 </div>
 
-                <!-- Attorney Assignment -->
+                <!-- ALU Attorney Assignments -->
                 @if(auth()->user()->canAssignAttorneys())
                 <div class="mb-6">
-                    <label for="assigned_attorney_id" class="block text-sm font-medium text-gray-700">Assign ALU Attorney</label>
-                    <select name="assigned_attorney_id" id="assigned_attorney_id" class="mt-1 block w-full border-gray-300 rounded-md">
-                        <option value="">Select Attorney (Optional)</option>
-                        @foreach(\App\Models\User::where('role', 'alu_atty')->get() as $attorney)
-                            <option value="{{ $attorney->id }}" {{ old('assigned_attorney_id') == $attorney->id ? 'selected' : '' }}>{{ $attorney->name }}</option>
-                        @endforeach
-                    </select>
-                    @error('assigned_attorney_id')
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign ALU Attorneys</label>
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach(\App\Models\User::where('role', 'alu_atty')->get() as $attorney)
+                            <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
+                                <input type="checkbox" name="assigned_attorneys[]" value="{{ $attorney->id }}" 
+                                       {{ in_array($attorney->id, old('assigned_attorneys', [])) ? 'checked' : '' }} 
+                                       class="mr-3">
+                                <div>
+                                    <div class="font-medium">{{ $attorney->name }}</div>
+                                    <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Select one or more ALU attorneys to assign to this case</p>
+                    </div>
+                    @error('assigned_attorneys')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>

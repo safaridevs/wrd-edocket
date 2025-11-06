@@ -3,19 +3,29 @@
         <h4 class="font-medium text-gray-900">{{ $party->person->full_name }}</h4>
         <p class="text-sm text-gray-600">{{ ucfirst($party->role) }} • {{ ucfirst($party->person->type) }}</p>
         
-        @if($party->attorney)
+        @php
+            $hasAttorney = $party->attorneys->count() > 0;
+        @endphp
+        @if($hasAttorney)
             <div class="mt-3 p-3 bg-blue-50 rounded border">
                 <div class="flex justify-between items-start">
                     <div>
                         <p class="font-medium text-blue-900">Currently Represented By:</p>
-                        <p class="text-sm">{{ $party->attorney->name }}</p>
-                        <p class="text-xs text-gray-600">{{ $party->attorney->email }}</p>
-                        @if($party->attorney->phone)
-                            <p class="text-xs text-gray-600">{{ $party->attorney->phone }}</p>
-                        @endif
-                        @if($party->attorney->bar_number)
-                            <p class="text-xs text-gray-600">Bar: {{ $party->attorney->bar_number }}</p>
-                        @endif
+                        @foreach($party->attorneys as $attorneyParty)
+                            @php
+                                $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                            @endphp
+                            <div class="mb-2 last:mb-0">
+                                <p class="text-sm">{{ $attorneyParty->person->full_name }}</p>
+                                <p class="text-xs text-gray-600">{{ $attorneyParty->person->email }}</p>
+                                @if($attorneyParty->person->phone_office)
+                                    <p class="text-xs text-gray-600">{{ $attorneyParty->person->phone_office }}</p>
+                                @endif
+                                @if($attorney && $attorney->bar_number)
+                                    <p class="text-xs text-gray-600">Bar: {{ $attorney->bar_number }}</p>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                     @if($party->person->type === 'individual')
                         <button onclick="removeAttorney({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">
@@ -40,12 +50,12 @@
     <form onsubmit="handleAttorneyForm(event, {{ $party->id }})" class="space-y-4">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-                {{ $party->attorney ? 'Change Attorney' : 'Assign Attorney' }}
+                {{ $hasAttorney ? 'Change Attorney' : 'Assign Attorney' }}
             </label>
             
             <div class="space-y-3">
                 <div>
-                    <label class="flex items-center">
+                    <label class="flex items-center cursor-pointer">
                         <input type="radio" name="attorney_option" value="existing" class="mr-2" onchange="toggleAttorneyFields()">
                         Select Existing Attorney
                     </label>
@@ -61,7 +71,7 @@
                 </div>
                 
                 <div>
-                    <label class="flex items-center">
+                    <label class="flex items-center cursor-pointer">
                         <input type="radio" name="attorney_option" value="new" class="mr-2" onchange="toggleAttorneyFields()">
                         Add New Attorney
                     </label>
@@ -74,6 +84,15 @@
                             <input type="text" name="attorney_phone" placeholder="Phone" class="border-gray-300 rounded-md text-sm" disabled>
                             <input type="text" name="bar_number" placeholder="Bar Number" class="border-gray-300 rounded-md text-sm" disabled>
                         </div>
+                        <div class="space-y-2">
+                            <input type="text" name="address_line1" placeholder="Address Line 1" class="block w-full border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="address_line2" placeholder="Address Line 2" class="block w-full border-gray-300 rounded-md text-sm" disabled>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <input type="text" name="city" placeholder="City" class="border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="zip" placeholder="ZIP" class="border-gray-300 rounded-md text-sm" disabled>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -84,34 +103,34 @@
                 Cancel
             </button>
             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                {{ $party->attorney ? 'Update Attorney' : 'Assign Attorney' }}
+                {{ $hasAttorney ? 'Update Attorney' : 'Assign Attorney' }}
             </button>
         </div>
     </form>
 </div>
 
 <script>
-function toggleAttorneyFields() {
-    const option = document.querySelector('input[name="attorney_option"]:checked')?.value;
-    const existingSelect = document.querySelector('select[name="attorney_id"]');
+window.toggleAttorneyFields = function() {
+    const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
+    const existingSelect = document.querySelector('#attorneyModal select[name="attorney_id"]');
     const newFields = document.getElementById('newAttorneyFields');
-    const newInputs = newFields.querySelectorAll('input');
+    const newInputs = newFields?.querySelectorAll('input') || [];
     
     if (option === 'existing') {
         existingSelect.disabled = false;
-        newFields.classList.add('opacity-50');
+        newFields?.classList.add('opacity-50');
         newInputs.forEach(input => input.disabled = true);
     } else if (option === 'new') {
         existingSelect.disabled = true;
         existingSelect.value = '';
-        newFields.classList.remove('opacity-50');
+        newFields?.classList.remove('opacity-50');
         newInputs.forEach(input => input.disabled = false);
     }
-}
+};
 
-function handleAttorneyForm(event, partyId) {
+window.handleAttorneyForm = function(event, partyId) {
     event.preventDefault();
     const formData = new FormData(event.target);
     assignAttorney(partyId, formData);
-}
+};
 </script>

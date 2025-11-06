@@ -109,8 +109,7 @@ class CaseModel extends Model
     {
         return $this->parties()
             ->where('person_id', $personId)
-            ->whereNotNull('attorney_id')
-            ->with('attorney')
+            ->whereIn('role', ['counsel'])
             ->get();
     }
 
@@ -210,10 +209,12 @@ class CaseModel extends Model
         }
 
         // Attorneys can upload for their clients
-        $attorney = Attorney::where('email', $user->email)->first();
-        if ($attorney && in_array($this->status, ['active', 'approved'])) {
+        if (in_array($this->status, ['active', 'approved'])) {
             return $this->parties()
-                ->where('attorney_id', $attorney->id)
+                ->whereIn('role', ['counsel'])
+                ->whereHas('person', function($query) use ($user) {
+                    $query->where('email', $user->email);
+                })
                 ->exists();
         }
 

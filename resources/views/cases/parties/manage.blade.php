@@ -39,16 +39,25 @@
 
                 @if($case->parties->count() > 0)
                     <div class="space-y-4">
-                        @foreach($case->parties as $party)
+                        @php
+                            $clientParties = $case->parties->where('role', '!=', 'counsel');
+                            $attorneyParties = $case->parties->where('role', 'counsel');
+                        @endphp
+                        
+                        {{-- Display Client Parties --}}
+                        @foreach($clientParties as $party)
                         <div class="border rounded-lg p-4 bg-gray-50">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <div class="flex items-center space-x-3 mb-2">
                                         <h4 class="font-medium">{{ $party->person->full_name }}</h4>
                                         <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst($party->role) }}</span>
-                                        @if($party->representation === 'attorney' && $party->attorney)
-                                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Represented by {{ $party->attorney->name }}</span>
-                                        @elseif($party->representation === 'self')
+                                        @php
+                                            $hasAttorney = $party->attorneys->count() > 0;
+                                        @endphp
+                                        @if($hasAttorney)
+                                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Represented by Attorney</span>
+                                        @else
                                             <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Self-Represented</span>
                                         @endif
                                     </div>
@@ -62,19 +71,65 @@
                                             </div>
                                         @endif
                                     </div>
+                                    
+                                    {{-- Show Attorney Information --}}
+                                    @if($hasAttorney)
+                                        <div class="mt-3 pl-4 border-l-2 border-green-200">
+                                            <div class="text-sm font-medium text-green-800 mb-1">Attorney:</div>
+                                            @foreach($party->attorneys as $attorneyParty)
+                                                @php
+                                                    $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                                                @endphp
+                                                <div class="text-sm text-gray-700">
+                                                    <div class="font-medium">{{ $attorneyParty->person->full_name }}</div>
+                                                    <div class="text-gray-600">{{ $attorneyParty->person->email }}</div>
+                                                    @if($attorney && $attorney->bar_number)
+                                                        <div class="text-gray-600">Bar #: {{ $attorney->bar_number }}</div>
+                                                    @endif
+                                                    @if($attorneyParty->person->phone_office)
+                                                        <div class="text-gray-600">Phone: {{ $attorneyParty->person->phone_office }}</div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
                                 @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
-                                    @if($party->representation === 'attorney')
-                                        <button onclick="manageAttorney({{ $party->id }})" class="text-green-600 hover:text-green-800 text-sm">View Attorney</button>
-                                    @endif
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
                                 </div>
                                 @endif
                             </div>
                         </div>
                         @endforeach
+                        
+                        {{-- Display Unlinked Attorney Parties (if any) --}}
+                        @php
+                            $unlinkedAttorneys = $attorneyParties->whereNull('client_party_id');
+                        @endphp
+                        @if($unlinkedAttorneys->count() > 0)
+                            <div class="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+                                <div class="text-sm font-medium text-yellow-800 mb-2">Unlinked Attorneys:</div>
+                                @foreach($unlinkedAttorneys as $attorneyParty)
+                                <div class="flex justify-between items-start mb-2 last:mb-0">
+                                    <div class="flex-1">
+                                        <div class="flex items-center space-x-3">
+                                            <h4 class="font-medium">{{ $attorneyParty->person->full_name }}</h4>
+                                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Attorney (No Client Link)</span>
+                                        </div>
+                                        <div class="text-sm text-gray-600">{{ $attorneyParty->person->email }}</div>
+                                    </div>
+                                    @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                    <div class="flex space-x-2">
+                                        <button onclick="editParty({{ $attorneyParty->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+                                        <button onclick="removeParty({{ $attorneyParty->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    </div>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
                 @else
                     <p class="text-gray-500 text-center py-8">No parties added to this case yet.</p>
@@ -168,30 +223,21 @@
                                 </div>
                             </div>
 
-                            <!-- Representation -->
-                            <div id="representationSection">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Representation</label>
-                                <div id="individualRepresentation" class="space-y-2">
-                                    <label class="flex items-center">
-                                        <input type="radio" name="representation" value="self" checked class="mr-2" onchange="toggleRepresentation()">
-                                        Self-Represented
-                                    </label>
-                                    <label class="flex items-center">
-                                        <input type="radio" name="representation" value="attorney" class="mr-2" onchange="toggleRepresentation()">
-                                        Attorney Representation
-                                    </label>
+                            <!-- Attorney Fields -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Representation (Optional)</label>
+                                <div id="companyNote" class="hidden bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
+                                    <p class="text-sm text-yellow-800">
+                                        <strong>Note:</strong> Companies must be represented by an attorney.
+                                    </p>
                                 </div>
-                                <div id="companyRepresentation" class="hidden">
-                                    <div class="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
-                                        <p class="text-sm text-yellow-800">
-                                            <strong>Note:</strong> Companies must be represented by an attorney.
-                                        </p>
-                                    </div>
-                                    <input type="hidden" name="representation" value="attorney">
-                                </div>
+                                
+                                <label class="flex items-center mb-3">
+                                    <input type="checkbox" id="addAttorney" onchange="toggleAttorneyFields()" class="mr-2">
+                                    Add Attorney for this Party
+                                </label>
                             </div>
 
-                            <!-- Attorney Fields -->
                             <div id="attorneyFields" class="hidden space-y-4">
                                 <div class="space-y-2">
                                     <label class="flex items-center">
@@ -267,44 +313,41 @@
             document.getElementById('addPartyModal').classList.add('hidden');
             document.getElementById('addPartyForm').reset();
             togglePartyType(document.querySelector('select[name="type"]'));
-            toggleRepresentation();
         }
 
         function togglePartyType(select) {
             const individualFields = document.getElementById('individualFields');
             const companyFields = document.getElementById('companyFields');
-            const individualRep = document.getElementById('individualRepresentation');
-            const companyRep = document.getElementById('companyRepresentation');
+            const companyNote = document.getElementById('companyNote');
             const attorneyFields = document.getElementById('attorneyFields');
+            const addAttorneyCheckbox = document.getElementById('addAttorney');
 
             if (select.value === 'individual') {
                 individualFields.classList.remove('hidden');
                 companyFields.classList.add('hidden');
-                individualRep.classList.remove('hidden');
-                companyRep.classList.add('hidden');
-                // Reset to self-representation for individuals
-                document.querySelector('input[name="representation"][value="self"]').checked = true;
-                toggleRepresentation();
+                companyNote.classList.add('hidden');
             } else if (select.value === 'company') {
                 individualFields.classList.add('hidden');
                 companyFields.classList.remove('hidden');
-                individualRep.classList.add('hidden');
-                companyRep.classList.remove('hidden');
+                companyNote.classList.remove('hidden');
                 // Always show attorney fields for companies
+                addAttorneyCheckbox.checked = true;
                 attorneyFields.classList.remove('hidden');
             }
         }
-
-        function toggleRepresentation() {
+        
+        function toggleAttorneyFields() {
             const attorneyFields = document.getElementById('attorneyFields');
-            const attorneySelected = document.querySelector('input[name="representation"][value="attorney"]:checked');
-
-            if (attorneySelected) {
+            const addAttorneyCheckbox = document.getElementById('addAttorney');
+            
+            if (addAttorneyCheckbox.checked) {
                 attorneyFields.classList.remove('hidden');
             } else {
                 attorneyFields.classList.add('hidden');
             }
         }
+
+
 
         function toggleAttorneyOption() {
             const option = document.querySelector('input[name="attorney_option"]:checked')?.value;
@@ -437,13 +480,17 @@
 
                             <!-- Attorneys -->
                             @php
-                                $attorneys = $case->parties->where('representation', 'attorney')->whereNotNull('attorney_id')->pluck('attorney')->unique('id');
+                                $attorneyParties = $case->parties->where('role', 'counsel');
                             @endphp
-                            @if($attorneys->count() > 0)
+                            @if($attorneyParties->count() > 0)
                             <div>
                                 <h4 class="font-medium text-sm mb-3">Associated Attorneys:</h4>
                                 <div class="space-y-2 max-h-40 overflow-y-auto">
-                                    @foreach($attorneys as $attorney)
+                                    @foreach($attorneyParties as $attorneyParty)
+                                    @php
+                                        $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                                    @endphp
+                                    @if($attorney)
                                     <label class="flex items-center p-2 hover:bg-gray-50 rounded">
                                         <input type="checkbox" name="notify_recipients[]" value="attorney_{{ $attorney->id }}" class="mr-3">
                                         <div class="flex-1">
@@ -451,6 +498,7 @@
                                             <div class="text-xs text-gray-500">Attorney • {{ $attorney->email }}</div>
                                         </div>
                                     </label>
+                                    @endif
                                     @endforeach
                                 </div>
                             </div>

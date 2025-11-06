@@ -9,7 +9,7 @@ class AdminController extends Controller
 {
     public function users()
     {
-        $users = User::paginate(20);
+        $users = User::orderBy('name')->paginate(50);
         return view('admin.users', compact('users'));
     }
 
@@ -33,5 +33,39 @@ class AdminController extends Controller
     public function getPendingUsers()
     {
         return User::where('is_active', false)->get();
+    }
+
+    public function edit(User $user)
+    {
+        return response()->json($user);
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'role' => 'required|in:admin,alu_manager,alu_atty,alu_clerk,hu_admin,hu_clerk,hydrology_expert,wrd,party'
+        ]);
+
+        $user->update($validated);
+        
+        return response()->json(['success' => true]);
+    }
+
+    public function deactivate(User $user)
+    {
+        $user->update(['is_active' => false]);
+        return back()->with('success', 'User deactivated successfully.');
+    }
+
+    public function destroy(User $user)
+    {
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'You cannot delete your own account.');
+        }
+        
+        $user->delete();
+        return back()->with('success', 'User deleted successfully.');
     }
 }

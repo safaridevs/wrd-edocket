@@ -32,6 +32,12 @@
                             {{ __('Admin') }}
                         </x-nav-link>
                     @endif
+                    
+                    @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
+                        <x-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
+                            {{ __('Email History') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -155,6 +161,12 @@
             @if(Auth::user()->canManageUsers())
                 <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
                     {{ __('Admin') }}
+                </x-responsive-nav-link>
+            @endif
+            
+            @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
+                <x-responsive-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
+                    {{ __('Email History') }}
                 </x-responsive-nav-link>
             @endif
         </div>

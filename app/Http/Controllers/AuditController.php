@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\CaseModel;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 
 class AuditController extends Controller
@@ -27,5 +28,23 @@ class AuditController extends Controller
             ->paginate(50);
             
         return view('audit.system-logs', compact('logs'));
+    }
+
+    public function notificationHistory(Request $request)
+    {
+        $notifications = Notification::with('case')
+            ->when($request->case_id, fn($q) => $q->where('case_id', $request->case_id))
+            ->when($request->email, fn($q) => $q->whereJsonContains('payload_json->email', $request->email))
+            ->orderBy('sent_at', 'desc')
+            ->paginate(50);
+            
+        $emailLogs = AuditLog::where('action', 'send_notification')
+            ->with(['user', 'case'])
+            ->when($request->case_id, fn($q) => $q->where('case_id', $request->case_id))
+            ->when($request->email, fn($q) => $q->whereJsonContains('meta_json->email', $request->email))
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
+            
+        return view('audit.notification-history', compact('notifications', 'emailLogs'));
     }
 }

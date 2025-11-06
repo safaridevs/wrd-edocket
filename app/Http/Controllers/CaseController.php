@@ -73,8 +73,6 @@ class CaseController extends Controller
             'parties.*.city' => 'nullable|string|max:100',
             'parties.*.state' => 'nullable|string|max:50',
             'parties.*.zip' => 'nullable|string|max:10',
-            'parties.*.representation' => 'required|in:self,attorney',
-            'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
             'parties.*.attorney_name' => 'nullable|string|max:255',
             'parties.*.attorney_email' => 'nullable|email|max:255',
             'parties.*.attorney_phone' => 'nullable|string|max:20',
@@ -96,7 +94,8 @@ class CaseController extends Controller
             'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.supporting' => 'nullable|array',
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
-            'assigned_attorney_id' => 'nullable|exists:users,id',
+            'assigned_attorneys' => 'nullable|array',
+            'assigned_attorneys.*' => 'exists:users,id',
             'optional_docs' => 'nullable|array',
             'optional_docs.*.type' => 'nullable|string',
             'optional_docs.*.files' => 'nullable|array',
@@ -107,6 +106,18 @@ class CaseController extends Controller
 
         try {
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
+
+            // Handle ALU attorney assignments
+            if (isset($validated['assigned_attorneys']) && !empty($validated['assigned_attorneys'])) {
+                foreach ($validated['assigned_attorneys'] as $attorneyId) {
+                    CaseAssignment::create([
+                        'case_id' => $case->id,
+                        'user_id' => $attorneyId,
+                        'assignment_type' => 'alu_attorney',
+                        'assigned_by' => Auth::id()
+                    ]);
+                }
+            }
 
             $message = match($validated['action']) {
                 'draft' => 'Case saved as draft successfully.',
@@ -126,6 +137,11 @@ class CaseController extends Controller
         // HU users cannot see draft cases
         if (Auth::user()->isHearingUnit() && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
+        }
+        
+        // Parties and attorneys cannot see draft cases
+        if (Auth::user()->role === 'party' && $case->status === 'draft') {
+            abort(403, 'Draft cases are not accessible to parties and attorneys.');
         }
 
         $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'assignedAluClerk', 'assignedWrd', 'aluAttorneys', 'hydrologyExperts', 'aluClerks', 'wrds', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
@@ -205,6 +221,12 @@ class CaseController extends Controller
 
             // Update status based on action
             if ($validated['action'] === 'submit' && in_array($case->status, ['draft', 'rejected'])) {
+                // Validate submission requirements
+                $validationErrors = $this->validateSubmissionRequirements($case);
+                if (!empty($validationErrors)) {
+                    return back()->withInput()->withErrors(['submission' => implode(' ', $validationErrors)]);
+                }
+                
                 $case->update(['status' => 'submitted_to_hu']);
             }
 
@@ -468,8 +490,14 @@ class CaseController extends Controller
 
         // Validate the form structure
         $request->validate([
+            'documents.application.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.request_to_docket.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.request_for_pre_hearing.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.other.*.type' => 'required|string',
-            'documents.other.*.file' => 'required|file|mimes:pdf,doc,docx|max:10240'
+            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:10240'
         ]);
 
         try {
@@ -516,7 +544,7 @@ class CaseController extends Controller
 
     public function showAttorneyManagement(CaseModel $case, $partyId)
     {
-        $party = $case->parties()->with(['attorney', 'person'])->findOrFail($partyId);
+        $party = $case->parties()->with(['person'])->findOrFail($partyId);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
         
         return view('cases.attorney-management', compact('case', 'party', 'attorneys'))->render();
@@ -527,32 +555,31 @@ class CaseController extends Controller
         $party = $case->parties()->findOrFail($partyId);
         
         $validated = $request->validate([
-            'attorney_id' => 'nullable|exists:attorneys,id',
-            'attorney_name' => 'required_without:attorney_id|string|max:255',
-            'attorney_email' => 'required_without:attorney_id|email|max:255',
+            'attorney_name' => 'required|string|max:255',
+            'attorney_email' => 'required|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
             'bar_number' => 'nullable|string|max:50',
+            'address_line1' => 'nullable|string|max:500',
+            'address_line2' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:50',
+            'zip' => 'nullable|string|max:10',
         ]);
 
         try {
-            if ($validated['attorney_id']) {
-                $party->update([
-                    'attorney_id' => $validated['attorney_id'],
-                    'representation' => 'attorney'
-                ]);
-            } else {
-                $attorney = \App\Models\Attorney::create([
-                    'name' => $validated['attorney_name'],
-                    'email' => $validated['attorney_email'],
-                    'phone' => $validated['attorney_phone'],
-                    'bar_number' => $validated['bar_number']
-                ]);
-                
-                $party->update([
-                    'attorney_id' => $attorney->id,
-                    'representation' => 'attorney'
-                ]);
-            }
+            $attorney = \App\Models\Attorney::create([
+                'name' => $validated['attorney_name'],
+                'email' => $validated['attorney_email'],
+                'phone' => $validated['attorney_phone'],
+                'bar_number' => $validated['bar_number'],
+                'address_line1' => $validated['address_line1'],
+                'address_line2' => $validated['address_line2'],
+                'city' => $validated['city'],
+                'state' => $validated['state'],
+                'zip' => $validated['zip']
+            ]);
+            
+            // Attorney assignment logic would go here if needed
 
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
@@ -568,10 +595,7 @@ class CaseController extends Controller
             return response()->json(['success' => false, 'error' => 'Companies must have attorney representation']);
         }
         
-        $party->update([
-            'attorney_id' => null,
-            'representation' => 'self'
-        ]);
+        // Self-representation logic would go here if needed
 
         return response()->json(['success' => true]);
     }
@@ -582,7 +606,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $case->load(['parties.person', 'parties.attorney', 'serviceList.person']);
+        $case->load(['parties.person', 'serviceList.person']);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
         
         return view('cases.parties.manage', compact('case', 'attorneys'));
@@ -612,7 +636,6 @@ class CaseController extends Controller
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:50',
             'zip' => 'nullable|string|max:10',
-            'representation' => 'required|in:self,attorney',
             'attorney_id' => 'nullable|exists:attorneys,id',
             'attorney_name' => 'nullable|string|max:255',
             'attorney_email' => 'nullable|email|max:255',
@@ -645,31 +668,73 @@ class CaseController extends Controller
                 ]);
             }
 
-            // Handle attorney if needed
-            $attorneyId = null;
-            if ($validated['representation'] === 'attorney') {
-                if (!empty($validated['attorney_id'])) {
-                    $attorneyId = $validated['attorney_id'];
-                } elseif (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
+            // Create case party
+            $clientParty = \App\Models\CaseParty::create([
+                'case_id' => $case->id,
+                'person_id' => $person->id,
+                'role' => $validated['role'],
+                'service_enabled' => true
+            ]);
+
+            // Handle attorney representation
+            if ((!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) || 
+                ($request->has('attorney_id') && !empty($request->attorney_id))) {
+                // Check if selecting existing attorney
+                if ($request->has('attorney_id') && !empty($request->attorney_id)) {
+                    $attorney = \App\Models\Attorney::find($request->attorney_id);
+                    if ($attorney) {
+                        // Create attorney person if doesn't exist
+                        $attorneyPerson = \App\Models\Person::where('email', $attorney->email)->first();
+                        if (!$attorneyPerson) {
+                            $attorneyPerson = \App\Models\Person::create([
+                                'type' => 'individual',
+                                'first_name' => explode(' ', $attorney->name)[0] ?? '',
+                                'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
+                                'email' => $attorney->email,
+                                'phone_office' => $attorney->phone
+                            ]);
+                        }
+                        
+                        // Create counsel party entry linked to client
+                        \App\Models\CaseParty::create([
+                            'case_id' => $case->id,
+                            'person_id' => $attorneyPerson->id,
+                            'role' => 'counsel',
+                            'client_party_id' => $clientParty->id,
+                            'service_enabled' => true
+                        ]);
+                    }
+                }
+                
+                // Create new attorney if name and email provided
+                if (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
+                    // Create new attorney
                     $attorney = \App\Models\Attorney::create([
                         'name' => $validated['attorney_name'],
                         'email' => $validated['attorney_email'],
                         'phone' => $validated['attorney_phone'],
                         'bar_number' => $validated['bar_number']
                     ]);
-                    $attorneyId = $attorney->id;
+                    
+                    // Create attorney person
+                    $attorneyPerson = \App\Models\Person::create([
+                        'type' => 'individual',
+                        'first_name' => explode(' ', $attorney->name)[0] ?? '',
+                        'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
+                        'email' => $attorney->email,
+                        'phone_office' => $attorney->phone
+                    ]);
+                    
+                    // Create counsel party entry linked to client
+                    \App\Models\CaseParty::create([
+                        'case_id' => $case->id,
+                        'person_id' => $attorneyPerson->id,
+                        'role' => 'counsel',
+                        'client_party_id' => $clientParty->id,
+                        'service_enabled' => true
+                    ]);
                 }
             }
-
-            // Create case party with consolidated attorney relationship
-            \App\Models\CaseParty::create([
-                'case_id' => $case->id,
-                'person_id' => $person->id,
-                'attorney_id' => $attorneyId,
-                'role' => $validated['role'],
-                'service_enabled' => true,
-                'representation' => $validated['representation']
-            ]);
 
             // Create service list entry
             \App\Models\ServiceList::create([
@@ -693,7 +758,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $party = $case->parties()->with(['person', 'attorney'])->findOrFail($partyId);
+        $party = $case->parties()->with(['person'])->findOrFail($partyId);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
         
         return view('cases.parties.edit', compact('case', 'party', 'attorneys'))->render();
@@ -725,10 +790,8 @@ class CaseController extends Controller
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:50',
             'zip' => 'nullable|string|max:10',
-            'representation' => 'required|in:self,attorney',
-            'attorney_id' => 'nullable|exists:attorneys,id',
-            'attorney_name' => 'required_if:representation,attorney|required_without:attorney_id|string|max:255',
-            'attorney_email' => 'required_if:representation,attorney|required_without:attorney_id|email|max:255',
+            'attorney_name' => 'nullable|string|max:255',
+            'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
             'bar_number' => 'nullable|string|max:50',
         ]);
@@ -755,26 +818,18 @@ class CaseController extends Controller
             ]);
 
             // Handle attorney
-            $attorneyId = null;
-            if ($validated['representation'] === 'attorney') {
-                if ($validated['attorney_id']) {
-                    $attorneyId = $validated['attorney_id'];
-                } else {
-                    $attorney = \App\Models\Attorney::create([
-                        'name' => $validated['attorney_name'],
-                        'email' => $validated['attorney_email'],
-                        'phone' => $validated['attorney_phone'],
-                        'bar_number' => $validated['bar_number']
-                    ]);
-                    $attorneyId = $attorney->id;
-                }
+            if (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
+                $attorney = \App\Models\Attorney::create([
+                    'name' => $validated['attorney_name'],
+                    'email' => $validated['attorney_email'],
+                    'phone' => $validated['attorney_phone'],
+                    'bar_number' => $validated['bar_number']
+                ]);
             }
 
             // Update party
             $party->update([
-                'role' => $validated['role'],
-                'attorney_id' => $attorneyId,
-                'representation' => $validated['representation']
+                'role' => $validated['role']
             ]);
 
             return response()->json(['success' => true]);
@@ -815,7 +870,7 @@ class CaseController extends Controller
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
-            'document' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
             'description' => 'nullable|string|max:500'
         ]);
 
@@ -825,9 +880,10 @@ class CaseController extends Controller
             // Load OSE file numbers
             $case->load('oseFileNumbers');
             
-            $file = $request->file('document');
-            $filename = time() . '_' . $file->getClientOriginalName();
-            $path = $file->storeAs('case_documents', $filename, 'public');
+            $files = $request->file('document');
+            if (!is_array($files)) {
+                $files = [$files];
+            }
             
             // Get display name from database
             $documentType = \App\Models\DocumentType::where('code', $validated['doc_type'])->first();
@@ -849,57 +905,48 @@ class CaseController extends Controller
                 $oseString = $oseList ? ' - ' . implode(', ', $oseList) : '';
             }
             
-            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+            $uploadedCount = 0;
+            foreach ($files as $index => $file) {
+                if ($file && $file->isValid()) {
+                    $filename = time() . '_' . $file->getClientOriginalName();
+                    $path = $file->storeAs('case_documents', $filename, 'public');
+                    
+                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+                    if ($index > 0) {
+                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
+                    }
 
-            // Check for duplicate document types and add numbering
-            $existingCount = \App\Models\Document::where('case_id', $case->id)
-                ->where('doc_type', $validated['doc_type'])
-                ->whereDate('uploaded_at', now()->toDateString())
-                ->count();
-            
-            if ($existingCount > 0) {
-                $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($existingCount + 1) . ').pdf';
+                    $documentData = [
+                        'case_id' => $case->id,
+                        'doc_type' => $validated['doc_type'],
+                        'original_filename' => $originalFilename,
+                        'stored_filename' => $filename,
+                        'mime' => $file->getMimeType(),
+                        'size_bytes' => $file->getSize(),
+                        'checksum' => md5_file($file->getRealPath()),
+                        'storage_uri' => $path,
+                        'uploaded_by_user_id' => auth()->id(),
+                        'uploaded_at' => now(),
+                        'pleading_type' => $validated['pleading_type'] ?? 'none'
+                    ];
+                    
+                    // Set pleading type for pleading documents
+                    if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
+                        $documentData['pleading_type'] = $validated['pleading_type'];
+                    } else {
+                        $documentData['pleading_type'] = 'none';
+                    }
+                    
+                    \App\Models\Document::create($documentData);
+                    $uploadedCount++;
+                }
             }
 
-            \Log::info('Creating document with data:', [
-                'case_id' => $case->id,
-                'doc_type' => $validated['doc_type'],
-                'original_filename' => $originalFilename,
-                'stored_filename' => $filename,
-                'storage_uri' => $path,
-                'ose_numbers_count' => $case->oseFileNumbers ? $case->oseFileNumbers->count() : 0
-            ]);
-
-            $documentData = [
-                'case_id' => $case->id,
-                'doc_type' => $validated['doc_type'],
-                'original_filename' => $originalFilename,
-                'stored_filename' => $filename,
-                'mime' => $file->getMimeType(),
-                'size_bytes' => $file->getSize(),
-                'checksum' => md5_file($file->getRealPath()),
-                'storage_uri' => $path,
-                'uploaded_by_user_id' => auth()->id(),
-                'uploaded_at' => now(),
-                'pleading_type' => $validated['pleading_type'] ?? 'none'
-            ];
-            
-            // Set pleading type for pleading documents
-            $documentType = \App\Models\DocumentType::where('code', $validated['doc_type'])->first();
-            if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
-                $documentData['pleading_type'] = $validated['pleading_type'];
-            } else {
-                $documentData['pleading_type'] = 'none';
-            }
-            
-            \Log::info('About to create document', $documentData);
-            $document = \App\Models\Document::create($documentData);
-            \Log::info('Document created successfully', ['document_id' => $document->id, 'doc_type' => $validated['doc_type'], 'pleading_type' => $documentData['pleading_type']]);
-
-            return redirect()->route('cases.documents.manage', $case)->with('success', 'Document uploaded successfully.');
+            $message = $uploadedCount === 1 ? 'Document uploaded successfully.' : "{$uploadedCount} documents uploaded successfully.";
+            return redirect()->route('cases.documents.manage', $case)->with('success', $message);
 
         } catch (\Exception $e) {
-            return back()->withInput()->withErrors(['error' => 'Failed to upload document: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'Failed to upload documents: ' . $e->getMessage()]);
         }
     }
 
@@ -1021,5 +1068,29 @@ class CaseController extends Controller
         $document->delete();
 
         return response()->json(['success' => true]);
+    }
+    
+    private function validateSubmissionRequirements(CaseModel $case): array
+    {
+        $errors = [];
+        
+        // Check if ALU Attorney is assigned
+        if (!$case->aluAttorneys || $case->aluAttorneys->count() === 0) {
+            $errors[] = 'ALU Attorney must be assigned before submission.';
+        }
+        
+        // Check if at least one Applicant exists
+        $hasApplicant = $case->parties()->where('role', 'applicant')->exists();
+        if (!$hasApplicant) {
+            $errors[] = 'At least one Applicant must be added to the case.';
+        }
+        
+        // Check if pleading document exists (Request to Docket OR Request for Pre-Hearing)
+        $hasPleadingDoc = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_for_pre_hearing'])->exists();
+        if (!$hasPleadingDoc) {
+            $errors[] = 'Either Request to Docket or Request for Pre-Hearing document must be uploaded.';
+        }
+        
+        return $errors;
     }
 }

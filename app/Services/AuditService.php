@@ -38,4 +38,13 @@ class AuditService
             'document_id' => $documentId
         ]);
     }
+
+    public static function logEmailNotification(User $user, ?CaseModel $case, string $email, string $type, string $title): void
+    {
+        AuditLog::log('send_notification', $user, $case, [
+            'email' => $email,
+            'notification_type' => $type,
+            'title' => $title
+        ]);
+    }
 }

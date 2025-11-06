@@ -9,6 +9,7 @@ use App\Services\DocumentService;
 use App\Services\DocumentValidationService;
 use App\Services\NotificationService;
 use App\Services\WorkflowService;
+use App\Utils\ApplicationUtils;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(DocumentService::class);
         $this->app->singleton(DocumentValidationService::class);
         $this->app->singleton(WorkflowService::class);
+        $this->app->singleton('ApplicationUtils', ApplicationUtils::class);
     }
 
     /**

@@ -39,21 +39,23 @@ class CaseService
                     if (!empty($partyData['email'])) {
                         $person = $this->createOrFindPerson($partyData);
                         
-                        // Handle attorney if needed
-                        $attorneyId = null;
-                        if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
-                            $attorneyId = $this->createOrFindAttorney($partyData);
-                        }
-                        
                         // Create case party relationship
-                        CaseParty::create([
+                        $clientParty = CaseParty::create([
                             'case_id' => $case->id,
                             'person_id' => $person->id,
                             'role' => $partyData['role'],
-                            'service_enabled' => true,
-                            'attorney_id' => $attorneyId,
-                            'representation' => $partyData['representation'] ?? 'self'
+                            'service_enabled' => true
                         ]);
+                        
+                        // Handle attorney representation
+                        if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
+                            \Log::info('Creating attorney party for case', [
+                                'case_id' => $case->id,
+                                'client_party_id' => $clientParty->id,
+                                'party_data' => $partyData
+                            ]);
+                            $this->createAttorneyParty($case, $partyData, $clientParty);
+                        }
                         
                         // Auto-create service list entry
                         ServiceList::create([
@@ -137,31 +139,77 @@ class CaseService
         return $person;
     }
     
-    private function createOrFindAttorney(array $data): ?int
+    private function createAttorneyParty(CaseModel $case, array $data, CaseParty $clientParty): void
     {
-        // If attorney_id is provided, use existing attorney
+        \Log::info('createAttorneyParty called', [
+            'case_id' => $case->id,
+            'client_party_id' => $clientParty->id,
+            'attorney_id' => $data['attorney_id'] ?? 'null',
+            'attorney_name' => $data['attorney_name'] ?? 'null',
+            'attorney_email' => $data['attorney_email'] ?? 'null'
+        ]);
+        
+        // Handle existing attorney selection
         if (!empty($data['attorney_id'])) {
-            return $data['attorney_id'];
+            $attorney = \App\Models\Attorney::find($data['attorney_id']);
+            if ($attorney) {
+                // Create attorney person if doesn't exist
+                $attorneyPerson = Person::where('email', $attorney->email)->first();
+                if (!$attorneyPerson) {
+                    $attorneyPerson = Person::create([
+                        'type' => 'individual',
+                        'first_name' => explode(' ', $attorney->name)[0] ?? '',
+                        'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
+                        'email' => $attorney->email,
+                        'phone_office' => $attorney->phone
+                    ]);
+                }
+                
+                // Create counsel party entry linked to client
+                $counselParty = CaseParty::create([
+                    'case_id' => $case->id,
+                    'person_id' => $attorneyPerson->id,
+                    'role' => 'counsel',
+                    'client_party_id' => $clientParty->id,
+                    'service_enabled' => true
+                ]);
+                \Log::info('Created counsel party for existing attorney', ['counsel_party_id' => $counselParty->id]);
+            }
         }
-        
-        // Otherwise create new attorney if name and email provided
-        if (empty($data['attorney_name']) || empty($data['attorney_email'])) {
-            return null;
-        }
-        
-        // Try to find existing attorney by email
-        $attorney = \App\Models\Attorney::where('email', $data['attorney_email'])->first();
-        
-        if (!$attorney) {
-            $attorney = \App\Models\Attorney::create([
-                'name' => $data['attorney_name'],
-                'email' => $data['attorney_email'],
-                'phone' => $data['attorney_phone'] ?? null,
-                'bar_number' => $data['bar_number'] ?? null
+        // Handle new attorney creation
+        elseif (!empty($data['attorney_name']) && !empty($data['attorney_email'])) {
+            // Create new attorney record
+            $attorney = \App\Models\Attorney::firstOrCreate(
+                ['email' => $data['attorney_email']],
+                [
+                    'name' => $data['attorney_name'],
+                    'phone' => $data['attorney_phone'] ?? null,
+                    'bar_number' => $data['bar_number'] ?? null
+                ]
+            );
+            
+            // Create attorney person
+            $attorneyPerson = Person::firstOrCreate(
+                ['email' => $attorney->email],
+                [
+                    'type' => 'individual',
+                    'first_name' => explode(' ', $attorney->name)[0] ?? '',
+                    'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
+                    'email' => $attorney->email,
+                    'phone_office' => $attorney->phone
+                ]
+            );
+            
+            // Create counsel party entry linked to client
+            $counselParty = CaseParty::create([
+                'case_id' => $case->id,
+                'person_id' => $attorneyPerson->id,
+                'role' => 'counsel',
+                'client_party_id' => $clientParty->id,
+                'service_enabled' => true
             ]);
+            \Log::info('Created counsel party for new attorney', ['counsel_party_id' => $counselParty->id]);
         }
-        
-        return $attorney->id;
     }
     
     private function createPersonFromName(string $name): Person
@@ -287,6 +335,8 @@ class CaseService
         
         // Handle multiple document types with standardized naming
         $multipleDocTypes = [
+            'request_to_docket' => 'Request to Docket',
+            'request_for_pre_hearing' => 'Request for Pre-Hearing',
             'protest_letter' => 'Protest Letter',
             'supporting' => 'Supporting Document'
         ];
@@ -304,7 +354,7 @@ class CaseService
                             $displayName = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
                         }
                         
-                        Document::create([
+                        $documentData = [
                             'case_id' => $case->id,
                             'doc_type' => $docType,
                             'original_filename' => $displayName,
@@ -315,7 +365,14 @@ class CaseService
                             'storage_uri' => $path,
                             'uploaded_by_user_id' => $uploader->id,
                             'uploaded_at' => now()
-                        ]);
+                        ];
+                        
+                        // Set pleading type for pleading documents
+                        if (in_array($docType, ['request_to_docket', 'request_for_pre_hearing'])) {
+                            $documentData['pleading_type'] = $docType;
+                        }
+                        
+                        Document::create($documentData);
                     }
                 }
             }
@@ -362,30 +419,40 @@ class CaseService
         if ($request->has('documents.other')) {
             foreach ($request->input('documents.other') as $index => $otherDoc) {
                 if (isset($otherDoc['type']) && $otherDoc['type'] && $request->hasFile("documents.other.{$index}.file")) {
-                    $file = $request->file("documents.other.{$index}.file");
-                    if ($file && $file->isValid()) {
-                        $filename = time() . '_' . $file->getClientOriginalName();
-                        $path = $file->storeAs('case_documents', $filename, 'public');
-                        
-                        $displayType = $this->getDisplayType($otherDoc['type']);
-                        
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
-                        
-                        $documentData = [
-                            'case_id' => $case->id,
-                            'doc_type' => $otherDoc['type'],
-                            'original_filename' => $originalFilename,
-                            'stored_filename' => $filename,
-                            'mime' => $file->getMimeType(),
-                            'size_bytes' => $file->getSize(),
-                            'checksum' => md5_file($file->getRealPath()),
-                            'storage_uri' => $path,
-                            'uploaded_by_user_id' => $uploader->id,
-                            'uploaded_at' => now()
-                        ];
-                        
-                        Document::create($documentData);
-                        \Log::info("Other document created: {$otherDoc['type']} - {$filename}");
+                    $files = $request->file("documents.other.{$index}.file");
+                    // Handle both single file and array of files
+                    if (!is_array($files)) {
+                        $files = [$files];
+                    }
+                    
+                    foreach ($files as $fileIndex => $file) {
+                        if ($file && $file->isValid()) {
+                            $filename = time() . '_' . $file->getClientOriginalName();
+                            $path = $file->storeAs('case_documents', $filename, 'public');
+                            
+                            $displayType = $this->getDisplayType($otherDoc['type']);
+                            
+                            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+                            if ($fileIndex > 0) {
+                                $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
+                            }
+                            
+                            $documentData = [
+                                'case_id' => $case->id,
+                                'doc_type' => $otherDoc['type'],
+                                'original_filename' => $originalFilename,
+                                'stored_filename' => $filename,
+                                'mime' => $file->getMimeType(),
+                                'size_bytes' => $file->getSize(),
+                                'checksum' => md5_file($file->getRealPath()),
+                                'storage_uri' => $path,
+                                'uploaded_by_user_id' => $uploader->id,
+                                'uploaded_at' => now()
+                            ];
+                            
+                            Document::create($documentData);
+                            \Log::info("Other document created: {$otherDoc['type']} - {$filename}");
+                        }
                     }
                 }
             }
@@ -698,21 +765,18 @@ class CaseService
                         }
                         
                         if ($person) {
-                            // Handle attorney if needed
-                            $attorneyId = null;
-                            if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
-                                $attorneyId = $this->createOrFindAttorney($partyData);
-                            }
-                            
                             // Create case party relationship
-                            CaseParty::create([
+                            $clientParty = CaseParty::create([
                                 'case_id' => $case->id,
                                 'person_id' => $person->id,
                                 'role' => $partyData['role'],
-                                'service_enabled' => true,
-                                'attorney_id' => $attorneyId,
-                                'representation' => $partyData['representation'] ?? 'self'
+                                'service_enabled' => true
                             ]);
+                            
+                            // Handle attorney representation
+                            if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
+                                $this->createAttorneyParty($case, $partyData, $clientParty);
+                            }
                             
                             // Auto-create service list entry
                             ServiceList::create([

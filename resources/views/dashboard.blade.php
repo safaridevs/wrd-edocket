@@ -46,7 +46,10 @@
                                         $attorneyCasesCount = 0;
                                         if ($attorney) {
                                             $attorneyCasesCount = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
-                                                $query->where('attorney_id', $attorney->id);
+                                                $query->where('role', 'counsel')
+                                                      ->whereHas('person', function($subQuery) {
+                                                          $subQuery->where('email', auth()->user()->email);
+                                                      });
                                             })->whereIn('status', ['active', 'approved'])->count();
                                         }
                                         
@@ -140,7 +143,10 @@
                                     $attorneyCases = collect();
                                     if ($attorney) {
                                         $attorneyCases = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
-                                            $query->where('attorney_id', $attorney->id);
+                                            $query->where('role', 'counsel')
+                                                  ->whereHas('person', function($subQuery) {
+                                                      $subQuery->where('email', auth()->user()->email);
+                                                  });
                                         })->whereIn('status', ['active', 'approved'])->get();
                                     }
                                     
@@ -176,7 +182,10 @@
                                                         // Check if attorney using consolidated system
                                                         $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
                                                         if ($attorney) {
-                                                            $clientParty = $case->parties()->where('attorney_id', $attorney->id)->with('person')->first();
+                                                            $clientParty = $case->parties()->where('role', 'counsel')
+                                                                ->whereHas('person', function($query) {
+                                                                    $query->where('email', auth()->user()->email);
+                                                                })->with('person')->first();
                                                             if ($clientParty) {
                                                                 $userRole = 'Attorney for ' . $clientParty->person->full_name;
                                                             }
@@ -251,7 +260,10 @@
                                     <span class="text-sm font-medium text-gray-700">Attorney: {{ $attorney->name }}</span>
                                 </div>
                                 @php
-                                    $clientCount = \App\Models\CaseParty::where('attorney_id', $attorney->id)->count();
+                                    $clientCount = \App\Models\CaseParty::where('role', 'counsel')
+                                        ->whereHas('person', function($query) {
+                                            $query->where('email', auth()->user()->email);
+                                        })->count();
                                 @endphp
                                 <p class="text-xs text-gray-500">Representing {{ $clientCount }} client(s)</p>
                             @endif

@@ -146,12 +146,21 @@ Route::middleware('auth')->group(function () {
     Route::get('users/role/{role}', [UserController::class, 'getUsersByRole'])->name('users.by-role');
     Route::get('users/login-capable', [UserController::class, 'getLoginCapableUsers'])->name('users.login-capable');
     
-    // User approval routes
+    // User management routes
     Route::post('admin/users/{user}/approve', [AdminController::class, 'approveUser'])->middleware('permission:manage_users')->name('admin.users.approve');
+    Route::get('admin/users/{user}/edit', [AdminController::class, 'edit'])->middleware('permission:manage_users')->name('admin.users.edit');
+    Route::put('admin/users/{user}', [AdminController::class, 'update'])->middleware('permission:manage_users')->name('admin.users.update');
+    Route::post('admin/users/{user}/deactivate', [AdminController::class, 'deactivate'])->middleware('permission:manage_users')->name('admin.users.deactivate');
+    Route::delete('admin/users/{user}', [AdminController::class, 'destroy'])->middleware('permission:manage_users')->name('admin.users.destroy');
     
     // Impersonation routes
     Route::post('impersonate/switch', [ImpersonationController::class, 'switchRole'])->name('impersonate.switch');
     Route::post('impersonate/stop', [ImpersonationController::class, 'stopImpersonation'])->name('impersonate.stop');
+    
+    // Audit routes
+    Route::get('audit/notifications', [\App\Http\Controllers\AuditController::class, 'notificationHistory'])->name('audit.notifications');
+    Route::get('audit/system', [\App\Http\Controllers\AuditController::class, 'systemLogs'])->name('audit.system');
+    Route::get('cases/{case}/audit', [\App\Http\Controllers\AuditController::class, 'caseHistory'])->name('cases.audit');
 });
 
 require __DIR__.'/auth.php';

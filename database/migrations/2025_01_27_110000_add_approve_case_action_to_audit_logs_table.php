@@ -9,17 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop the existing check constraint
-        DB::statement('ALTER TABLE audit_logs DROP CONSTRAINT CK__audit_log__actio__00750D23');
+        // Remove any existing action constraints to allow flexible action strings
+        $constraints = DB::select("SELECT name FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID('audit_logs') AND definition LIKE '%action%'");
         
-        // Add the new check constraint with 'approve_case' action
-        DB::statement("ALTER TABLE audit_logs ADD CONSTRAINT CK__audit_log__actio__00750D23 CHECK (action IN ('create_case', 'update_case', 'submit_to_hu', 'accept_request', 'reject_request', 'approve_case', 'notify_parties'))");
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE audit_logs DROP CONSTRAINT {$constraint->name}");
+        }
+        
+        // No need to add constraints - action field should accept any string
     }
 
     public function down(): void
     {
-        // Drop the constraint and recreate without 'approve_case'
-        DB::statement('ALTER TABLE audit_logs DROP CONSTRAINT CK__audit_log__actio__00750D23');
-        DB::statement("ALTER TABLE audit_logs ADD CONSTRAINT CK__audit_log__actio__00750D23 CHECK (action IN ('create_case', 'update_case', 'submit_to_hu', 'accept_request', 'reject_request', 'notify_parties'))");
+        // No rollback needed
     }
 };
