@@ -13,13 +13,14 @@ class CaseModel extends Model
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
         'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
-        'submitted_at', 'accepted_at', 'closed_at'
+        'submitted_at', 'accepted_at', 'closed_at', 'archived_at', 'closed_by_user_id', 'archived_by_user_id', 'closure_reason'
     ];
 
     protected $casts = [
         'submitted_at' => 'datetime',
         'accepted_at' => 'datetime',
         'closed_at' => 'datetime',
+        'archived_at' => 'datetime',
         'metadata' => 'array'
     ];
 
@@ -65,6 +66,16 @@ class CaseModel extends Model
     public function assignedWrd(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_wrd_id');
+    }
+
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by_user_id');
     }
 
     // New many-to-many relationships

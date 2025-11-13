@@ -53,7 +53,7 @@
                         Access approved water rights hearing cases, documents, and proceedings from the New Mexico Office of the State Engineer Hearing Unit.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="#approved-cases" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                        <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
                             Browse Approved Cases
                         </a>
                         @guest
@@ -144,7 +144,7 @@
                                     <span>{{ $case->created_at->format('M j, Y') }}</span>
                                 </div>
 
-                                <a href="{{ route('cases.show', $case) }}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center block">
+                                <a href="{{ route('public.cases.show', $case) }}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center block">
                                     View Case Details
                                 </a>
                             </div>
@@ -154,7 +154,7 @@
 
                     @if(\App\Models\CaseModel::where('status', 'approved')->count() > 12)
                     <div class="text-center">
-                        <a href="{{ route('cases.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors">
+                        <a href="{{ route('public.cases.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors">
                             View All Approved Cases ({{ \App\Models\CaseModel::where('status', 'approved')->count() }} total)
                         </a>
                     </div>

@@ -64,11 +64,6 @@ class WorkflowService
 
         $case->update(['status' => 'active']);
 
-        // Stamp all initial documents
-        foreach ($case->documents as $document) {
-            $document->stamp();
-        }
-
         // Notify all served parties
         $this->notifyServedParties($case, 'case_activated', 'Case Activated', 'Case has been activated and is now accepting filings.');
 

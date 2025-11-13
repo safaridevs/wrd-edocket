@@ -19,7 +19,6 @@ class DocumentService
 
     public function uploadDocument(CaseModel $case, UploadedFile $file, string $documentType, User $uploader, string $pleadingType = 'none'): Document
     {
-        dd("Here in service");
         // Validate file
         $errors = $this->validationService->validateFile($file);
         if (!empty($errors)) {
@@ -55,7 +54,6 @@ class DocumentService
 
         AuditLog::log('upload_doc', $uploader, $case, ['filename' => $document->original_filename]);
 
-        $this->autoStamp($document, $uploader);
         $this->syncToRepositories($document);
 
         return $document;
@@ -70,45 +68,56 @@ class DocumentService
         return time() . '_' . str_replace(' ', '_', $originalName);
     }
 
-    private function autoStamp(Document $document, User $user): void
-    {
-        // Only stamp pleading documents (request_pre_hearing or request_to_docket)
-        if (in_array($document->pleading_type, ['request_pre_hearing', 'request_to_docket']) && $document->mime === 'application/pdf') {
-            $stamp = $this->validationService->generateStamp($user);
-            $document->update([
-                'stamped' => true,
-                'stamped_at' => now(),
-                'stamp_text' => $stamp,
-                'initials' => $user->initials
-            ]);
 
-            $this->notificationService->notify(
-                $document->uploader,
-                'document_stamped',
-                'Document Stamped',
-                "Pleading document {$document->original_filename} has been officially stamped.",
-                $document->case
-            );
-        }
-    }
 
-    public function stampDocument(Document $document, User $user): bool
+    public function approveDocument(Document $document, User $user): bool
     {
-        // Only HU Admin and HU Clerk can manually stamp documents
+        // Only HU Admin and HU Clerk can approve documents
         if (!in_array($user->role, ['hu_admin', 'hu_clerk'])) {
             return false;
         }
 
-        // Only stamp pleading documents
-        if (!in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing'])) {
+        // Don't approve if already approved
+        if ($document->approved) {
             return false;
         }
 
-        // Don't stamp if already stamped
-        if ($document->stamped) {
+        // Only approve documents in active or approved cases
+        if (!in_array($document->case->status, ['active', 'approved'])) {
             return false;
         }
 
+        // Approve the document
+        $document->update([
+            'approved' => true,
+            'approved_by_user_id' => $user->id,
+            'approved_at' => now()
+        ]);
+
+        // Stamp pleading documents upon approval
+        if (in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing'])) {
+            $this->stampApprovedDocument($document, $user);
+        }
+
+        AuditLog::log('approve_document', $user, $document->case, [
+            'document_id' => $document->id,
+            'document_type' => $document->pleading_type
+        ]);
+
+        // Notify document uploader
+        $this->notificationService->notify(
+            $document->uploader,
+            'document_approved',
+            'Document Approved',
+            "Your document '{$document->original_filename}' has been approved.",
+            $document->case
+        );
+
+        return true;
+    }
+
+    private function stampApprovedDocument(Document $document, User $user): void
+    {
         $stampText = $this->generateStampText($document->case, $user);
 
         // Apply visual stamp to PDF
@@ -133,7 +142,7 @@ class DocumentService
             'pdf_stamped' => $pdfStamped
         ]);
 
-        // Notify document uploader
+        // Notify document uploader about stamping
         $this->notificationService->notify(
             $document->uploader,
             'document_stamped',
@@ -141,8 +150,6 @@ class DocumentService
             "Your pleading document '{$document->original_filename}' has been officially e-stamped.",
             $document->case
         );
-
-        return true;
     }
 
     private function generateStampText(CaseModel $case, User $user): string

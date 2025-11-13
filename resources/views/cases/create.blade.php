@@ -83,6 +83,30 @@
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
+
+                <!-- ALU Clerk Assignments -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign ALU Clerks</label>
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @foreach(\App\Models\User::where('role', 'alu_clerk')->get() as $clerk)
+                            <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
+                                <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}" 
+                                       {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }} 
+                                       class="mr-3">
+                                <div>
+                                    <div class="font-medium">{{ $clerk->name }}</div>
+                                    <div class="text-sm text-gray-600">{{ $clerk->email }}</div>
+                                </div>
+                            </label>
+                            @endforeach
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Select one or more ALU clerks to assign to this case</p>
+                    </div>
+                    @error('assigned_clerks')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
                 @endif
 
                 <!-- OSE File Numbers -->
@@ -92,6 +116,7 @@
                         <div class="flex gap-2 items-center flex-wrap">
                             <div class="flex items-center gap-1">
                                 <select name="ose_numbers[0][basin_code_from]" class="border-gray-300 rounded-md text-sm">
+                                    <option value="">Select Basin</option>
                                     @foreach($basinCodes as $code)
                                         <option value="{{ $code->initial }}" {{ old('ose_numbers.0.basin_code_from') == $code->initial ? 'selected' : '' }}>{{ $code->initial }} - {{ $code->description }}</option>
                                     @endforeach
@@ -102,6 +127,7 @@
                             <div id="to-section-0" class="flex items-center gap-1 {{ old('ose_numbers.0.file_no_to') ? '' : 'hidden' }}">
                                 <span class="text-sm text-gray-600">to</span>
                                 <select name="ose_numbers[0][basin_code_to]" class="border-gray-300 rounded-md text-sm">
+                                    <option value="">Select Basin</option>
                                     @foreach($basinCodes as $code)
                                         <option value="{{ $code->initial }}" {{ old('ose_numbers.0.basin_code_to') == $code->initial ? 'selected' : '' }}>{{ $code->initial }} - {{ $code->description }}</option>
                                     @endforeach
@@ -124,10 +150,19 @@
                         <!-- First Applicant (Required) -->
                         <div class="border rounded-lg p-4 bg-gray-50">
                             <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-medium text-gray-900">Applicant 1 *</h4>
+                                <h4 class="font-medium text-gray-900" id="party-0-title">Primary Party 1 *</h4>
                             </div>
 
-                            <input type="hidden" name="parties[0][role]" value="applicant">
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700">Party Role *</label>
+                                <select name="parties[0][role]" id="party-0-role" required class="mt-1 block w-full border-gray-300 rounded-md">
+                                    <option value="">Select Role</option>
+                                    <option value="applicant" {{ old('parties.0.role') == 'applicant' ? 'selected' : '' }}>Applicant</option>
+                                    <option value="respondent" {{ old('parties.0.role') == 'respondent' ? 'selected' : '' }} class="compliance-role" style="display: none;">Respondent</option>
+                                    <option value="violator" {{ old('parties.0.role') == 'violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Violator</option>
+                                    <option value="alleged_violator" {{ old('parties.0.role') == 'alleged_violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Alleged Violator</option>
+                                </select>
+                            </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -265,8 +300,11 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 space-x-2">
-                        <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Applicant</button>
+                    <div class="mt-4 space-x-2" id="add-party-buttons">
+                        <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800 regular-case-btn">+ Add Applicant</button>
+                        <button type="button" onclick="addParty('respondent')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Respondent</button>
+                        <button type="button" onclick="addParty('violator')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Violator</button>
+                        <button type="button" onclick="addParty('alleged_violator')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Alleged Violator</button>
                         <button type="button" onclick="addParty('protestant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Protestant</button>
                         <button type="button" onclick="addParty('counsel')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Counsel</button>
                     </div>
@@ -393,6 +431,62 @@
     <script>
         let oseCount = 1, partyCount = 1, optionalDocCount = 1;
 
+        // Handle case type changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const caseTypeInputs = document.querySelectorAll('input[name="case_type"]');
+            caseTypeInputs.forEach(input => {
+                input.addEventListener('change', updatePartyRoleOptions);
+            });
+            
+            // Initialize on page load
+            updatePartyRoleOptions();
+        });
+
+        function updatePartyRoleOptions() {
+            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
+            const complianceRoles = document.querySelectorAll('.compliance-role');
+            const regularCaseBtns = document.querySelectorAll('.regular-case-btn');
+            const complianceCaseBtns = document.querySelectorAll('.compliance-case-btn');
+            const partyTitle = document.getElementById('party-0-title');
+            const partyRoleSelect = document.getElementById('party-0-role');
+
+            if (selectedCaseType === 'compliance') {
+                // Show compliance roles
+                complianceRoles.forEach(option => option.style.display = 'block');
+                regularCaseBtns.forEach(btn => btn.style.display = 'none');
+                complianceCaseBtns.forEach(btn => btn.style.display = 'inline-block');
+                
+                // Update title and default selection
+                if (partyTitle) partyTitle.textContent = 'Primary Party 1 *';
+                
+                // Hide applicant option for compliance cases
+                const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
+                if (applicantOption) applicantOption.style.display = 'none';
+                
+                // Auto-select first compliance role if no role selected
+                if (partyRoleSelect && !partyRoleSelect.value) {
+                    partyRoleSelect.value = 'respondent';
+                }
+            } else {
+                // Show regular roles
+                complianceRoles.forEach(option => option.style.display = 'none');
+                regularCaseBtns.forEach(btn => btn.style.display = 'inline-block');
+                complianceCaseBtns.forEach(btn => btn.style.display = 'none');
+                
+                // Update title
+                if (partyTitle) partyTitle.textContent = 'Applicant 1 *';
+                
+                // Show applicant option for regular cases
+                const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
+                if (applicantOption) applicantOption.style.display = 'block';
+                
+                // Auto-select applicant if no role selected
+                if (partyRoleSelect && !partyRoleSelect.value) {
+                    partyRoleSelect.value = 'applicant';
+                }
+            }
+        }
+
         function showToSection(index) {
             document.getElementById(`to-section-${index}`).classList.remove('hidden');
             document.getElementById(`add-to-${index}`).classList.add('hidden');
@@ -411,7 +505,7 @@
         }
 
         function addOseNumber() {
-            const basinOptions = `@foreach($basinCodes as $code)<option value="{{ $code->initial }}">{{ $code->initial }} - {{ $code->description }}</option>@endforeach`;
+            const basinOptions = `<option value="">Select Basin</option>@foreach($basinCodes as $code)<option value="{{ $code->initial }}">{{ $code->initial }} - {{ $code->description }}</option>@endforeach`;
             document.getElementById('ose-numbers').insertAdjacentHTML('beforeend', `
                 <div class="flex gap-2 items-center flex-wrap">
                     <div class="flex items-center gap-1">

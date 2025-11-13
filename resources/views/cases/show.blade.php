@@ -119,17 +119,9 @@
                         {{ $case->status === 'rejected' ? 'Fix & Resubmit Case' : 'Edit Case' }}
                     </a>
                     @if($case->status === 'draft' && auth()->user()->canSubmitToHU())
-                    <form method="POST" action="{{ route('cases.update', $case) }}" class="inline">
-                        @csrf
-                        @method('PUT')
-                        <input type="hidden" name="case_type" value="{{ $case->case_type }}">
-                        <input type="hidden" name="caption" value="{{ $case->caption }}">
-                        <input type="hidden" name="action" value="submit">
-                        <input type="hidden" name="affirmation" value="1">
-                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm transition-colors" onclick="return confirm('Submit this case to Hearing Unit for review?')">
-                            Submit to HU
-                        </button>
-                    </form>
+                    <button onclick="showSubmitModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm transition-colors">
+                        Submit to HU
+                    </button>
                     @endif
                 </div>
                 @endif
@@ -297,6 +289,17 @@
                         @elseif($case->status === 'approved')
                         <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">✓ Case Approved</span>
                         @endif
+                        
+                        @if(in_array($case->status, ['active', 'approved']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                        <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
+                        @elseif($case->status === 'closed')
+                        <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
+                        @if(in_array(auth()->user()->role, ['hu_admin', 'admin']))
+                        <button onclick="archiveCase()" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-600">Archive Case</button>
+                        @endif
+                        @elseif($case->status === 'archived')
+                        <span class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium">📦 Case Archived</span>
+                        @endif
                     </div>
                 </div>
 
@@ -372,13 +375,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
                             </a>
-                            @if(auth()->user()->role === 'hu_admin' && !$doc->stamped && in_array($doc->pleading_type, ['request_to_docket', 'request_for_pre_hearing']) && $doc->mime === 'application/pdf')
-                            <button onclick="stampDocument({{ $doc->id }})" class="text-green-600 hover:text-green-800 text-sm" title="Apply E-Stamp">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                            </button>
-                            @endif
+
                             @if(auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))
                             <button onclick="deleteDocument({{ $doc->id }})" class="text-red-600 hover:text-red-800 text-sm" title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -556,12 +553,7 @@
         // Initialize pagination
         filterAndPaginate();
 
-        function stampDocument(docId) {
-            if (confirm('Apply stamp to this document?')) {
-                fetch(`/documents/${docId}/stamp`, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }})
-                    .then(() => location.reload());
-            }
-        }
+
 
         function deleteDocument(docId) {
             if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
@@ -601,6 +593,54 @@
 
         function hideRejectModal() {
             document.getElementById('rejectModal').classList.add('hidden');
+        }
+
+        function showCloseModal() {
+            document.getElementById('closeModal').classList.remove('hidden');
+        }
+
+        function hideCloseModal() {
+            document.getElementById('closeModal').classList.add('hidden');
+        }
+
+        function archiveCase() {
+            if (confirm('Are you sure you want to archive this case? This action cannot be undone.')) {
+                fetch('{{ route('cases.archive', $case) }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to archive case');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to archive case');
+                });
+            }
+        }
+
+        function showSubmitModal() {
+            document.getElementById('submitModal').classList.remove('hidden');
+        }
+
+        function hideSubmitModal() {
+            document.getElementById('submitModal').classList.add('hidden');
+        }
+
+        function toggleAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.notify-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
         }
 
         // Attorney Management
@@ -776,6 +816,114 @@
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideRejectModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
                             <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Reject & Notify ALU</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Close Case Modal -->
+    @if(in_array($case->status, ['active', 'approved']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+    <div id="closeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Close Case {{ $case->case_no }}</h3>
+                    <p class="text-sm text-gray-600 mb-4">This will close the case and notify all parties. Closed cases can be archived later.</p>
+
+                    <form action="{{ route('cases.close', $case) }}" method="POST">
+                        @csrf
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Closure *</label>
+                            <textarea name="reason" required rows="4" class="block w-full border-gray-300 rounded-md" placeholder="Please provide the reason for closing this case..."></textarea>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="hideCloseModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600">Close Case</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Submit to HU Modal -->
+    @if($case->status === 'draft' && auth()->user()->canSubmitToHU())
+    <div id="submitModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Submit Case {{ $case->case_no }} to Hearing Unit</h3>
+                    <p class="text-sm text-gray-600 mb-4">The following people will be notified about the case submission:</p>
+
+                    <form action="{{ route('cases.update', $case) }}" method="POST">
+                        @csrf
+                        @method('PUT')
+                        <input type="hidden" name="case_type" value="{{ $case->case_type }}">
+                        <input type="hidden" name="caption" value="{{ $case->caption }}">
+                        <input type="hidden" name="action" value="submit">
+                        <input type="hidden" name="affirmation" value="1">
+
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
+                            <div class="mb-4">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="selectAll" class="mr-2" onchange="toggleAll()">
+                                    <span class="font-medium">Select All</span>
+                                </label>
+                            </div>
+
+                            <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
+                            @foreach($case->parties->where('role', '!=', 'counsel') as $party)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="party_{{ $party->id }}" class="mr-2 notify-checkbox" checked>
+                                    <span>{{ $party->person->full_name }} ({{ ucfirst($party->role) }}) - {{ $party->person->email }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+
+                            @php
+                                $attorneys = $case->parties->where('role', 'counsel');
+                            @endphp
+                            @if($attorneys->count() > 0)
+                            <h4 class="font-medium text-sm mt-3 mb-2">Attorneys:</h4>
+                            @foreach($attorneys as $attorney)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="attorney_{{ $attorney->id }}" class="mr-2 notify-checkbox" checked>
+                                    <span>{{ $attorney->person->full_name }} - {{ $attorney->person->email }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                            @endif
+
+                            @php
+                                $assignedUsers = $case->assignments;
+                            @endphp
+                            @if($assignedUsers->count() > 0)
+                            <h4 class="font-medium text-sm mt-3 mb-2">Assigned Staff:</h4>
+                            @foreach($assignedUsers as $assignment)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="staff_{{ $assignment->user_id }}" class="mr-2 notify-checkbox" checked>
+                                    <span>{{ $assignment->user->name }} ({{ ucfirst(str_replace('_', ' ', $assignment->assignment_type)) }}) - {{ $assignment->user->email }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                            @endif
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Additional Message (Optional)</label>
+                            <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information for the recipients..."></textarea>
+                        </div>
+
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="hideSubmitModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Submit to HU & Notify Selected</button>
                         </div>
                     </form>
                 </div>

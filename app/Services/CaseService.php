@@ -106,6 +106,11 @@ class CaseService
             
             AuditLog::log('create_case', $creator, $case, ['case_number' => $case->case_no]);
             
+            // Send notifications if case was submitted directly
+            if ($case->status === 'submitted_to_hu') {
+                $this->notifyCaseSubmission($case);
+            }
+            
             return $case;
         });
     }
@@ -463,6 +468,9 @@ class CaseService
     {
         if ($case->changeStatus('submitted_to_hu', $user, 'Case submitted for HU review')) {
             AuditLog::log('submit_to_hu', $user, $case);
+            
+            $this->notifyCaseSubmission($case);
+            
             return true;
         }
         return false;
@@ -834,26 +842,128 @@ class CaseService
         });
     }
 
-    public function stampDocument(Document $document, User $user): bool
+    public function closeCase(CaseModel $case, User $user, string $reason): bool
     {
-        if (!in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing'])) {
+        if (!in_array($user->role, ['hu_admin', 'hu_clerk'])) {
             return false;
         }
-        
-        $stampText = $this->generateStampText($document->case, $user);
-        
-        $document->update([
-            'stamped' => true,
-            'stamp_text' => $stampText,
-            'stamped_at' => now()
+
+        if (!in_array($case->status, ['active', 'approved'])) {
+            return false;
+        }
+
+        $case->update([
+            'status' => 'closed',
+            'closed_at' => now(),
+            'closed_by_user_id' => $user->id,
+            'closure_reason' => $reason
         ]);
-        
-        AuditLog::log('stamp_document', $user, $document->case, [
-            'document_id' => $document->id,
-            'document_type' => $document->pleading_type,
-            'stamp_text' => $stampText
-        ]);
-        
+
+        AuditLog::log('close_case', $user, $case, ['reason' => $reason]);
+
+        // Notify all parties
+        foreach ($case->parties as $party) {
+            $this->notificationService->notify(
+                $party->person,
+                'case_closed',
+                'Case Closed',
+                "Case {$case->case_no} has been closed. Reason: {$reason}",
+                $case
+            );
+        }
+
         return true;
+    }
+
+    public function archiveCase(CaseModel $case, User $user): bool
+    {
+        if (!in_array($user->role, ['hu_admin', 'admin'])) {
+            return false;
+        }
+
+        if ($case->status !== 'closed') {
+            return false;
+        }
+
+        $case->update([
+            'status' => 'archived',
+            'archived_at' => now(),
+            'archived_by_user_id' => $user->id
+        ]);
+
+        AuditLog::log('archive_case', $user, $case);
+
+        return true;
+    }
+
+    public function notifyCaseSubmission(CaseModel $case, array $recipients = [], ?string $customMessage = null): void
+    {
+        $baseMessage = "The Hearing Unit is in receipt of the Request to Docket OR the Request for Pre-Hearing Scheduling Conference. The Request and the associated documents will be reviewed and either accepted or rejected. If a case is rejected, we hope to provide a reason for rejection (i.e. improper naming convention, did not include all required documents such as the Application, letters of protests, letter of denial and letter of aggrieval, compliance order, etc.)";
+        
+        $fullMessage = "Case {$case->case_no} has been submitted to the Hearing Unit for review. {$baseMessage}";
+        if ($customMessage) {
+            $fullMessage .= "\n\nAdditional Information: {$customMessage}";
+        }
+
+        // If no specific recipients provided, notify all
+        if (empty($recipients)) {
+            $recipients = $this->getAllCaseRecipients($case);
+        }
+
+        foreach ($recipients as $recipient) {
+            [$type, $id] = explode('_', $recipient, 2);
+            
+            if ($type === 'party') {
+                $party = $case->parties()->find($id);
+                if ($party && $party->person && $party->person->email) {
+                    $this->notificationService->notify(
+                        $party->person,
+                        'case_submitted',
+                        'Case Submitted for Review',
+                        $fullMessage,
+                        $case
+                    );
+                }
+            } elseif ($type === 'attorney') {
+                $attorney = $case->parties()->find($id);
+                if ($attorney && $attorney->person && $attorney->person->email) {
+                    $this->notificationService->notify(
+                        $attorney->person,
+                        'case_submitted',
+                        'Case Submitted for Review',
+                        $fullMessage,
+                        $case
+                    );
+                }
+            } elseif ($type === 'staff') {
+                $user = User::find($id);
+                if ($user && $user->email) {
+                    $this->notificationService->notify(
+                        $user,
+                        'case_submitted',
+                        'Case Submitted for Review',
+                        $fullMessage,
+                        $case
+                    );
+                }
+            }
+        }
+    }
+
+    private function getAllCaseRecipients(CaseModel $case): array
+    {
+        $recipients = [];
+        
+        // Add all parties
+        foreach ($case->parties as $party) {
+            $recipients[] = ($party->role === 'counsel' ? 'attorney_' : 'party_') . $party->id;
+        }
+        
+        // Add all assigned staff
+        foreach ($case->assignments as $assignment) {
+            $recipients[] = 'staff_' . $assignment->user_id;
+        }
+        
+        return $recipients;
     }
 }

@@ -112,7 +112,7 @@ class PdfStampingService
         $stampTime = now()->format('g:i A');
         $initials = $user->initials ?? strtoupper(substr($user->name, 0, 2));
 
-        $stampText = "Electronically Filed,\n{$stampDate} @ {$stampTime},\nOSE HEARING UNIT/{$initials}";
+        $stampText = "Electronically Filed\n{$stampDate} @ {$stampTime}\nOSE HEARING UNIT/{$initials}";
         
         // Calculate text width
         $lines = explode("\n", $stampText);

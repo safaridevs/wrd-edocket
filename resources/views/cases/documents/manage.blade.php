@@ -90,13 +90,13 @@
 
 
                                             @php
-                                                $hasNamingIssue = !preg_match('/^\d{4}-\d{2}-\d{2} - .+ - .+\.pdf$/', $document->original_filename);
+                                                $hasNamingIssue = !preg_match('/^\d{4}-\d{2}-\d{2} - .+\.pdf$/', $document->original_filename);
                                                 $isRequiredDoc = in_array($document->doc_type, ['application', 'notice_publication']);
                                                 $hasFileIssue = !$document->storage_uri || !Storage::disk('public')->exists($document->storage_uri);
                                             @endphp
 
                                             @if($hasNamingIssue)
-                                                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded" title="Document name doesn't follow naming convention: YYYY-MM-DD - [Type] - [OSE Numbers].pdf">
+                                                <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded" title="Document name doesn't follow naming convention: YYYY-MM-DD - [Type].pdf (OSE Numbers optional)">
                                                     ⚠️ Naming Issue
                                                 </span>
                                             @endif
@@ -114,12 +114,7 @@
                                             @endif
                                         </div>
                                         
-                                        @if(!$document->stamped && $document->approved && in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
-                                            <button onclick="stampDocument({{ $document->id }})" 
-                                                    class="text-red-600 hover:text-red-800 text-sm">
-                                                📋 Stamp
-                                            </button>
-                                        @endif
+
                                     </div>
                                     
                                     <div class="text-sm text-gray-600 space-y-1">
@@ -149,7 +144,7 @@
 
                                         @if($hasNamingIssue)
                                             <div class="text-yellow-600 bg-yellow-50 p-2 rounded mt-2">
-                                                <strong>⚠️ Naming Convention Issue:</strong> Document should follow format: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf
+                                                <strong>⚠️ Naming Convention Issue:</strong> Document should follow format: YYYY-MM-DD - [Document Type].pdf (OSE File Numbers are optional)
                                             </div>
                                         @endif
 
@@ -396,30 +391,7 @@
             }
         }
 
-        function stampDocument(documentId) {
-            if (confirm('Apply e-stamp to this document?')) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/stamp`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Document stamped successfully!');
-                        location.reload();
-                    } else {
-                        alert('Failed to stamp document: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to stamp document');
-                });
-            }
-        }
+
 
         function deleteDocument(documentId) {
             if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {

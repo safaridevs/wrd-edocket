@@ -16,6 +16,11 @@ Route::get('/', function () {
     return view('welcome');
 })->name('welcome');
 
+// Public case viewing (no authentication required)
+Route::get('public/cases', [\App\Http\Controllers\PublicCaseController::class, 'index'])->name('public.cases.index');
+Route::get('public/cases/{case}', [\App\Http\Controllers\PublicCaseController::class, 'show'])->name('public.cases.show');
+Route::get('public/documents/{document}/download', [\App\Http\Controllers\PublicCaseController::class, 'downloadDocument'])->name('public.documents.download');
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -37,7 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/file-document', [DocumentController::class, 'store'])->name('documents.file.store');
     Route::get('cases/{case}/upload-documents', [CaseController::class, 'uploadDocuments'])->name('cases.documents.upload');
     Route::post('cases/{case}/upload-documents', [CaseController::class, 'storeDocuments'])->name('cases.documents.store');
-    Route::post('documents/{document}/stamp', [DocumentController::class, 'stamp'])->middleware('permission:apply_stamp')->name('documents.stamp');
+    Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])->middleware('permission:apply_stamp')->name('documents.approve');
     
     Route::get('cases/{case}/persons/{person}/edit', [PersonController::class, 'edit'])->name('cases.persons.edit');
     Route::put('cases/{case}/persons/{person}', [PersonController::class, 'update'])->name('cases.persons.update');
@@ -54,7 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/documents/{document}/approve', [CaseController::class, 'approveDocument'])->name('cases.documents.approve');
     Route::post('cases/{case}/documents/{document}/reject', [CaseController::class, 'rejectDocument'])->name('cases.documents.reject');
     Route::post('cases/{case}/documents/{document}/unapprove', [CaseController::class, 'unapproveDocument'])->name('cases.documents.unapprove');
-    Route::post('cases/{case}/documents/{document}/stamp', [CaseController::class, 'stampDocument'])->name('cases.documents.stamp');
+
     Route::post('cases/{case}/documents/{document}/request-fix', [CaseController::class, 'requestDocumentFix'])->name('cases.documents.request-fix');
     Route::delete('cases/{case}/documents/{document}', [CaseController::class, 'destroyDocument'])->name('cases.documents.destroy');
 });
@@ -98,6 +103,8 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/accept', [CaseController::class, 'accept'])->middleware('permission:accept_filings')->name('cases.accept');
     Route::post('cases/{case}/reject', [CaseController::class, 'reject'])->middleware('permission:reject_filings')->name('cases.reject');
     Route::post('cases/{case}/approve', [CaseController::class, 'approve'])->name('cases.approve');
+    Route::post('cases/{case}/close', [CaseController::class, 'close'])->name('cases.close');
+    Route::post('cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
     Route::get('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorneyForm'])->name('cases.assign-attorney');
     Route::post('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorney'])->name('cases.assign-attorney.store');
     Route::get('cases/{case}/assign-hydrology-expert', [CaseController::class, 'assignHydrologyExpertForm'])->name('cases.assign-hydrology-expert');

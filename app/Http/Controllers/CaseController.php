@@ -56,7 +56,7 @@ class CaseController extends Controller
             'case_type' => 'required|in:aggrieved,protested,compliance',
             'caption' => 'required|string|max:1000',
             'parties' => 'required|array|min:1',
-            'parties.*.role' => 'required|in:applicant,protestant,intervenor',
+            'parties.*.role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
@@ -96,6 +96,8 @@ class CaseController extends Controller
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
             'assigned_attorneys' => 'nullable|array',
             'assigned_attorneys.*' => 'exists:users,id',
+            'assigned_clerks' => 'nullable|array',
+            'assigned_clerks.*' => 'exists:users,id',
             'optional_docs' => 'nullable|array',
             'optional_docs.*.type' => 'nullable|string',
             'optional_docs.*.files' => 'nullable|array',
@@ -114,6 +116,18 @@ class CaseController extends Controller
                         'case_id' => $case->id,
                         'user_id' => $attorneyId,
                         'assignment_type' => 'alu_attorney',
+                        'assigned_by' => Auth::id()
+                    ]);
+                }
+            }
+
+            // Handle ALU clerk assignments
+            if (isset($validated['assigned_clerks']) && !empty($validated['assigned_clerks'])) {
+                foreach ($validated['assigned_clerks'] as $clerkId) {
+                    CaseAssignment::create([
+                        'case_id' => $case->id,
+                        'user_id' => $clerkId,
+                        'assignment_type' => 'alu_clerk',
                         'assigned_by' => Auth::id()
                     ]);
                 }
@@ -178,7 +192,10 @@ class CaseController extends Controller
             'ose_numbers.*.file_no_from' => 'nullable|string|max:50',
             'ose_numbers.*.file_no_to' => 'nullable|string|max:50',
             'affirmation' => 'required|accepted',
-            'action' => 'required|in:draft,validate,submit'
+            'action' => 'required|in:draft,validate,submit',
+            'notify_recipients' => 'nullable|array',
+            'notify_recipients.*' => 'string',
+            'custom_message' => 'nullable|string|max:1000'
         ]);
 
         try {
@@ -228,6 +245,11 @@ class CaseController extends Controller
                 }
                 
                 $case->update(['status' => 'submitted_to_hu']);
+                
+                // Send notifications to selected recipients
+                $recipients = $validated['notify_recipients'] ?? [];
+                $customMessage = $validated['custom_message'] ?? null;
+                $this->caseService->notifyCaseSubmission($case, $recipients, $customMessage);
             }
 
             $message = match($validated['action']) {
@@ -619,7 +641,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,intervenor',
+            'role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -773,7 +795,7 @@ class CaseController extends Controller
         $party = $case->parties()->findOrFail($partyId);
         
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,intervenor',
+            'role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -957,14 +979,20 @@ class CaseController extends Controller
         }
 
         $document = $case->documents()->findOrFail($documentId);
-        $document->update([
-            'approved' => true,
-            'approved_by_user_id' => auth()->id(),
-            'approved_at' => now(),
-            'rejected_reason' => null
-        ]);
-
-        return response()->json(['success' => true]);
+        
+        // Check case status
+        if (!in_array($case->status, ['active', 'approved'])) {
+            return response()->json(['success' => false, 'error' => 'Documents can only be approved in active or approved cases']);
+        }
+        
+        // Use DocumentService to approve the document (which includes automatic stamping for pleading docs)
+        $documentService = app(\App\Services\DocumentService::class);
+        
+        if ($documentService->approveDocument($document, auth()->user())) {
+            return response()->json(['success' => true, 'message' => 'Document approved successfully']);
+        }
+        
+        return response()->json(['success' => false, 'error' => 'Failed to approve document']);
     }
 
     public function rejectDocument(Request $request, CaseModel $case, $documentId)
@@ -988,23 +1016,7 @@ class CaseController extends Controller
         return response()->json(['success' => true]);
     }
 
-    public function stampDocument(Request $request, CaseModel $case, $documentId)
-    {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
-            abort(403);
-        }
 
-        $document = $case->documents()->findOrFail($documentId);
-        
-        // Use DocumentService to stamp the document (which includes PDF stamping)
-        $documentService = app(\App\Services\DocumentService::class);
-        
-        if ($documentService->stampDocument($document, auth()->user())) {
-            return response()->json(['success' => true, 'message' => 'Document stamped successfully']);
-        }
-        
-        return response()->json(['success' => false, 'error' => 'Document marked as stamped but visual PDF stamping may have failed. Check logs for details.']);
-    }
 
     public function unapproveDocument(CaseModel $case, $documentId)
     {
@@ -1069,6 +1081,36 @@ class CaseController extends Controller
 
         return response()->json(['success' => true]);
     }
+
+    public function close(Request $request, CaseModel $case)
+    {
+        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500'
+        ]);
+
+        if ($this->caseService->closeCase($case, auth()->user(), $validated['reason'])) {
+            return back()->with('success', 'Case closed successfully.');
+        }
+
+        return back()->with('error', 'Unable to close case.');
+    }
+
+    public function archive(CaseModel $case)
+    {
+        if (!in_array(auth()->user()->role, ['hu_admin', 'admin'])) {
+            abort(403);
+        }
+
+        if ($this->caseService->archiveCase($case, auth()->user())) {
+            return back()->with('success', 'Case archived successfully.');
+        }
+
+        return back()->with('error', 'Unable to archive case.');
+    }
     
     private function validateSubmissionRequirements(CaseModel $case): array
     {
@@ -1079,10 +1121,17 @@ class CaseController extends Controller
             $errors[] = 'ALU Attorney must be assigned before submission.';
         }
         
-        // Check if at least one Applicant exists
-        $hasApplicant = $case->parties()->where('role', 'applicant')->exists();
-        if (!$hasApplicant) {
-            $errors[] = 'At least one Applicant must be added to the case.';
+        // Check if at least one primary party exists (Applicant for regular cases, or compliance roles for compliance cases)
+        if ($case->case_type === 'compliance') {
+            $hasComplianceParty = $case->parties()->whereIn('role', ['respondent', 'violator', 'alleged_violator'])->exists();
+            if (!$hasComplianceParty) {
+                $errors[] = 'At least one Respondent, Violator, or Alleged Violator must be added to compliance cases.';
+            }
+        } else {
+            $hasApplicant = $case->parties()->where('role', 'applicant')->exists();
+            if (!$hasApplicant) {
+                $errors[] = 'At least one Applicant must be added to the case.';
+            }
         }
         
         // Check if pleading document exists (Request to Docket OR Request for Pre-Hearing)

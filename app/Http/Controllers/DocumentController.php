@@ -85,12 +85,12 @@ class DocumentController extends Controller
         return view('documents.file', compact('case'));
     }
 
-    public function stamp(Document $document)
+    public function approve(Document $document)
     {
-        if ($this->documentService->stampDocument($document, Auth::user())) {
-            return back()->with('success', 'Document stamped successfully.');
+        if ($this->documentService->approveDocument($document, Auth::user())) {
+            return back()->with('success', 'Document approved successfully.');
         }
 
-        return back()->with('error', 'Unable to stamp document.');
+        return back()->with('error', 'Unable to approve document.');
     }
 }
