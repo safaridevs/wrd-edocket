@@ -14,7 +14,7 @@
                         <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                         <span class="inline-block mt-2 px-2 py-1 text-xs rounded-full
                             {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                               ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' : 
+                               ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' :
                                ($case->status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')) }}">
                             {{ ucfirst(str_replace('_', ' ', $case->status)) }}
                         </span>
@@ -39,7 +39,7 @@
                         <div class="text-sm mt-1">
                             @if($case->aluAttorneys->count() > 0)
                                 @foreach($case->aluAttorneys as $attorney)
-                                    <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $attorney->name }}</span>
+                                    <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $attorney->getDisplayName() }}</span>
                                 @endforeach
                             @else
                                 <span class="text-gray-500">Not assigned</span>
@@ -55,7 +55,7 @@
                         <div class="text-sm mt-1">
                             @if($case->hydrologyExperts->count() > 0)
                                 @foreach($case->hydrologyExperts as $expert)
-                                    <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $expert->name }}</span>
+                                    <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $expert->getDisplayName() }}</span>
                                 @endforeach
                             @else
                                 <span class="text-gray-500">Not assigned</span>
@@ -71,7 +71,7 @@
                         <div class="text-sm mt-1">
                             @if($case->aluClerks->count() > 0)
                                 @foreach($case->aluClerks as $clerk)
-                                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $clerk->name }}</span>
+                                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $clerk->getDisplayName() }}</span>
                                 @endforeach
                             @else
                                 <span class="text-gray-500">Not assigned</span>
@@ -83,11 +83,11 @@
                             @endif
                         </div>
 
-                        <strong class="mt-3 block">Assigned WRDs:</strong>
+                        <strong class="mt-3 block">Assigned WRD Experts:</strong>
                         <div class="text-sm mt-1">
                             @if($case->wrds->count() > 0)
                                 @foreach($case->wrds as $wrd)
-                                    <span class="inline-block bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $wrd->name }}</span>
+                                    <span class="inline-block bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $wrd->getDisplayName() }}</span>
                                 @endforeach
                             @else
                                 <span class="text-gray-500">Not assigned</span>
@@ -269,6 +269,65 @@
             </div>
             @endif
 
+            <!-- HU Validation Checklist -->
+            @if($case->status === 'submitted_to_hu' && auth()->user()->isHearingUnit())
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium mb-4">HU Validation Checklist</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @php
+                        $hasApplication = $case->documents->where('doc_type', 'application')->count() > 0;
+                        $hasNotice = $case->documents->where('doc_type', 'notice_publication')->count() > 0;
+                        $hasRequest = $case->documents->whereIn('pleading_type', ['request_to_docket', 'request_for_pre_hearing'])->count() > 0;
+                        $namingOk = $case->documents->filter(function($doc) {
+                            return !preg_match('/^\d{4}-\d{2}-\d{2} - .+/', $doc->original_filename);
+                        })->count() === 0;
+                        $allPdfs = $case->documents->where('mime', '!=', 'application/pdf')->where('doc_type', '!=', 'notice_publication')->count() === 0;
+                    @endphp
+                    
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 rounded-full {{ $hasApplication ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
+                            {{ $hasApplication ? '✓' : '✗' }}
+                        </span>
+                        Application PDF Present
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 rounded-full {{ $hasNotice ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
+                            {{ $hasNotice ? '✓' : '✗' }}
+                        </span>
+                        Notice of Publication Present
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 rounded-full {{ $hasRequest ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
+                            {{ $hasRequest ? '✓' : '✗' }}
+                        </span>
+                        Pleading Document Present
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 rounded-full {{ $namingOk ? 'bg-green-500' : 'bg-yellow-500' }} text-white text-xs flex items-center justify-center mr-3">
+                            {{ $namingOk ? '✓' : '!' }}
+                        </span>
+                        Filename Convention {{ $namingOk ? 'Compliant' : 'Issues' }}
+                    </div>
+                </div>
+                
+                <div class="flex space-x-4 mt-6">
+                    <form method="POST" action="{{ route('cases.accept', $case) }}" class="inline">
+                        @csrf
+                        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+                            Accept Case
+                        </button>
+                    </form>
+                    
+                    <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                        Reject Case
+                    </button>
+                </div>
+            </div>
+            @endif
+
             <!-- Documents -->
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex justify-between items-center mb-4">
@@ -281,15 +340,14 @@
                         <a href="{{ route('documents.file', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm">File Document</a>
                         @endif
                         @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
-                        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Upload Documents</button>
+                        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">File Documents</button>
                         @endif
                         @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
-                        <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Approve Case</button>
-                        <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
+                        <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
                         @elseif($case->status === 'approved')
-                        <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">✓ Case Approved</span>
+                        <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">✓ Case Accepted</span>
                         @endif
-                        
+
                         @if(in_array($case->status, ['active', 'approved']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                         <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
                         @elseif($case->status === 'closed')
@@ -318,7 +376,7 @@
                     <select id="statusFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Status</option>
                         <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
+                        <option value="accepted">Accepted</option>
                         <option value="stamped">E-Stamped</option>
                         <option value="rejected">Rejected</option>
                     </select>
@@ -334,7 +392,7 @@
                     @foreach($case->documents->sortByDesc('uploaded_at') as $doc)
                     <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
                          data-doc-type="{{ $doc->doc_type }}"
-                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'approved' : ($doc->rejected_reason ? 'rejected' : 'pending')) }}"
+                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : 'pending')) }}"
                          data-filename="{{ strtolower($doc->original_filename) }}">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3">
@@ -344,7 +402,7 @@
                                         <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">📋 E-Stamped</span>
                                     @endif
                                     @if($doc->approved)
-                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Approved</span>
+                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                     @endif
                                     @if(in_array($doc->pleading_type, ['request_to_docket', 'request_for_pre_hearing']))
                                         <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Pleading Document</span>
@@ -387,7 +445,7 @@
                     </div>
                     @endforeach
                 </div>
-                
+
                 <!-- Pagination -->
                 <div id="paginationContainer" class="mt-4 flex justify-between items-center">
                     <div class="text-sm text-gray-600">
@@ -410,7 +468,7 @@
                         <div class="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                         <div class="flex-1">
                             <div class="text-sm">
-                                <strong>{{ $log->user->name }}</strong>
+                                <strong>{{ $log->user->getDisplayName() }}</strong>
                                 {{ str_replace('_', ' ', $log->action) }}
                             </div>
                             <div class="text-xs text-gray-500">{{ $log->created_at->format('M j, Y g:i A') }}</div>
@@ -462,7 +520,7 @@
         let currentPage = 1;
         let itemsPerPage = 25;
         let filteredDocs = [];
-        
+
         document.getElementById('docTypeFilter').addEventListener('change', filterAndPaginate);
         document.getElementById('statusFilter').addEventListener('change', filterAndPaginate);
         document.getElementById('searchInput').addEventListener('input', filterAndPaginate);
@@ -471,14 +529,14 @@
             currentPage = 1;
             filterAndPaginate();
         });
-        
+
         document.getElementById('prevPage').addEventListener('click', () => {
             if (currentPage > 1) {
                 currentPage--;
                 paginateDocuments();
             }
         });
-        
+
         document.getElementById('nextPage').addEventListener('click', () => {
             const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
             if (currentPage < totalPages) {
@@ -507,34 +565,34 @@
                     filteredDocs.push(doc);
                 }
             });
-            
+
             currentPage = 1;
             paginateDocuments();
         }
-        
+
         function paginateDocuments() {
             const docs = document.querySelectorAll('.document-item');
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
-            
+
             // Hide all documents
             docs.forEach(doc => doc.style.display = 'none');
-            
+
             // Show current page documents
             filteredDocs.slice(startIndex, endIndex).forEach(doc => {
                 doc.style.display = 'flex';
             });
-            
+
             // Update pagination info
             document.getElementById('showingFrom').textContent = filteredDocs.length > 0 ? startIndex + 1 : 0;
             document.getElementById('showingTo').textContent = Math.min(endIndex, filteredDocs.length);
             document.getElementById('totalDocs').textContent = filteredDocs.length;
-            
+
             // Update pagination buttons
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
-            
+
             // Update page numbers
             const pageNumbers = document.getElementById('pageNumbers');
             pageNumbers.innerHTML = '';
@@ -549,7 +607,7 @@
                 pageNumbers.appendChild(pageBtn);
             }
         }
-        
+
         // Initialize pagination
         filterAndPaginate();
 
@@ -715,14 +773,14 @@
             document.getElementById('uploadModal').classList.add('hidden');
             document.getElementById('uploadForm').reset();
         }
-        
+
         // Attorney modal functions
         window.toggleAttorneyFields = function() {
             const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
             const existingSelect = document.querySelector('#attorneyModal select[name="attorney_id"]');
             const newFields = document.getElementById('newAttorneyFields');
             const newInputs = newFields?.querySelectorAll('input') || [];
-            
+
             if (option === 'existing') {
                 existingSelect.disabled = false;
                 newFields?.classList.add('opacity-50');
@@ -734,7 +792,7 @@
                 newInputs.forEach(input => input.disabled = false);
             }
         };
-        
+
         window.handleAttorneyForm = function(event, partyId) {
             event.preventDefault();
             const formData = new FormData(event.target);
@@ -748,8 +806,8 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">Approve Case {{ $case->case_no }}</h3>
-                    <p class="text-sm text-gray-600 mb-4">The following persons will be notified of the case approval:</p>
+                    <h3 class="text-lg font-medium mb-4">Accept Case {{ $case->case_no }}</h3>
+                    <p class="text-sm text-gray-600 mb-4">The following persons will be notified of the case acceptance:</p>
 
                     <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
                         <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
@@ -778,7 +836,7 @@
                         @csrf
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideApproveModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Approve & Notify All</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Accept & Notify All</button>
                         </div>
                     </form>
                 </div>
@@ -937,7 +995,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">Upload Document</h3>
+                    <h3 class="text-lg font-medium mb-4">File Document</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.upload', $case) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="space-y-4">
@@ -960,19 +1018,19 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">File *</label>
-                                <input type="file" name="documents[other][0][file]" required accept=".pdf,.doc,.docx" 
+                                <input type="file" name="documents[other][0][file]" required accept=".pdf,.doc,.docx"
                                        class="block w-full border-gray-300 rounded-md">
                                 <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX (Max: 10MB)</p>
                                 <p class="text-xs text-blue-600 mt-1">File naming convention: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf</p>
                             </div>
                         </div>
-                        
+
                         <div class="flex justify-end space-x-3 mt-6">
                             <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                Upload Document
+                                File Document
                             </button>
                         </div>
                     </form>

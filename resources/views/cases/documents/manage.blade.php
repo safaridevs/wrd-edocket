@@ -34,7 +34,7 @@
                 </div>
                 <div class="bg-white shadow rounded-lg p-4">
                     <div class="text-2xl font-bold text-green-600">{{ $case->documents->where('approved', true)->count() }}</div>
-                    <div class="text-sm text-gray-600">Approved</div>
+                    <div class="text-sm text-gray-600">Accepted</div>
                 </div>
                 <div class="bg-white shadow rounded-lg p-4">
                     <div class="text-2xl font-bold text-yellow-600">{{ $case->documents->where('approved', false)->where('rejected_reason', null)->count() }}</div>
@@ -52,7 +52,7 @@
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
                         <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
-                            + Upload Document
+                            + File Document
                         </button>
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
                             <option value="">All Types</option>
@@ -76,7 +76,7 @@
                                             <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</span>
                                             
                                             @if($document->approved)
-                                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Approved</span>
+                                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                             @elseif($document->rejected_reason)
                                                 <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">✗ Rejected</span>
                                             @else
@@ -172,21 +172,21 @@
                                         @if(!$document->approved && !$document->rejected_reason)
                                             <button onclick="approveDocument({{ $document->id }})" 
                                                     class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
-                                                ✓ Approve
+                                                ✓ Accept
                                             </button>
                                             <button onclick="rejectDocument({{ $document->id }})" 
                                                     class="text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap">
                                                 ✗ Reject
                                             </button>
-                                        @elseif($document->approved && !$document->rejected_reason)
-                                            <button onclick="unrejectDocument({{ $document->id }})" 
-                                                    class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
-                                                ↩️ Unapprove
+                                        @elseif($document->approved && !$document->stamped && in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']))
+                                            <button onclick="stampDocument({{ $document->id }})" 
+                                                    class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
+                                                📋 Stamp
                                             </button>
                                         @elseif($document->rejected_reason)
                                             <button onclick="approveDocument({{ $document->id }})" 
                                                     class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
-                                                ✓ Approve
+                                                ✓ Accept
                                             </button>
                                         @endif
                                         
@@ -220,12 +220,45 @@
         </div>
     </div>
 
+    <!-- Document Action Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-md w-full">
+                <div class="p-6">
+                    <h3 id="confirmTitle" class="text-lg font-medium mb-4">Confirm Action</h3>
+                    <p id="confirmMessage" class="text-gray-600 mb-4">Are you sure you want to proceed?</p>
+                    
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="documentViewedCheckbox" class="mr-2">
+                            <span class="text-sm">I confirm that I have viewed this document</span>
+                        </label>
+                    </div>
+                    
+                    <div id="rejectReasonSection" class="mb-4 hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Reason for rejection:</label>
+                        <textarea id="rejectReasonInput" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Please provide a reason for rejection..."></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideConfirmModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
+                            Cancel
+                        </button>
+                        <button type="button" id="confirmActionBtn" onclick="executeAction()" disabled class="px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed">
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Upload Document Modal -->
     <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">Upload Document</h3>
+                    <h3 class="text-lg font-medium mb-4">File Document</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="space-y-4">
@@ -267,7 +300,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                Upload Document
+                                File Document
                             </button>
                         </div>
                     </form>
@@ -329,9 +362,41 @@
             });
         }
 
-        function approveDocument(documentId) {
-            if (confirm('Are you sure you want to approve this document?')) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/approve`, {
+        let currentAction = null;
+        let currentDocumentId = null;
+
+        function showConfirmModal(title, message, action, documentId, isReject = false) {
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+            document.getElementById('documentViewedCheckbox').checked = false;
+            
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
+            
+            document.getElementById('rejectReasonInput').value = '';
+            
+            const rejectSection = document.getElementById('rejectReasonSection');
+            if (isReject) {
+                rejectSection.classList.remove('hidden');
+            } else {
+                rejectSection.classList.add('hidden');
+            }
+            
+            currentAction = action;
+            currentDocumentId = documentId;
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function hideConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            currentAction = null;
+            currentDocumentId = null;
+        }
+
+        function executeAction() {
+            if (currentAction === 'approve') {
+                fetch(`/cases/{{ $case->id }}/documents/${currentDocumentId}/approve`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -346,13 +411,14 @@
                         alert('Failed to approve document');
                     }
                 });
-            }
-        }
-
-        function rejectDocument(documentId) {
-            const reason = prompt('Please provide a reason for rejection:');
-            if (reason) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/reject`, {
+            } else if (currentAction === 'reject') {
+                const reason = document.getElementById('rejectReasonInput').value.trim();
+                if (!reason) {
+                    alert('Please provide a reason for rejection');
+                    return;
+                }
+                
+                fetch(`/cases/{{ $case->id }}/documents/${currentDocumentId}/reject`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -369,27 +435,44 @@
                     }
                 });
             }
+            hideConfirmModal();
         }
 
-        function unrejectDocument(documentId) {
-            if (confirm('Are you sure you want to unapprove this document?')) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/unapprove`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Failed to unapprove document');
-                    }
-                });
-            }
+        function approveDocument(documentId) {
+            showConfirmModal(
+                'Accept Document',
+                'Are you sure you want to accept this document?',
+                'approve',
+                documentId
+            );
         }
+
+        function rejectDocument(documentId) {
+            showConfirmModal(
+                'Reject Document',
+                'Are you sure you want to reject this document?',
+                'reject',
+                documentId,
+                true
+            );
+        }
+
+        // Enable/disable confirm button based on checkbox
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkbox = document.getElementById('documentViewedCheckbox');
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            
+            checkbox.addEventListener('change', function() {
+                confirmBtn.disabled = !this.checked;
+                if (this.checked) {
+                    confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
+                } else {
+                    confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
+                }
+            });
+        });
+
+
 
 
 
@@ -431,6 +514,26 @@
                         location.reload();
                     } else {
                         alert('Failed to send fix request');
+                    }
+                });
+            }
+        }
+
+        function stampDocument(documentId) {
+            if (confirm('Are you sure you want to apply electronic stamp to this document?')) {
+                fetch(`/cases/{{ $case->id }}/documents/${documentId}/stamp`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to stamp document');
                     }
                 });
             }

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'sam_account_name',
         'password',
         'role',
+        'title',
         'initials',
         'phone',
         'is_active',
@@ -84,6 +85,28 @@ class User extends Authenticatable
         return session('impersonated_role', $this->role);
     }
 
+    public function getConsolidatedRole(): string
+    {
+        $role = $this->getCurrentRole();
+        
+        // Map specific roles to consolidated roles
+        $roleMap = [
+            'alu_clerk' => 'alu',
+            'alu_attorney' => 'alu', 
+            'alu_managing_atty' => 'alu',
+            'hu_admin' => 'hu',
+            'hu_clerk' => 'hu',
+            'hu_examiner' => 'hu',
+        ];
+        
+        return $roleMap[$role] ?? $role;
+    }
+
+    public function getDisplayName(): string
+    {
+        return $this->title ? "{$this->name}, {$this->title}" : $this->name;
+    }
+
     // Role checks
     public function isWRDExpert(): bool { return $this->getCurrentRole() === 'wrd_expert'; }
     public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_director'; }
@@ -93,7 +116,7 @@ class User extends Authenticatable
     public function isHydrologyExpert(): bool { return $this->getCurrentRole() === 'hydrology_expert'; }
     public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
     public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_law_clerk'; }
-    public function isInterestedParty(): bool { return $this->getCurrentRole() === 'interested_party'; }
+    public function isUnaffiliated(): bool { return $this->getCurrentRole() === 'unaffiliated'; }
     public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'system_admin'; }
     public function isHearingUnit(): bool { return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']); }
 
@@ -136,7 +159,7 @@ class User extends Authenticatable
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'party', 'unaffiliated']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -146,13 +169,13 @@ class User extends Authenticatable
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isAttorney();
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'party', 'unaffiliated']) || $this->isAttorney();
     }
 
     public function canAccessCase(CaseModel $case): bool
     {
         // Non-party roles (staff) can access all cases
-        if ($this->getCurrentRole() !== 'party') {
+        if (!in_array($this->getCurrentRole(), ['party', 'unaffiliated'])) {
             return true;
         }
 
@@ -218,7 +241,7 @@ class User extends Authenticatable
 
     public function canUpdateOwnContact(): bool
     {
-        return in_array($this->getCurrentRole(), ['party', 'attorney']) || $this->canModifyPersons();
+        return in_array($this->getCurrentRole(), ['party', 'unaffiliated', 'attorney']) || $this->canModifyPersons();
     }
 
     public function getPermissions(): array

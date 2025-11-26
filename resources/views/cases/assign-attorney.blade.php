@@ -20,7 +20,7 @@
                                     <input type="checkbox" name="attorney_ids[]" value="{{ $attorney->id }}" 
                                            {{ $case->aluAttorneys->contains($attorney->id) ? 'checked' : '' }}
                                            class="rounded border-gray-300 text-blue-600 mr-2">
-                                    <span class="text-sm">{{ $attorney->name }} ({{ $attorney->initials }})</span>
+                                    <span class="text-sm">{{ $attorney->getDisplayName() }} ({{ $attorney->initials }})</span>
                                 </label>
                             @endforeach
                         </div>

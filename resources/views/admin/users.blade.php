@@ -22,7 +22,7 @@
                         <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($users as $user)
                             <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">{{ $user->name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ $user->getDisplayName() }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -95,6 +95,10 @@
                                 <input type="text" name="name" id="editName" class="mt-1 block w-full border-gray-300 rounded-md" required>
                             </div>
                             <div>
+                                <label class="block text-sm font-medium text-gray-700">Title</label>
+                                <input type="text" name="title" id="editTitle" class="mt-1 block w-full border-gray-300 rounded-md" placeholder="e.g., WRAP Director, ALU Managing Attorney">
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700">Email</label>
                                 <input type="email" name="email" id="editEmail" class="mt-1 block w-full border-gray-300 rounded-md" required>
                             </div>
@@ -129,6 +133,7 @@
                 .then(response => response.json())
                 .then(user => {
                     document.getElementById('editName').value = user.name;
+                    document.getElementById('editTitle').value = user.title || '';
                     document.getElementById('editEmail').value = user.email;
                     document.getElementById('editRole').value = user.role;
                     document.getElementById('editUserForm').action = `/admin/users/${userId}`;

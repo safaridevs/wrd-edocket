@@ -43,7 +43,7 @@
                             $clientParties = $case->parties->where('role', '!=', 'counsel');
                             $attorneyParties = $case->parties->where('role', 'counsel');
                         @endphp
-                        
+
                         {{-- Display Client Parties --}}
                         @foreach($clientParties as $party)
                         <div class="border rounded-lg p-4 bg-gray-50">
@@ -71,7 +71,7 @@
                                             </div>
                                         @endif
                                     </div>
-                                    
+
                                     {{-- Show Attorney Information --}}
                                     @if($hasAttorney)
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
@@ -103,7 +103,7 @@
                             </div>
                         </div>
                         @endforeach
-                        
+
                         {{-- Display Unlinked Attorney Parties (if any) --}}
                         @php
                             $unlinkedAttorneys = $attorneyParties->whereNull('client_party_id');
@@ -172,14 +172,16 @@
                                     <select name="role" required class="mt-1 block w-full border-gray-300 rounded-md">
                                         <option value="applicant">Applicant</option>
                                         <option value="protestant">Protestant</option>
-                                        <option value="intervenor">Intervenor</option>
+                                        <option value="respondent">Respondent</option>
+                                        <option value="violator">Violator</option>
+                                        <option value="alleged_violator">Alleged Violator</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Type *</label>
                                     <select name="type" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePartyType(this)">
                                         <option value="individual">Individual</option>
-                                        <option value="company">Company</option>
+                                        <option value="company">Entity (Non-Person)</option>
                                     </select>
                                 </div>
                             </div>
@@ -228,10 +230,10 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Representation (Optional)</label>
                                 <div id="companyNote" class="hidden bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
                                     <p class="text-sm text-yellow-800">
-                                        <strong>Note:</strong> Companies must be represented by an attorney.
+                                        <strong>Note:</strong> Entities must be represented by an attorney.
                                     </p>
                                 </div>
-                                
+
                                 <label class="flex items-center mb-3">
                                     <input type="checkbox" id="addAttorney" onchange="toggleAttorneyFields()" class="mr-2">
                                     Add Attorney for this Party
@@ -335,11 +337,11 @@
                 attorneyFields.classList.remove('hidden');
             }
         }
-        
+
         function toggleAttorneyFields() {
             const attorneyFields = document.getElementById('attorneyFields');
             const addAttorneyCheckbox = document.getElementById('addAttorney');
-            
+
             if (addAttorneyCheckbox.checked) {
                 attorneyFields.classList.remove('hidden');
             } else {

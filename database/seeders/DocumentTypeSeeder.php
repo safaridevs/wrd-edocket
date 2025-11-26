@@ -18,11 +18,15 @@ class DocumentTypeSeeder extends Seeder
             ['name' => 'Notice(s) of Publication', 'code' => 'notice_publication', 'is_required' => true, 'allows_multiple' => true, 'sort_order' => 6],
             ['name' => 'Affidavit(s) of Publication', 'code' => 'affidavit_publication', 'allows_multiple' => true, 'sort_order' => 7],
             ['name' => 'Web posting of Notice of Publication', 'code' => 'web_posting_notice', 'sort_order' => 8],
-            ['name' => 'Compliance Order(s)', 'code' => 'compliance_order', 'allows_multiple' => true, 'sort_order' => 9],
-            ['name' => 'Supporting documents', 'code' => 'supporting', 'allows_multiple' => true, 'sort_order' => 10],
-            ['name' => 'Notice of Contemplated Action', 'code' => 'notice_contemplated_action', 'sort_order' => 11],
-            ['name' => 'Cease and Desist Letter(s)', 'code' => 'cease_desist_letter', 'allows_multiple' => true, 'sort_order' => 12],
-            ['name' => 'Others', 'code' => 'other', 'allows_multiple' => true, 'sort_order' => 13],
+            ['name' => 'Compliance Order', 'code' => 'compliance_order', 'allows_multiple' => true, 'sort_order' => 9],
+            ['name' => 'Pre-Compliance Letter', 'code' => 'pre_compliance_letter', 'allows_multiple' => true, 'sort_order' => 10],
+            ['name' => 'Compliance Letter', 'code' => 'compliance_letter', 'allows_multiple' => true, 'sort_order' => 11],
+            ['name' => 'Notice of Violation', 'code' => 'notice_of_violation', 'allows_multiple' => true, 'sort_order' => 12],
+            ['name' => 'Notice of Reprimand (Well Driller)', 'code' => 'notice_of_reprimand', 'allows_multiple' => true, 'sort_order' => 13],
+            ['name' => 'Supporting documents', 'code' => 'supporting', 'allows_multiple' => true, 'sort_order' => 14],
+            ['name' => 'Notice of Contemplated Action', 'code' => 'notice_contemplated_action', 'sort_order' => 15],
+            ['name' => 'Cease and Desist Letter(s)', 'code' => 'cease_desist_letter', 'allows_multiple' => true, 'sort_order' => 16],
+            ['name' => 'Others', 'code' => 'other', 'allows_multiple' => true, 'sort_order' => 17],
         ];
 
         $partyUploadTypes = [
@@ -39,37 +43,49 @@ class DocumentTypeSeeder extends Seeder
 
         // Case creation document types
         foreach ($caseCreationTypes as $type) {
-            DocumentType::create(array_merge($type, [
-                'category' => 'case_creation',
-                'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
-            ]));
+            DocumentType::updateOrCreate(
+                ['code' => $type['code']],
+                array_merge($type, [
+                    'category' => 'case_creation',
+                    'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
+                ])
+            );
         }
 
         // Party upload document types
         foreach ($partyUploadTypes as $type) {
-            DocumentType::create(array_merge($type, [
-                'category' => 'party_upload',
-                'allowed_roles' => ['party', 'counsel'],
-            ]));
+            DocumentType::updateOrCreate(
+                ['code' => $type['code']],
+                array_merge($type, [
+                    'category' => 'party_upload',
+                    'allowed_roles' => ['party', 'counsel'],
+                ])
+            );
         }
 
         // Pleading types (for stamping)
-        DocumentType::create([
-            'name' => 'Request for Pre-Hearing',
-            'code' => 'request_pre_hearing',
-            'category' => 'case_creation',
-            'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
-            'is_pleading' => true,
-            'sort_order' => 14,
-        ]);
+        DocumentType::updateOrCreate(
+            ['code' => 'request_pre_hearing'],
+            [
+                'name' => 'Request for Pre-Hearing',
+                'code' => 'request_pre_hearing',
+                'category' => 'case_creation',
+                'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
+                'is_pleading' => true,
+                'sort_order' => 14,
+            ]
+        );
 
-        DocumentType::create([
-            'name' => 'Request to Docket',
-            'code' => 'request_to_docket',
-            'category' => 'case_creation',
-            'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
-            'is_pleading' => true,
-            'sort_order' => 15,
-        ]);
+        DocumentType::updateOrCreate(
+            ['code' => 'request_to_docket'],
+            [
+                'name' => 'Request to Docket',
+                'code' => 'request_to_docket',
+                'category' => 'case_creation',
+                'allowed_roles' => ['alu_clerk', 'hu_admin', 'hu_clerk'],
+                'is_pleading' => true,
+                'sort_order' => 18,
+            ]
+        );
     }
 }

@@ -110,7 +110,8 @@ class AuthenticatedSessionController extends Controller
                     'email' => $email,
                     'sam_account_name' => $samAccountName,
                     'password' => Hash::make('ldap_user'),
-                    'role' => 'interested_party',
+                    'role' => 'unaffiliated',
+                    'title' => $ldapUser['title'][0] ?? null,
                     'is_ldap_user' => true,
                 ]);
             } elseif ($user && !$user->sam_account_name && $samAccountName) {

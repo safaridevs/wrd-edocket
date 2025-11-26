@@ -564,9 +564,6 @@ class CaseService
         $case->update(['status' => 'approved']);
         AuditLog::log('approve_case', $user, $case);
 
-        // Stamp pleading documents
-        $this->stampPleadingDocuments($case, $user);
-
         // Notify all parties
         foreach ($case->parties as $party) {
             $this->notificationService->notify(
@@ -657,7 +654,14 @@ class CaseService
                     $oseList[] = $ose->file_no_to;
                 }
             }
-            $oseString = $oseList ? ' - ' . implode(', ', $oseList) : '';
+            
+            if (count($oseList) > 1) {
+                // Multiple OSE numbers: use first one + "et al."
+                $oseString = ' - ' . $oseList[0] . ' et al.';
+            } elseif (count($oseList) === 1) {
+                // Single OSE number: use as is
+                $oseString = ' - ' . $oseList[0];
+            }
         }
         return $oseString;
     }

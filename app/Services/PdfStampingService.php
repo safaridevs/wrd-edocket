@@ -9,6 +9,27 @@ use setasign\Fpdi\Tcpdf\Fpdi;
 
 class PdfStampingService
 {
+    public function stampDocument(Document $document, $case): bool
+    {
+        $stampText = "FILED\n" .
+                    "New Mexico Office of the State Engineer\n" .
+                    "Water Rights Hearing Unit\n" .
+                    $document->uploaded_at->format('M d, Y') . " at " . $document->uploaded_at->format('g:i A') . "\n" .
+                    "Case No: {$case->case_no}";
+        
+        $success = $this->stampPdf($document, auth()->user());
+        
+        if ($success) {
+            $document->update([
+                'stamped' => true,
+                'stamp_text' => $stampText,
+                'stamped_at' => now()
+            ]);
+        }
+        
+        return $success;
+    }
+
     public function stampPdf(Document $document, User $user): bool
     {
         if ($document->mime !== 'application/pdf') {
@@ -108,8 +129,8 @@ class PdfStampingService
         $pdf->SetFont('helvetica', 'B', 8);
         $pdf->SetTextColor(255, 0, 0);
 
-        $stampDate = now()->format('D n/j/y');
-        $stampTime = now()->format('g:i A');
+        $stampDate = $document->uploaded_at->format('D n/j/y');
+        $stampTime = $document->uploaded_at->format('g:i A');
         $initials = $user->initials ?? strtoupper(substr($user->name, 0, 2));
 
         $stampText = "Electronically Filed\n{$stampDate} @ {$stampTime}\nOSE HEARING UNIT/{$initials}";

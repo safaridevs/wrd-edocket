@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class CaseModel extends Model
 {
     protected $table = 'cases';
-    
+
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
         'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
@@ -175,7 +175,7 @@ class CaseModel extends Model
         }
 
         $oldStatus = $this->status;
-        
+
         // Update timestamps
         $timestampField = match($newStatus) {
             'submitted_to_hu' => 'submitted_at',
@@ -215,7 +215,7 @@ class CaseModel extends Model
             $isParty = $this->parties()->whereHas('person', function($query) use ($user) {
                 $query->where('email', $user->email);
             })->exists();
-            
+
             if ($isParty) return true;
         }
 
@@ -236,6 +236,6 @@ class CaseModel extends Model
     {
         $year = date('Y');
         $count = self::whereYear('created_at', $year)->count() + 1;
-        return sprintf('WR-%s-%04d', $year, $count);
+        return sprintf('%s-%03d', $year, $count);
     }
 }

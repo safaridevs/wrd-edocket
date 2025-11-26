@@ -152,7 +152,7 @@ class CaseController extends Controller
         if (Auth::user()->isHearingUnit() && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
         }
-        
+
         // Parties and attorneys cannot see draft cases
         if (Auth::user()->role === 'party' && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to parties and attorneys.');
@@ -178,7 +178,7 @@ class CaseController extends Controller
         if (!Auth::user()->canCreateCase() && !Auth::user()->canSubmitToHU()) {
             abort(403);
         }
-        
+
         if (!in_array($case->status, ['draft', 'rejected']) && !Auth::user()->canSubmitToHU()) {
             abort(403);
         }
@@ -209,23 +209,23 @@ class CaseController extends Controller
             if (isset($validated['ose_numbers'])) {
                 $case->oseFileNumbers()->delete();
                 foreach ($validated['ose_numbers'] as $oseData) {
-                    if ((!empty($oseData['basin_code_from']) && !empty($oseData['file_no_from'])) || 
+                    if ((!empty($oseData['basin_code_from']) && !empty($oseData['file_no_from'])) ||
                         (!empty($oseData['basin_code_to']) && !empty($oseData['file_no_to']))) {
-                        
+
                         $fileNoFrom = null;
                         $fileNoTo = null;
                         $basinCode = null;
-                        
+
                         if (!empty($oseData['basin_code_from']) && !empty($oseData['file_no_from'])) {
                             $fileNoFrom = $oseData['basin_code_from'] . '-' . $oseData['file_no_from'];
                             $basinCode = $oseData['basin_code_from'];
                         }
-                        
+
                         if (!empty($oseData['basin_code_to']) && !empty($oseData['file_no_to'])) {
                             $fileNoTo = $oseData['basin_code_to'] . '-' . $oseData['file_no_to'];
                             $basinCode = $basinCode ?: $oseData['basin_code_to'];
                         }
-                        
+
                         OseFileNumber::create([
                             'case_id' => $case->id,
                             'basin_code' => $basinCode,
@@ -243,9 +243,9 @@ class CaseController extends Controller
                 if (!empty($validationErrors)) {
                     return back()->withInput()->withErrors(['submission' => implode(' ', $validationErrors)]);
                 }
-                
+
                 $case->update(['status' => 'submitted_to_hu']);
-                
+
                 // Send notifications to selected recipients
                 $recipients = $validated['notify_recipients'] ?? [];
                 $customMessage = $validated['custom_message'] ?? null;
@@ -265,11 +265,7 @@ class CaseController extends Controller
         }
     }
 
-    public function huReview(CaseModel $case)
-    {
-        $case->load(['documents', 'parties.person']);
-        return view('cases.hu-review', compact('case'));
-    }
+
 
     public function accept(CaseModel $case)
     {
@@ -300,10 +296,10 @@ class CaseController extends Controller
         }
 
         if ($this->caseService->approveCase($case, Auth::user())) {
-            return back()->with('success', 'Case approved and all parties notified.');
+            return back()->with('success', 'Case accepted and all parties notified.');
         }
 
-        return back()->with('error', 'Unable to approve case.');
+        return back()->with('error', 'Unable to accept case.');
     }
 
     public function assignAttorneyForm(CaseModel $case)
@@ -328,7 +324,7 @@ class CaseController extends Controller
         ]);
 
         $case->assignments()->where('assignment_type', 'alu_attorney')->delete();
-        
+
         foreach ($validated['attorney_ids'] as $attorneyId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
@@ -364,7 +360,7 @@ class CaseController extends Controller
 
         // Remove existing assignments
         $case->assignments()->where('assignment_type', 'hydrology_expert')->delete();
-        
+
         // Add new assignments
         foreach ($validated['expert_ids'] as $expertId) {
             CaseAssignment::create([
@@ -400,7 +396,7 @@ class CaseController extends Controller
         ]);
 
         $case->assignments()->where('assignment_type', 'alu_clerk')->delete();
-        
+
         foreach ($validated['clerk_ids'] as $clerkId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
@@ -435,7 +431,7 @@ class CaseController extends Controller
         ]);
 
         $case->assignments()->where('assignment_type', 'wrd')->delete();
-        
+
         foreach ($validated['wrd_ids'] as $wrdId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
@@ -482,7 +478,7 @@ class CaseController extends Controller
         }
 
         $case->load(['documents.uploader']);
-        
+
         if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
             $documentTypes = \App\Models\DocumentType::where('is_active', true)
                 ->where('category', 'party_upload')
@@ -490,7 +486,7 @@ class CaseController extends Controller
         } else {
             $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('sort_order')->get();
         }
-        
+
         return view('cases.upload-documents', compact('case', 'documentTypes'));
     }
 
@@ -568,14 +564,14 @@ class CaseController extends Controller
     {
         $party = $case->parties()->with(['person'])->findOrFail($partyId);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        
+
         return view('cases.attorney-management', compact('case', 'party', 'attorneys'))->render();
     }
 
     public function assignPartyAttorney(Request $request, CaseModel $case, $partyId)
     {
         $party = $case->parties()->findOrFail($partyId);
-        
+
         $validated = $request->validate([
             'attorney_name' => 'required|string|max:255',
             'attorney_email' => 'required|email|max:255',
@@ -600,7 +596,7 @@ class CaseController extends Controller
                 'state' => $validated['state'],
                 'zip' => $validated['zip']
             ]);
-            
+
             // Attorney assignment logic would go here if needed
 
             return response()->json(['success' => true]);
@@ -612,11 +608,11 @@ class CaseController extends Controller
     public function removeAttorney(CaseModel $case, $partyId)
     {
         $party = $case->parties()->findOrFail($partyId);
-        
+
         if ($party->person->type === 'company') {
             return response()->json(['success' => false, 'error' => 'Companies must have attorney representation']);
         }
-        
+
         // Self-representation logic would go here if needed
 
         return response()->json(['success' => true]);
@@ -630,7 +626,7 @@ class CaseController extends Controller
 
         $case->load(['parties.person', 'serviceList.person']);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        
+
         return view('cases.parties.manage', compact('case', 'attorneys'));
     }
 
@@ -641,7 +637,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -668,7 +664,7 @@ class CaseController extends Controller
         try {
             // Create or find person
             $person = \App\Models\Person::where('email', $validated['email'])->first();
-            
+
             if (!$person) {
                 $person = \App\Models\Person::create([
                     'type' => $validated['type'],
@@ -699,7 +695,7 @@ class CaseController extends Controller
             ]);
 
             // Handle attorney representation
-            if ((!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) || 
+            if ((!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) ||
                 ($request->has('attorney_id') && !empty($request->attorney_id))) {
                 // Check if selecting existing attorney
                 if ($request->has('attorney_id') && !empty($request->attorney_id)) {
@@ -716,7 +712,7 @@ class CaseController extends Controller
                                 'phone_office' => $attorney->phone
                             ]);
                         }
-                        
+
                         // Create counsel party entry linked to client
                         \App\Models\CaseParty::create([
                             'case_id' => $case->id,
@@ -727,7 +723,7 @@ class CaseController extends Controller
                         ]);
                     }
                 }
-                
+
                 // Create new attorney if name and email provided
                 if (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
                     // Create new attorney
@@ -737,7 +733,7 @@ class CaseController extends Controller
                         'phone' => $validated['attorney_phone'],
                         'bar_number' => $validated['bar_number']
                     ]);
-                    
+
                     // Create attorney person
                     $attorneyPerson = \App\Models\Person::create([
                         'type' => 'individual',
@@ -746,7 +742,7 @@ class CaseController extends Controller
                         'email' => $attorney->email,
                         'phone_office' => $attorney->phone
                     ]);
-                    
+
                     // Create counsel party entry linked to client
                     \App\Models\CaseParty::create([
                         'case_id' => $case->id,
@@ -782,7 +778,7 @@ class CaseController extends Controller
 
         $party = $case->parties()->with(['person'])->findOrFail($partyId);
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        
+
         return view('cases.parties.edit', compact('case', 'party', 'attorneys'))->render();
     }
 
@@ -793,9 +789,9 @@ class CaseController extends Controller
         }
 
         $party = $case->parties()->findOrFail($partyId);
-        
+
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -868,10 +864,10 @@ class CaseController extends Controller
         }
 
         $party = $case->parties()->findOrFail($partyId);
-        
+
         // Remove from service list
         $case->serviceList()->where('person_id', $party->person_id)->delete();
-        
+
         // Remove party
         $party->delete();
 
@@ -888,7 +884,7 @@ class CaseController extends Controller
     public function storeDocument(Request $request, CaseModel $case)
     {
         $validDocTypes = \App\Models\DocumentType::where('is_active', true)->pluck('code')->toArray();
-        
+
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
@@ -898,19 +894,19 @@ class CaseController extends Controller
 
         try {
             \Log::info('Starting document upload', ['doc_type' => $validated['doc_type'], 'case_id' => $case->id]);
-            
+
             // Load OSE file numbers
             $case->load('oseFileNumbers');
-            
+
             $files = $request->file('document');
             if (!is_array($files)) {
                 $files = [$files];
             }
-            
+
             // Get display name from database
             $documentType = \App\Models\DocumentType::where('code', $validated['doc_type'])->first();
             $displayType = $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $validated['doc_type']));
-            
+
             // Get OSE file numbers for the case
             $oseString = '';
             if ($case->oseFileNumbers && $case->oseFileNumbers->count() > 0) {
@@ -924,15 +920,22 @@ class CaseController extends Controller
                         $oseList[] = $ose->file_no_to;
                     }
                 }
-                $oseString = $oseList ? ' - ' . implode(', ', $oseList) : '';
+
+                if (count($oseList) > 1) {
+                    // Multiple OSE numbers: use first one + "et al."
+                    $oseString = ' - ' . $oseList[0] . ' et al.';
+                } elseif (count($oseList) === 1) {
+                    // Single OSE number: use as is
+                    $oseString = ' - ' . $oseList[0];
+                }
             }
-            
+
             $uploadedCount = 0;
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
                     $filename = time() . '_' . $file->getClientOriginalName();
                     $path = $file->storeAs('case_documents', $filename, 'public');
-                    
+
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
                     if ($index > 0) {
                         $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
@@ -951,14 +954,14 @@ class CaseController extends Controller
                         'uploaded_at' => now(),
                         'pleading_type' => $validated['pleading_type'] ?? 'none'
                     ];
-                    
+
                     // Set pleading type for pleading documents
                     if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
                         $documentData['pleading_type'] = $validated['pleading_type'];
                     } else {
                         $documentData['pleading_type'] = 'none';
                     }
-                    
+
                     \App\Models\Document::create($documentData);
                     $uploadedCount++;
                 }
@@ -979,20 +982,20 @@ class CaseController extends Controller
         }
 
         $document = $case->documents()->findOrFail($documentId);
-        
-        // Check case status
-        if (!in_array($case->status, ['active', 'approved'])) {
-            return response()->json(['success' => false, 'error' => 'Documents can only be approved in active or approved cases']);
+
+        // Check case status - allow submitted_to_hu, active, and approved
+        if (!in_array($case->status, ['submitted_to_hu', 'active', 'approved'])) {
+            return response()->json(['success' => false, 'error' => 'Documents can only be accepted in submitted, active or accepted cases']);
         }
-        
-        // Use DocumentService to approve the document (which includes automatic stamping for pleading docs)
-        $documentService = app(\App\Services\DocumentService::class);
-        
-        if ($documentService->approveDocument($document, auth()->user())) {
-            return response()->json(['success' => true, 'message' => 'Document approved successfully']);
-        }
-        
-        return response()->json(['success' => false, 'error' => 'Failed to approve document']);
+
+        $document->update([
+            'approved' => true,
+            'approved_by_user_id' => auth()->id(),
+            'approved_at' => now(),
+            'rejected_reason' => null
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Document accepted successfully']);
     }
 
     public function rejectDocument(Request $request, CaseModel $case, $documentId)
@@ -1013,28 +1016,24 @@ class CaseController extends Controller
             'approved_at' => null
         ]);
 
-        return response()->json(['success' => true]);
-    }
-
-
-
-    public function unapproveDocument(CaseModel $case, $documentId)
-    {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
-            abort(403);
+        // Notify document uploader
+        if ($document->uploader) {
+            $notificationService = app(\App\Services\NotificationService::class);
+            $notificationService->notify(
+                $document->uploader,
+                'document_rejected',
+                'Document Rejected - Action Required',
+                "Your document '{$document->original_filename}' in case {$case->case_no} has been rejected.\n\nReason: {$validated['reason']}\n\nPlease review and re-upload a corrected version.",
+                $case
+            );
         }
 
-        $document = $case->documents()->findOrFail($documentId);
-        $document->update([
-            'approved' => false,
-            'approved_by_user_id' => null,
-            'approved_at' => null,
-            'stamped' => false,
-            'stamp_text' => null
-        ]);
-
         return response()->json(['success' => true]);
     }
+
+
+
+
 
     public function requestDocumentFix(Request $request, CaseModel $case, $documentId)
     {
@@ -1047,7 +1046,7 @@ class CaseController extends Controller
         ]);
 
         $document = $case->documents()->findOrFail($documentId);
-        
+
         // Update document with fix request
         $document->update([
             'approved' => false,
@@ -1056,18 +1055,56 @@ class CaseController extends Controller
             'approved_at' => null
         ]);
 
-        // TODO: Send notification to document uploader about fix request
-        
+        // Notify document uploader about fix request
+        if ($document->uploader) {
+            $notificationService = app(\App\Services\NotificationService::class);
+            $notificationService->notify(
+                $document->uploader,
+                'document_fix_required',
+                'Document Fix Required - Action Needed',
+                "Your document '{$document->original_filename}' in case {$case->case_no} requires corrections.\n\nFix Required: {$validated['reason']}\n\nPlease make the necessary changes and re-upload the document.",
+                $case
+            );
+        }
+
         return response()->json(['success' => true]);
+    }
+
+    public function stampDocument(CaseModel $case, $documentId)
+    {
+        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+            abort(403);
+        }
+
+        $document = $case->documents()->findOrFail($documentId);
+
+        // Only stamp accepted pleading documents
+        if (!$document->approved || !in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])) {
+            return response()->json(['success' => false, 'error' => 'Only accepted pleading documents can be stamped']);
+        }
+
+        if ($document->stamped) {
+            return response()->json(['success' => false, 'error' => 'Document is already stamped']);
+        }
+
+        try {
+            $stampingService = app(\App\Services\PdfStampingService::class);
+            $stampingService->stampDocument($document, $case);
+
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            \Log::error('Document stamping failed: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => 'Failed to stamp document: ' . $e->getMessage()]);
+        }
     }
 
     public function destroyDocument(CaseModel $case, $documentId)
     {
         $document = $case->documents()->findOrFail($documentId);
-        
+
         // Allow ALU clerks to delete documents from draft/rejected cases
-        if (!((auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])) || 
-              auth()->user()->role === 'admin' || 
+        if (!((auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])) ||
+              auth()->user()->role === 'admin' ||
               $document->uploaded_by_user_id === auth()->id())) {
             abort(403);
         }
@@ -1111,16 +1148,17 @@ class CaseController extends Controller
 
         return back()->with('error', 'Unable to archive case.');
     }
-    
+
     private function validateSubmissionRequirements(CaseModel $case): array
     {
+
         $errors = [];
-        
+
         // Check if ALU Attorney is assigned
         if (!$case->aluAttorneys || $case->aluAttorneys->count() === 0) {
             $errors[] = 'ALU Attorney must be assigned before submission.';
         }
-        
+
         // Check if at least one primary party exists (Applicant for regular cases, or compliance roles for compliance cases)
         if ($case->case_type === 'compliance') {
             $hasComplianceParty = $case->parties()->whereIn('role', ['respondent', 'violator', 'alleged_violator'])->exists();
@@ -1133,13 +1171,12 @@ class CaseController extends Controller
                 $errors[] = 'At least one Applicant must be added to the case.';
             }
         }
-        
+
         // Check if pleading document exists (Request to Docket OR Request for Pre-Hearing)
-        $hasPleadingDoc = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_for_pre_hearing'])->exists();
+        $hasPleadingDoc = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_pre_hearing'])->exists();
         if (!$hasPleadingDoc) {
             $errors[] = 'Either Request to Docket or Request for Pre-Hearing document must be uploaded.';
         }
-        
         return $errors;
     }
 }

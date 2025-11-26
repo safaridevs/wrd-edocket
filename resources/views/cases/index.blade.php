@@ -40,7 +40,7 @@
                                         $isDirectParty = $case->parties()->whereHas('person', function($query) {
                                             $query->where('email', auth()->user()->email);
                                         })->first();
-                                        
+
                                         if ($isDirectParty) {
                                             $userRole = ucfirst($isDirectParty->role) . ' (Self)';
                                         } else {
@@ -69,8 +69,8 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                    {{ $case->status === 'active' ? 'bg-green-100 text-green-800' : 
-                                       ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 
+                                    {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
+                                       ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' :
                                         ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800')) }}">
                                     {{ ucfirst(str_replace('_', ' ', $case->status)) }}
                                 </span>
@@ -80,11 +80,11 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                 <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-900">View</a>
-                                
-                                @if($case->status === 'submitted_to_hu' && auth()->user()->canAcceptFilings())
+
+                                {{-- @if($case->status === 'submitted_to_hu' && auth()->user()->canAcceptFilings())
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
-                                @endif
-                                
+                                @endif --}}
+
                                 @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
                                 <a href="{{ route('cases.documents.upload', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
                                 @endif
@@ -93,7 +93,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                
+
                 @if($cases->isEmpty())
                 <div class="text-center py-12">
                     <div class="text-gray-500">No cases found.</div>

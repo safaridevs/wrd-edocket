@@ -37,7 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/{case}', [CaseController::class, 'show'])->middleware('permission:read_case')->name('cases.show');
     Route::get('cases/{case}/edit', [CaseController::class, 'edit'])->middleware('permission:create_case')->name('cases.edit');
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
-    Route::get('cases/{case}/hu-review', [CaseController::class, 'huReview'])->middleware('permission:accept_filings')->name('cases.hu-review');
+
     Route::get('cases/{case}/file-document', [DocumentController::class, 'fileForm'])->name('documents.file');
     Route::post('cases/{case}/file-document', [DocumentController::class, 'store'])->name('documents.file.store');
     Route::get('cases/{case}/upload-documents', [CaseController::class, 'uploadDocuments'])->name('cases.documents.upload');
@@ -58,9 +58,10 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/documents', [CaseController::class, 'storeDocument'])->name('cases.documents.store');
     Route::post('cases/{case}/documents/{document}/approve', [CaseController::class, 'approveDocument'])->name('cases.documents.approve');
     Route::post('cases/{case}/documents/{document}/reject', [CaseController::class, 'rejectDocument'])->name('cases.documents.reject');
-    Route::post('cases/{case}/documents/{document}/unapprove', [CaseController::class, 'unapproveDocument'])->name('cases.documents.unapprove');
+
 
     Route::post('cases/{case}/documents/{document}/request-fix', [CaseController::class, 'requestDocumentFix'])->name('cases.documents.request-fix');
+    Route::post('cases/{case}/documents/{document}/stamp', [CaseController::class, 'stampDocument'])->name('cases.documents.stamp');
     Route::delete('cases/{case}/documents/{document}', [CaseController::class, 'destroyDocument'])->name('cases.documents.destroy');
 });
 

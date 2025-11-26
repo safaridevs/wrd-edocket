@@ -67,8 +67,8 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             @foreach(\App\Models\User::where('role', 'alu_atty')->get() as $attorney)
                             <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
-                                <input type="checkbox" name="assigned_attorneys[]" value="{{ $attorney->id }}" 
-                                       {{ in_array($attorney->id, old('assigned_attorneys', [])) ? 'checked' : '' }} 
+                                <input type="checkbox" name="assigned_attorneys[]" value="{{ $attorney->id }}"
+                                       {{ in_array($attorney->id, old('assigned_attorneys', [])) ? 'checked' : '' }}
                                        class="mr-3">
                                 <div>
                                     <div class="font-medium">{{ $attorney->name }}</div>
@@ -91,8 +91,8 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             @foreach(\App\Models\User::where('role', 'alu_clerk')->get() as $clerk)
                             <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
-                                <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}" 
-                                       {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }} 
+                                <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}"
+                                       {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }}
                                        class="mr-3">
                                 <div>
                                     <div class="font-medium">{{ $clerk->name }}</div>
@@ -125,7 +125,7 @@
                                 <input type="text" name="ose_numbers[0][file_no_from]" placeholder="12345" value="{{ old('ose_numbers.0.file_no_from') }}" class="border-gray-300 rounded-md w-20 text-sm">
                             </div>
                             <div id="to-section-0" class="flex items-center gap-1 {{ old('ose_numbers.0.file_no_to') ? '' : 'hidden' }}">
-                                <span class="text-sm text-gray-600">to</span>
+                                <span class="text-sm text-gray-600">into</span>
                                 <select name="ose_numbers[0][basin_code_to]" class="border-gray-300 rounded-md text-sm">
                                     <option value="">Select Basin</option>
                                     @foreach($basinCodes as $code)
@@ -170,7 +170,7 @@
                                     <select name="parties[0][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(0)">
                                         <option value="">Select Type</option>
                                         <option value="individual" {{ old('parties.0.type') == 'individual' ? 'selected' : '' }}>Individual</option>
-                                        <option value="company" {{ old('parties.0.type') == 'company' ? 'selected' : '' }}>Company</option>
+                                        <option value="company" {{ old('parties.0.type') == 'company' ? 'selected' : '' }}>Entity (Non-Person)</option>
                                     </select>
                                 </div>
                                 <div>
@@ -220,7 +220,7 @@
                                     </div>
                                     <div class="company-representation {{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
                                         <input type="hidden" name="parties[0][representation]" value="attorney">
-                                        <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Companies must be represented by an attorney</p>
+                                        <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
                                     </div>
                                 </div>
                             </div>
@@ -310,34 +310,79 @@
                     </div>
                 </div>
 
+                <!-- Application Document (Required for Aggrieved/Protested) -->
+                <div class="mb-6" id="application-section">
+                    <h3 class="text-lg font-medium mb-4">Application Document</h3>
+                    <div class="border rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Application (PDF) *</label>
+                        <input type="file" name="documents[application][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2">
+                        <p class="text-xs text-gray-500 mt-1">Name format: YYYY-MM-DD Application (e.g., 2025-07-18 Application.pdf)</p>
+                    </div>
+                </div>
+
                 <!-- Document Uploads -->
                 <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Document Uploads</h3>
+                    <h3 class="text-lg font-medium mb-4">Required Documents</h3>
 
                     @php
                         $requiredDocs = $documentTypes->where('is_required', true)->where('is_pleading', false);
-                        $pleadingDocs = $documentTypes->where('is_pleading', true);
+                        $pleadingDocs = $documentTypes->where('is_pleading', true)->where('code', '!=', 'application');
                         $optionalDocs = $documentTypes->where('is_required', false)->where('is_pleading', false);
                     @endphp
 
-                    <!-- Required Documents -->
-                    @if($requiredDocs->count() > 0)
-                    <div class="mb-6">
-                        <h4 class="font-medium text-gray-900 mb-3">Required Documents</h4>
-                        @foreach($requiredDocs as $docType)
-                        <div class="border rounded-lg p-4 mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ $docType->name }} (PDF) *</label>
-                            <input type="file" name="documents[{{ $docType->code }}][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                            <p class="text-xs text-gray-500 mt-1">Name format: YYYY-MM-DD {{ $docType->name }} (e.g., 2025-07-18 {{ $docType->name }}.pdf)</p>
-                        </div>
-                        @endforeach
-                    </div>
-                    @endif
+                    <!-- Compliance Case Documents -->
+                    <div id="compliance-documents" class="space-y-4" style="display: none;">
+                        <div class="border rounded-lg p-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Compliance Document Type *</label>
+                            <div class="grid grid-cols-1 gap-3 mb-4">
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="compliance_doc_type" value="compliance_order" class="mr-3" onchange="updateComplianceDocLabel()">
+                                    <div>
+                                        <div class="font-medium">Compliance Order</div>
+                                        <div class="text-xs text-gray-500">Official order for compliance action</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="compliance_doc_type" value="pre_compliance_letter" class="mr-3" onchange="updateComplianceDocLabel()">
+                                    <div>
+                                        <div class="font-medium">Pre-Compliance Letter</div>
+                                        <div class="text-xs text-gray-500">Initial notice before formal action</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="compliance_doc_type" value="compliance_letter" class="mr-3" onchange="updateComplianceDocLabel()">
+                                    <div>
+                                        <div class="font-medium">Compliance Letter</div>
+                                        <div class="text-xs text-gray-500">Formal compliance notification</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="compliance_doc_type" value="notice_of_violation" class="mr-3" onchange="updateComplianceDocLabel()">
+                                    <div>
+                                        <div class="font-medium">Notice of Violation</div>
+                                        <div class="text-xs text-gray-500">Official violation notice</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input type="radio" name="compliance_doc_type" value="notice_of_reprimand" class="mr-3" onchange="updateComplianceDocLabel()">
+                                    <div>
+                                        <div class="font-medium">Notice of Reprimand (Well Driller)</div>
+                                        <div class="text-xs text-gray-500">Reprimand notice for well drilling violations</div>
+                                    </div>
+                                </label>
+                            </div>
 
-                    <!-- Pleading Document -->
-                    @if($pleadingDocs->count() > 0)
-                    <div class="mb-6">
-                        <h4 class="font-medium text-gray-900 mb-3">Pleading Document</h4>
+                            <label id="compliance-file-label" class="block text-sm font-medium text-gray-700 mb-2">Select Document Type First</label>
+                            <input type="file" name="documents[compliance][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="compliance-file-input">
+                            <p class="text-xs text-gray-500 mt-1">Choose document type above to enable file upload</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pleading Documents -->
+                @if($pleadingDocs->count() > 0)
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-4">Pleading Documents</h3>
                         <div class="border rounded-lg p-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type *</label>
                             <div class="grid grid-cols-2 gap-4 mb-4">
@@ -356,13 +401,13 @@
                             <input type="file" name="documents[pleading][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="pleading-file-input">
                             <p class="text-xs text-gray-500 mt-1">Choose pleading type above to enable file upload</p>
                         </div>
-                    </div>
-                    @endif
+                </div>
+                @endif
 
-                    <!-- Optional Documents -->
+                <!-- Optional Documents -->
                     @if($optionalDocs->count() > 0)
                     <div class="mb-6">
-                        <h4 class="font-medium text-gray-900 mb-3">Optional Documents</h4>
+                        <h4 class="font-medium text-gray-900 mb-3">Supporting Documents</h4>
                         <div id="optional-documents" class="space-y-4">
                             <!-- Initial optional document upload -->
                             <div class="border rounded-lg p-4 optional-doc-item">
@@ -397,9 +442,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-
 
                 <!-- Affirmation -->
                 <div class="mb-6">
@@ -413,7 +455,7 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="flex gap-4">
+                <div class="flex justify-center gap-4">
                     <button type="submit" name="action" value="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
                         Save Draft
                     </button>
@@ -425,8 +467,10 @@
                     </a>
                 </div>
             </form>
+    </div>
         </div>
     </div>
+
 
     <script>
         let oseCount = 1, partyCount = 1, optionalDocCount = 1;
@@ -435,12 +479,70 @@
         document.addEventListener('DOMContentLoaded', function() {
             const caseTypeInputs = document.querySelectorAll('input[name="case_type"]');
             caseTypeInputs.forEach(input => {
-                input.addEventListener('change', updatePartyRoleOptions);
+                input.addEventListener('change', function() {
+                    updatePartyRoleOptions();
+                    updateDocumentSections();
+                });
             });
-            
+
             // Initialize on page load
             updatePartyRoleOptions();
+            updateDocumentSections();
         });
+
+        function updateDocumentSections() {
+            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
+            const applicationSection = document.getElementById('application-section');
+            const complianceDocs = document.getElementById('compliance-documents');
+            const applicationInput = document.querySelector('input[name="documents[application][]"]');
+
+            if (selectedCaseType === 'compliance') {
+                // Hide application section for compliance cases
+                applicationSection.style.display = 'none';
+                complianceDocs.style.display = 'block';
+
+                // Disable application input
+                if (applicationInput) {
+                    applicationInput.required = false;
+                    applicationInput.disabled = true;
+                }
+            } else {
+                // Show application section for aggrieved/protested cases
+                applicationSection.style.display = 'block';
+                complianceDocs.style.display = 'none';
+
+                // Enable application input
+                if (applicationInput) {
+                    applicationInput.required = true;
+                    applicationInput.disabled = false;
+                }
+
+                // Disable compliance document inputs
+                complianceDocs.querySelectorAll('input[type="file"]').forEach(input => {
+                    input.required = false;
+                    input.disabled = true;
+                });
+            }
+        }
+
+        function updateComplianceDocLabel() {
+            const selectedType = document.querySelector('input[name="compliance_doc_type"]:checked');
+            const fileLabel = document.getElementById('compliance-file-label');
+            const fileInput = document.getElementById('compliance-file-input');
+
+            if (selectedType) {
+                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
+                fileLabel.textContent = `${typeText} Document (PDF) *`;
+                fileInput.disabled = false;
+                fileInput.required = true;
+                fileInput.style.opacity = '1';
+            } else {
+                fileLabel.textContent = 'Select Document Type First';
+                fileInput.disabled = true;
+                fileInput.required = false;
+                fileInput.style.opacity = '0.5';
+            }
+        }
 
         function updatePartyRoleOptions() {
             const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
@@ -455,14 +557,14 @@
                 complianceRoles.forEach(option => option.style.display = 'block');
                 regularCaseBtns.forEach(btn => btn.style.display = 'none');
                 complianceCaseBtns.forEach(btn => btn.style.display = 'inline-block');
-                
+
                 // Update title and default selection
                 if (partyTitle) partyTitle.textContent = 'Primary Party 1 *';
-                
+
                 // Hide applicant option for compliance cases
                 const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
                 if (applicantOption) applicantOption.style.display = 'none';
-                
+
                 // Auto-select first compliance role if no role selected
                 if (partyRoleSelect && !partyRoleSelect.value) {
                     partyRoleSelect.value = 'respondent';
@@ -472,14 +574,14 @@
                 complianceRoles.forEach(option => option.style.display = 'none');
                 regularCaseBtns.forEach(btn => btn.style.display = 'inline-block');
                 complianceCaseBtns.forEach(btn => btn.style.display = 'none');
-                
+
                 // Update title
                 if (partyTitle) partyTitle.textContent = 'Applicant 1 *';
-                
+
                 // Show applicant option for regular cases
                 const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
                 if (applicantOption) applicantOption.style.display = 'block';
-                
+
                 // Auto-select applicant if no role selected
                 if (partyRoleSelect && !partyRoleSelect.value) {
                     partyRoleSelect.value = 'applicant';
@@ -547,7 +649,7 @@
                             <select name="parties[${partyCount}][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(${partyCount})">
                                 <option value="">Select Type</option>
                                 <option value="individual">Individual</option>
-                                <option value="company">Company</option>
+                                <option value="company">Entity (Non-Person)</option>
                             </select>
                         </div>
                         <div>
@@ -595,7 +697,7 @@
                             </div>
                             <div class="company-representation hidden">
                                 <input type="hidden" name="parties[${partyCount}][representation]" value="attorney">
-                                <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Companies must be represented by an attorney</p>
+                                <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
                             </div>
                         </div>
                     </div>

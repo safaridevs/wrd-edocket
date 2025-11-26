@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Assign WRD - Case {{ $case->case_no }}</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Assign WRD Expert - Case {{ $case->case_no }}</h2>
     </x-slot>
 
     <div class="py-12">
@@ -15,11 +15,11 @@
                 <form action="{{ route('cases.assign-wrd.store', $case) }}" method="POST">
                     @csrf
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select WRDs</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select WRD Expert</label>
                         <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
                             @foreach($wrds as $wrd)
                                 <label class="flex items-center">
-                                    <input type="checkbox" name="wrd_ids[]" value="{{ $wrd->id }}" 
+                                    <input type="checkbox" name="wrd_ids[]" value="{{ $wrd->id }}"
                                            {{ $case->wrds->contains($wrd->id) ? 'checked' : '' }}
                                            class="rounded border-gray-300 text-blue-600 mr-2">
                                     <span class="text-sm">{{ $wrd->name }} ({{ $wrd->email }})</span>
