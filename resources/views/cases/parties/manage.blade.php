@@ -264,6 +264,15 @@
                                         <input type="email" name="attorney_email" placeholder="Attorney Email" class="block w-full border-gray-300 rounded-md" disabled>
                                         <input type="text" name="attorney_phone" placeholder="Attorney Phone" class="block w-full border-gray-300 rounded-md" disabled>
                                         <input type="text" name="bar_number" placeholder="Bar Number" class="block w-full border-gray-300 rounded-md" disabled>
+                                        <div class="grid grid-cols-1 gap-2">
+                                            <input type="text" name="attorney_address_line1" placeholder="Attorney Address Line 1" class="border-gray-300 rounded-md" disabled>
+                                            <input type="text" name="attorney_address_line2" placeholder="Attorney Address Line 2" class="border-gray-300 rounded-md" disabled>
+                                            <div class="grid grid-cols-3 gap-2">
+                                                <input type="text" name="attorney_city" placeholder="City" class="border-gray-300 rounded-md" disabled>
+                                                <input type="text" name="attorney_state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" disabled>
+                                                <input type="text" name="attorney_zip" placeholder="ZIP" class="border-gray-300 rounded-md" disabled>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

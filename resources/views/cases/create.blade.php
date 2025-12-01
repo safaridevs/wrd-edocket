@@ -271,6 +271,16 @@
                                                 <input type="text" name="parties[0][bar_number]" value="{{ old('parties.0.bar_number') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
                                             </div>
                                         </div>
+                                        <div class="mt-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
+                                            <input type="text" name="parties[0][attorney_address_line1]" value="{{ old('parties.0.attorney_address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
+                                            <input type="text" name="parties[0][attorney_address_line2]" value="{{ old('parties.0.attorney_address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                                <input type="text" name="parties[0][attorney_city]" value="{{ old('parties.0.attorney_city') }}" placeholder="City" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
+                                                <input type="text" name="parties[0][attorney_state]" value="{{ old('parties.0.attorney_state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
+                                                <input type="text" name="parties[0][attorney_zip]" value="{{ old('parties.0.attorney_zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -291,6 +301,7 @@
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Address</label>
                                 <input type="text" name="parties[0][address_line1]" value="{{ old('parties.0.address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <input type="text" name="parties[0][address_line2]" value="{{ old('parties.0.address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <input type="text" name="parties[0][city]" value="{{ old('parties.0.city') }}" placeholder="City" class="border-gray-300 rounded-md">
@@ -748,6 +759,16 @@
                                         <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
                                     </div>
                                 </div>
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
+                                    <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                                    <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                        <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
+                                        <input type="text" name="parties[${partyCount}][attorney_state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                                        <input type="text" name="parties[${partyCount}][attorney_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -766,6 +787,7 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700">Address</label>
                         <input type="text" name="parties[${partyCount}][address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                        <input type="text" name="parties[${partyCount}][address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <input type="text" name="parties[${partyCount}][city]" placeholder="City" class="border-gray-300 rounded-md">

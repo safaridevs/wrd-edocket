@@ -77,6 +77,11 @@ class CaseController extends Controller
             'parties.*.attorney_email' => 'nullable|email|max:255',
             'parties.*.attorney_phone' => 'nullable|string|max:20',
             'parties.*.bar_number' => 'nullable|string|max:50',
+            'parties.*.attorney_address_line1' => 'nullable|string|max:500',
+            'parties.*.attorney_address_line2' => 'nullable|string|max:500',
+            'parties.*.attorney_city' => 'nullable|string|max:100',
+            'parties.*.attorney_state' => 'nullable|string|max:50',
+            'parties.*.attorney_zip' => 'nullable|string|max:10',
             'ose_numbers' => 'nullable|array',
             'ose_numbers.*.basin_code_from' => 'nullable|string|exists:ose_basin_codes,initial',
             'ose_numbers.*.basin_code_to' => 'nullable|string|exists:ose_basin_codes,initial',
@@ -659,6 +664,11 @@ class CaseController extends Controller
             'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
             'bar_number' => 'nullable|string|max:50',
+            'attorney_address_line1' => 'nullable|string|max:500',
+            'attorney_address_line2' => 'nullable|string|max:500',
+            'attorney_city' => 'nullable|string|max:100',
+            'attorney_state' => 'nullable|string|max:50',
+            'attorney_zip' => 'nullable|string|max:10',
         ]);
 
         try {
@@ -731,7 +741,12 @@ class CaseController extends Controller
                         'name' => $validated['attorney_name'],
                         'email' => $validated['attorney_email'],
                         'phone' => $validated['attorney_phone'],
-                        'bar_number' => $validated['bar_number']
+                        'bar_number' => $validated['bar_number'],
+                        'address_line1' => $validated['attorney_address_line1'] ?? null,
+                        'address_line2' => $validated['attorney_address_line2'] ?? null,
+                        'city' => $validated['attorney_city'] ?? null,
+                        'state' => $validated['attorney_state'] ?? null,
+                        'zip' => $validated['attorney_zip'] ?? null
                     ]);
 
                     // Create attorney person
@@ -841,7 +856,12 @@ class CaseController extends Controller
                     'name' => $validated['attorney_name'],
                     'email' => $validated['attorney_email'],
                     'phone' => $validated['attorney_phone'],
-                    'bar_number' => $validated['bar_number']
+                    'bar_number' => $validated['bar_number'],
+                    'address_line1' => $validated['attorney_address_line1'] ?? null,
+                    'address_line2' => $validated['attorney_address_line2'] ?? null,
+                    'city' => $validated['attorney_city'] ?? null,
+                    'state' => $validated['attorney_state'] ?? null,
+                    'zip' => $validated['attorney_zip'] ?? null
                 ]);
             }
 

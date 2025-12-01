@@ -189,7 +189,12 @@ class CaseService
                 [
                     'name' => $data['attorney_name'],
                     'phone' => $data['attorney_phone'] ?? null,
-                    'bar_number' => $data['bar_number'] ?? null
+                    'bar_number' => $data['bar_number'] ?? null,
+                    'address_line1' => $data['attorney_address_line1'] ?? null,
+                    'address_line2' => $data['attorney_address_line2'] ?? null,
+                    'city' => $data['attorney_city'] ?? null,
+                    'state' => $data['attorney_state'] ?? null,
+                    'zip' => $data['attorney_zip'] ?? null
                 ]
             );
             
@@ -240,31 +245,7 @@ class CaseService
         
         // Handle required documents (Application)
         if ($request->hasFile('documents.application')) {
-            foreach ($request->file('documents.application') as $index => $file) {
-                if ($file && $file->isValid()) {
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('case_documents', $filename, 'public');
-                    
-                    $displayType = $this->getDisplayType('application');
-                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
-                    if ($index > 0) {
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
-                    }
-                    
-                    Document::create([
-                        'case_id' => $case->id,
-                        'doc_type' => 'application',
-                        'original_filename' => $originalFilename,
-                        'stored_filename' => $filename,
-                        'mime' => $file->getMimeType(),
-                        'size_bytes' => $file->getSize(),
-                        'checksum' => md5_file($file->getRealPath()),
-                        'storage_uri' => $path,
-                        'uploaded_by_user_id' => $uploader->id,
-                        'uploaded_at' => now()
-                    ]);
-                }
-            }
+            $this->processFileArray($request->file('documents.application'), $case, 'application', $uploader, $oseString);
         }
         
         // Handle pleading documents (from pleading_type selection)
@@ -312,30 +293,7 @@ class CaseService
         
         // Handle multiple notice_publication documents
         if ($request->hasFile('documents.notice_publication')) {
-            foreach ($request->file('documents.notice_publication') as $index => $file) {
-                if ($file && $file->isValid()) {
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('case_documents', $filename, 'public');
-                    
-                    $displayName = now()->format('Y-m-d') . ' - Notice of Publication' . $oseString . '.pdf';
-                    if ($index > 0) {
-                        $displayName = now()->format('Y-m-d') . ' - Notice of Publication' . $oseString . ' (' . ($index + 1) . ').pdf';
-                    }
-                    
-                    Document::create([
-                        'case_id' => $case->id,
-                        'doc_type' => 'notice_publication',
-                        'original_filename' => $displayName,
-                        'stored_filename' => $filename,
-                        'mime' => $file->getMimeType(),
-                        'size_bytes' => $file->getSize(),
-                        'checksum' => md5_file($file->getRealPath()),
-                        'storage_uri' => $path,
-                        'uploaded_by_user_id' => $uploader->id,
-                        'uploaded_at' => now()
-                    ]);
-                }
-            }
+            $this->processFileArray($request->file('documents.notice_publication'), $case, 'notice_publication', $uploader, $oseString);
         }
         
         // Handle multiple document types with standardized naming
@@ -348,38 +306,7 @@ class CaseService
         
         foreach ($multipleDocTypes as $docType => $displayType) {
             if ($request->hasFile("documents.{$docType}")) {
-                foreach ($request->file("documents.{$docType}") as $index => $file) {
-                    if ($file && $file->isValid()) {
-                        $filename = time() . '_' . $file->getClientOriginalName();
-                        $path = $file->storeAs('case_documents', $filename, 'public');
-                        
-                        // Generate standardized display name with OSE numbers
-                        $displayName = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
-                        if ($index > 0) {
-                            $displayName = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
-                        }
-                        
-                        $documentData = [
-                            'case_id' => $case->id,
-                            'doc_type' => $docType,
-                            'original_filename' => $displayName,
-                            'stored_filename' => $filename,
-                            'mime' => $file->getMimeType(),
-                            'size_bytes' => $file->getSize(),
-                            'checksum' => md5_file($file->getRealPath()),
-                            'storage_uri' => $path,
-                            'uploaded_by_user_id' => $uploader->id,
-                            'uploaded_at' => now()
-                        ];
-                        
-                        // Set pleading type for pleading documents
-                        if (in_array($docType, ['request_to_docket', 'request_for_pre_hearing'])) {
-                            $documentData['pleading_type'] = $docType;
-                        }
-                        
-                        Document::create($documentData);
-                    }
-                }
+                $this->processFileArray($request->file("documents.{$docType}"), $case, $docType, $uploader, $oseString);
             }
         }
         
@@ -954,6 +881,8 @@ class CaseService
         }
     }
 
+
+
     private function getAllCaseRecipients(CaseModel $case): array
     {
         $recipients = [];
@@ -969,5 +898,49 @@ class CaseService
         }
         
         return $recipients;
+    }
+
+    private function processFileArray($files, CaseModel $case, string $docType, User $uploader, string $oseString): void
+    {
+        foreach ($files as $index => $file) {
+            if ($file && $file->isValid()) {
+                $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString);
+                unset($file);
+                if ($file->getSize() > 5 * 1024 * 1024) {
+                    gc_collect_cycles();
+                }
+            }
+        }
+    }
+
+    private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString): void
+    {
+        $filename = time() . '_' . $file->getClientOriginalName();
+        $path = $file->storeAs('case_documents', $filename, 'public');
+        
+        $displayType = $this->getDisplayType($docType);
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+        if ($index > 0) {
+            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
+        }
+        
+        $documentData = [
+            'case_id' => $case->id,
+            'doc_type' => $docType,
+            'original_filename' => $originalFilename,
+            'stored_filename' => $filename,
+            'mime' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'checksum' => md5_file($file->getRealPath()),
+            'storage_uri' => $path,
+            'uploaded_by_user_id' => $uploader->id,
+            'uploaded_at' => now()
+        ];
+        
+        if (in_array($docType, ['request_to_docket', 'request_for_pre_hearing'])) {
+            $documentData['pleading_type'] = $docType;
+        }
+        
+        Document::create($documentData);
     }
 }
