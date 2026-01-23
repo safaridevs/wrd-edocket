@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Notification extends Model
 {
     protected $fillable = [
-        'case_id', 'notification_type', 'payload_json', 'sent_at'
+        'case_id', 'notification_type', 'payload_json', 'sent_at', 'email_status', 'bounce_reason', 'delivered_at', 'bounced_at'
     ];
 
     protected $casts = [
         'payload_json' => 'array',
-        'sent_at' => 'datetime'
+        'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'bounced_at' => 'datetime'
     ];
 
 

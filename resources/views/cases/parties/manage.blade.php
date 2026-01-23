@@ -75,7 +75,14 @@
                                     {{-- Show Attorney Information --}}
                                     @if($hasAttorney)
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
-                                            <div class="text-sm font-medium text-green-800 mb-1">Attorney:</div>
+                                            <div class="flex justify-between items-start mb-1">
+                                                <div class="text-sm font-medium text-green-800">Attorney:</div>
+                                                @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                                <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
+                                                    Edit Attorney
+                                                </button>
+                                                @endif
+                                            </div>
                                             @foreach($party->attorneys as $attorneyParty)
                                                 @php
                                                     $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
@@ -92,6 +99,14 @@
                                                 </div>
                                             @endforeach
                                         </div>
+                                    @else
+                                        @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                        <div class="mt-2">
+                                            <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
+                                                + Add Attorney
+                                            </button>
+                                        </div>
+                                        @endif
                                     @endif
                                 </div>
                                 @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
@@ -450,6 +465,52 @@
             checkboxes.forEach(checkbox => {
                 checkbox.checked = selectAll.checked;
             });
+        }
+
+        function assignAttorney(partyId, formData) {
+            fetch(`/cases/{{ $case->id }}/parties/${partyId}/attorney`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Failed to assign attorney: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to assign attorney');
+            });
+        }
+
+        function removeAttorney(partyId) {
+            if (confirm('Are you sure you want to remove attorney representation for this party?')) {
+                fetch(`/cases/{{ $case->id }}/parties/${partyId}/attorney`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to remove attorney: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to remove attorney');
+                });
+            }
         }
     </script>
 

@@ -31,7 +31,7 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="{{ route('public.cases.index') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Cases</a>
-                    <a href="{{ route('login') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-semibold text-sm whitespace-nowrap">Staff Login</a>
+                    <a href="{{ route('login') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-semibold text-sm whitespace-nowrap">Login</a>
                 </div>
             </div>
         </div>

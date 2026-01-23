@@ -56,10 +56,10 @@
             <div class="space-y-3">
                 <div>
                     <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="attorney_option" value="existing" class="mr-2" onchange="toggleAttorneyFields()">
+                        <input type="radio" name="attorney_option" value="existing" class="mr-2" onchange="toggleAttorneyFields()" checked>
                         Select Existing Attorney
                     </label>
-                    <select name="attorney_id" class="mt-1 block w-full border-gray-300 rounded-md text-sm" disabled>
+                    <select name="attorney_id" class="mt-1 block w-full border-gray-300 rounded-md text-sm">
                         <option value="">Choose an attorney...</option>
                         @foreach($attorneys as $attorney)
                             <option value="{{ $attorney->id }}">
@@ -75,23 +75,23 @@
                         <input type="radio" name="attorney_option" value="new" class="mr-2" onchange="toggleAttorneyFields()">
                         Add New Attorney
                     </label>
-                    <div id="newAttorneyFields" class="mt-2 space-y-2 opacity-50">
+                    <div id="newAttorneyFields" class="mt-2 space-y-2">
                         <div class="grid grid-cols-2 gap-2">
-                            <input type="text" name="attorney_name" placeholder="Attorney Name *" class="border-gray-300 rounded-md text-sm" disabled>
-                            <input type="email" name="attorney_email" placeholder="Attorney Email *" class="border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="attorney_name" placeholder="Attorney Name *" class="border-gray-300 rounded-md text-sm">
+                            <input type="email" name="attorney_email" placeholder="Attorney Email *" class="border-gray-300 rounded-md text-sm">
                         </div>
                         <div class="grid grid-cols-2 gap-2">
-                            <input type="text" name="attorney_phone" placeholder="Phone" class="border-gray-300 rounded-md text-sm" disabled>
-                            <input type="text" name="bar_number" placeholder="Bar Number" class="border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="attorney_phone" placeholder="Phone" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="bar_number" placeholder="Bar Number" class="border-gray-300 rounded-md text-sm">
                         </div>
                         <div class="space-y-2">
-                            <input type="text" name="address_line1" placeholder="Address Line 1" class="block w-full border-gray-300 rounded-md text-sm" disabled>
-                            <input type="text" name="address_line2" placeholder="Address Line 2" class="block w-full border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="address_line1" placeholder="Address Line 1" class="block w-full border-gray-300 rounded-md text-sm">
+                            <input type="text" name="address_line2" placeholder="Address Line 2" class="block w-full border-gray-300 rounded-md text-sm">
                         </div>
                         <div class="grid grid-cols-3 gap-2">
-                            <input type="text" name="city" placeholder="City" class="border-gray-300 rounded-md text-sm" disabled>
-                            <input type="text" name="state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md text-sm" disabled>
-                            <input type="text" name="zip" placeholder="ZIP" class="border-gray-300 rounded-md text-sm" disabled>
+                            <input type="text" name="city" placeholder="City" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="zip" placeholder="ZIP" class="border-gray-300 rounded-md text-sm">
                         </div>
                     </div>
                 </div>
@@ -118,15 +118,39 @@ window.toggleAttorneyFields = function() {
     
     if (option === 'existing') {
         existingSelect.disabled = false;
+        existingSelect.classList.remove('opacity-50', 'bg-gray-100');
         newFields?.classList.add('opacity-50');
-        newInputs.forEach(input => input.disabled = true);
+        newInputs.forEach(input => {
+            input.disabled = true;
+            input.classList.add('bg-gray-100');
+        });
     } else if (option === 'new') {
         existingSelect.disabled = true;
         existingSelect.value = '';
+        existingSelect.classList.add('opacity-50', 'bg-gray-100');
         newFields?.classList.remove('opacity-50');
-        newInputs.forEach(input => input.disabled = false);
+        newInputs.forEach(input => {
+            input.disabled = false;
+            input.classList.remove('bg-gray-100');
+        });
     }
 };
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('attorneyModal');
+    if (modal) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (!modal.classList.contains('hidden')) {
+                    // Modal was opened, trigger initial state
+                    setTimeout(() => toggleAttorneyFields(), 100);
+                }
+            });
+        });
+        observer.observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
+});
 
 window.handleAttorneyForm = function(event, partyId) {
     event.preventDefault();

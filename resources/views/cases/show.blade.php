@@ -276,8 +276,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     @php
                         $hasApplication = $case->documents->where('doc_type', 'application')->count() > 0;
-                        $hasNotice = $case->documents->where('doc_type', 'notice_publication')->count() > 0;
-                        $hasRequest = $case->documents->whereIn('pleading_type', ['request_to_docket', 'request_for_pre_hearing'])->count() > 0;
+                        $hasRequest = $case->documents->whereIn('pleading_type', ['request_to_docket', 'request_pre_hearing'])->count() > 0;
                         $namingOk = $case->documents->filter(function($doc) {
                             return !preg_match('/^\d{4}-\d{2}-\d{2} - .+/', $doc->original_filename);
                         })->count() === 0;
@@ -289,13 +288,6 @@
                             {{ $hasApplication ? '✓' : '✗' }}
                         </span>
                         Application PDF Present
-                    </div>
-                    
-                    <div class="flex items-center">
-                        <span class="w-6 h-6 rounded-full {{ $hasNotice ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
-                            {{ $hasNotice ? '✓' : '✗' }}
-                        </span>
-                        Notice of Publication Present
                     </div>
                     
                     <div class="flex items-center">
@@ -313,17 +305,10 @@
                     </div>
                 </div>
                 
-                <div class="flex space-x-4 mt-6">
-                    <form method="POST" action="{{ route('cases.accept', $case) }}" class="inline">
-                        @csrf
-                        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
-                            Accept Case
-                        </button>
-                    </form>
-                    
-                    <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
-                        Reject Case
-                    </button>
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <p class="text-sm text-blue-800">
+                        <strong>Next Steps:</strong> After reviewing the checklist, go to the Documents section below to Accept or Reject the case and manage individual documents.
+                    </p>
                 </div>
             </div>
             @endif
@@ -342,8 +327,9 @@
                         @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
                         <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">File Documents</button>
                         @endif
-                        @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                        @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                         <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
+                        <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
                         @elseif($case->status === 'approved')
                         <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">✓ Case Accepted</span>
                         @endif
@@ -404,7 +390,7 @@
                                     @if($doc->approved)
                                         <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                     @endif
-                                    @if(in_array($doc->pleading_type, ['request_to_docket', 'request_for_pre_hearing']))
+                                    @if(in_array($doc->pleading_type, ['request_to_docket', 'request_pre_hearing']))
                                         <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Pleading Document</span>
                                     @endif
                                 </div>
@@ -959,7 +945,7 @@
                             @endif
 
                             @php
-                                $assignedUsers = $case->assignments;
+                                $assignedUsers = $case->assignments->whereNotIn('assignment_type', ['hydrology_expert', 'wrd']);
                             @endphp
                             @if($assignedUsers->count() > 0)
                             <h4 class="font-medium text-sm mt-3 mb-2">Assigned Staff:</h4>

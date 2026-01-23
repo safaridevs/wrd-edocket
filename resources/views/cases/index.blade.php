@@ -44,15 +44,21 @@
                                         if ($isDirectParty) {
                                             $userRole = ucfirst($isDirectParty->role) . ' (Self)';
                                         } else {
-                                            // Check if attorney using consolidated system
+                                            // Check if attorney representing a party
                                             $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
                                             if ($attorney) {
-                                                $clientParty = $case->parties()->where('role', 'counsel')
+                                                // Find counsel party record for this attorney
+                                                $counselParty = $case->parties()->where('role', 'counsel')
                                                     ->whereHas('person', function($query) {
                                                         $query->where('email', auth()->user()->email);
-                                                    })->with('person')->first();
-                                                if ($clientParty) {
-                                                    $userRole = 'Attorney for ' . $clientParty->person->full_name;
+                                                    })->first();
+                                                
+                                                if ($counselParty && $counselParty->client_party_id) {
+                                                    // Get the client this attorney represents
+                                                    $clientParty = $case->parties()->find($counselParty->client_party_id);
+                                                    if ($clientParty) {
+                                                        $userRole = 'Attorney for ' . $clientParty->person->full_name;
+                                                    }
                                                 }
                                             }
                                         }

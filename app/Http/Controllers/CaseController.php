@@ -56,7 +56,7 @@ class CaseController extends Controller
             'case_type' => 'required|in:aggrieved,protested,compliance',
             'caption' => 'required|string|max:1000',
             'parties' => 'required|array|min:1',
-            'parties.*.role' => 'required|in:applicant,protestant,intervenor,respondent,violator,alleged_violator',
+            'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent,violator,alleged_violator',
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
@@ -515,7 +515,7 @@ class CaseController extends Controller
         $request->validate([
             'documents.application.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.request_to_docket.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.request_for_pre_hearing.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.request_pre_hearing.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
@@ -526,7 +526,7 @@ class CaseController extends Controller
         try {
             // Check if any files were uploaded
             $hasFiles = false;
-            $documentTypes = ['application', 'notice_publication', 'request_to_docket', 'request_for_pre_hearing', 'protest_letter', 'supporting'];
+            $documentTypes = ['application', 'notice_publication', 'request_to_docket', 'request_pre_hearing', 'protest_letter', 'supporting'];
 
             foreach ($documentTypes as $type) {
                 if ($request->hasFile("documents.{$type}")) {
@@ -642,7 +642,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -806,7 +806,7 @@ class CaseController extends Controller
         $party = $case->parties()->findOrFail($partyId);
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent,violator,alleged_violator',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -956,9 +956,9 @@ class CaseController extends Controller
                     $filename = time() . '_' . $file->getClientOriginalName();
                     $path = $file->storeAs('case_documents', $filename, 'public');
 
-                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
                     if ($index > 0) {
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
+                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
                     }
 
                     $documentData = [

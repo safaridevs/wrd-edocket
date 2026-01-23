@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
-    public function notify($recipient, string $type, string $title, string $message, ?CaseModel $case = null): Notification
+    public function notify($recipient, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): Notification
     {
         $userId = null;
         $email = null;
@@ -25,6 +25,9 @@ class NotificationService
         }
         
         // Send actual email
+        $emailStatus = 'pending';
+        $bounceReason = null;
+        
         if ($email) {
             try {
                 Mail::raw($message, function ($mail) use ($email, $title) {
@@ -32,12 +35,19 @@ class NotificationService
                          ->subject($title);
                 });
                 
+                $emailStatus = 'sent';
+                
                 // Log email notification to audit (use current authenticated user as the sender)
-                $currentUser = auth()->user();
-                if ($currentUser) {
-                    AuditService::logEmailNotification($currentUser, $case, $email, $type, $title);
+                if ($logAudit) {
+                    $currentUser = auth()->user();
+                    if ($currentUser) {
+                        AuditService::logEmailNotification($currentUser, $case, $email, $type, $title);
+                    }
                 }
             } catch (\Exception $e) {
+                $emailStatus = 'failed';
+                $bounceReason = $e->getMessage();
+                
                 \Log::error('Failed to send email notification', [
                     'email' => $email,
                     'title' => $title,
@@ -55,7 +65,9 @@ class NotificationService
                 'email' => $email,
                 'user_id' => $userId
             ],
-            'sent_at' => now()
+            'sent_at' => now(),
+            'email_status' => $emailStatus,
+            'bounce_reason' => $bounceReason
         ]);
     }
 

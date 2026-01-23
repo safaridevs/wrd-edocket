@@ -95,7 +95,7 @@ class DocumentService
         ]);
 
         // Stamp pleading documents upon approval
-        if (in_array($document->pleading_type, ['request_to_docket', 'request_for_pre_hearing'])) {
+        if (in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])) {
             $this->stampApprovedDocument($document, $user);
         }
 

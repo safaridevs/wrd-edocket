@@ -90,15 +90,15 @@
                     <div class="border rounded-lg p-4 bg-gray-50">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             @foreach(\App\Models\User::where('role', 'alu_clerk')->get() as $clerk)
-                            <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
-                                <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}"
-                                       {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }}
-                                       class="mr-3">
-                                <div>
-                                    <div class="font-medium">{{ $clerk->name }}</div>
-                                    <div class="text-sm text-gray-600">{{ $clerk->email }}</div>
-                                </div>
-                            </label>
+                                <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
+                                    <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}"
+                                        {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }}
+                                        class="mr-3">
+                                    <div>
+                                        <div class="font-medium">{{ $clerk->name }}</div>
+                                        <div class="text-sm text-gray-600">{{ $clerk->email }}</div>
+                                    </div>
+                                </label>
                             @endforeach
                         </div>
                         <p class="text-xs text-gray-500 mt-2">Select one or more ALU clerks to assign to this case</p>
@@ -152,7 +152,6 @@
                             <div class="flex justify-between items-center mb-4">
                                 <h4 class="font-medium text-gray-900" id="party-0-title">Primary Party 1 *</h4>
                             </div>
-
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Party Role *</label>
                                 <select name="parties[0][role]" id="party-0-role" required class="mt-1 block w-full border-gray-300 rounded-md">
@@ -163,7 +162,6 @@
                                     <option value="alleged_violator" {{ old('parties.0.role') == 'alleged_violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Alleged Violator</option>
                                 </select>
                             </div>
-
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Type *</label>
@@ -181,7 +179,6 @@
                                     </select>
                                 </div>
                             </div>
-
                             <!-- Individual Fields -->
                             <div id="individual-fields-0" class="{{ old('parties.0.type') == 'individual' ? '' : 'hidden' }}">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -195,7 +192,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Company Fields -->
                             <div id="company-fields-0" class="{{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
                                 <div class="mb-4">
@@ -203,7 +199,6 @@
                                     <input type="text" name="parties[0][organization]" value="{{ old('parties.0.organization') }}" class="mt-1 block w-full border-gray-300 rounded-md">
                                 </div>
                             </div>
-
                             <!-- Representation -->
                             <div class="mb-4">
                                 <label class="block text-sm font-medium text-gray-700">Representation</label>
@@ -224,7 +219,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <!-- Attorney Fields -->
                             <div id="attorney-fields-0" class="{{ (old('parties.0.representation') == 'attorney' || old('parties.0.type') == 'company') ? '' : 'hidden' }} border-t pt-4 mt-4">
                                 <h5 class="font-medium text-gray-700 mb-3">Attorney Information</h5>
@@ -244,7 +238,6 @@
                                         @endforeach
                                     </select>
                                 </div>
-
                                 <div class="mb-4">
                                     <label class="flex items-center mb-2">
                                         <input type="radio" name="parties[0][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(0)" {{ !old('parties.0.attorney_id') ? 'checked' : '' }}>

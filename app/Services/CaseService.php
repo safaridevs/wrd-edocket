@@ -261,9 +261,9 @@ class CaseService
                     $path = $file->storeAs('case_documents', $filename, 'public');
                     
                     $displayType = $this->getDisplayType($pleadingType);
-                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
                     if ($index > 0) {
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
+                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
                     }
                     
                     $documentData = [
@@ -299,7 +299,7 @@ class CaseService
         // Handle multiple document types with standardized naming
         $multipleDocTypes = [
             'request_to_docket' => 'Request to Docket',
-            'request_for_pre_hearing' => 'Request for Pre-Hearing',
+            'request_pre_hearing' => 'Request for Pre-Hearing',
             'protest_letter' => 'Protest Letter',
             'supporting' => 'Supporting Document'
         ];
@@ -608,7 +608,7 @@ class CaseService
             'protest_letter' => 'Protest Letter',
             'supporting' => 'Supporting Document',
             'request_to_docket' => 'Request to Docket',
-            'request_for_pre_hearing' => 'Request for Pre-Hearing',
+            'request_pre_hearing' => 'Request for Pre-Hearing',
             'affidavit' => 'Affidavit',
             'exhibit' => 'Exhibit',
             'correspondence' => 'Correspondence',
@@ -625,7 +625,7 @@ class CaseService
     private function stampPleadingDocuments(CaseModel $case, User $user): void
     {
         // Get documents that need stamping: Request to Docket and Request for Pre-Hearing
-        $pleadingDocuments = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_for_pre_hearing'])->get();
+        $pleadingDocuments = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_pre_hearing'])->get();
         
         foreach ($pleadingDocuments as $document) {
             $stampText = $this->generateStampText($case, $user);
@@ -841,6 +841,7 @@ class CaseService
             $recipients = $this->getAllCaseRecipients($case);
         }
 
+        $notifiedEmails = [];
         foreach ($recipients as $recipient) {
             [$type, $id] = explode('_', $recipient, 2);
             
@@ -852,8 +853,10 @@ class CaseService
                         'case_submitted',
                         'Case Submitted for Review',
                         $fullMessage,
-                        $case
+                        $case,
+                        false // Don't log individual notifications
                     );
+                    $notifiedEmails[] = $party->person->email;
                 }
             } elseif ($type === 'attorney') {
                 $attorney = $case->parties()->find($id);
@@ -863,8 +866,10 @@ class CaseService
                         'case_submitted',
                         'Case Submitted for Review',
                         $fullMessage,
-                        $case
+                        $case,
+                        false // Don't log individual notifications
                     );
+                    $notifiedEmails[] = $attorney->person->email;
                 }
             } elseif ($type === 'staff') {
                 $user = User::find($id);
@@ -874,10 +879,22 @@ class CaseService
                         'case_submitted',
                         'Case Submitted for Review',
                         $fullMessage,
-                        $case
+                        $case,
+                        false // Don't log individual notifications
                     );
+                    $notifiedEmails[] = $user->email;
                 }
             }
+        }
+        
+        // Log once with all recipients
+        if (!empty($notifiedEmails) && auth()->user()) {
+            AuditLog::log('send_notification', auth()->user(), $case, [
+                'notification_type' => 'case_submitted',
+                'title' => 'Case Submitted for Review',
+                'recipients' => $notifiedEmails,
+                'recipient_count' => count($notifiedEmails)
+            ]);
         }
     }
 
@@ -892,9 +909,11 @@ class CaseService
             $recipients[] = ($party->role === 'counsel' ? 'attorney_' : 'party_') . $party->id;
         }
         
-        // Add all assigned staff
+        // Add assigned staff (exclude hydrology experts and WRDs)
         foreach ($case->assignments as $assignment) {
-            $recipients[] = 'staff_' . $assignment->user_id;
+            if (!in_array($assignment->assignment_type, ['hydrology_expert', 'wrd'])) {
+                $recipients[] = 'staff_' . $assignment->user_id;
+            }
         }
         
         return $recipients;
@@ -904,9 +923,10 @@ class CaseService
     {
         foreach ($files as $index => $file) {
             if ($file && $file->isValid()) {
+                $fileSize = $file->getSize();
                 $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString);
                 unset($file);
-                if ($file->getSize() > 5 * 1024 * 1024) {
+                if ($fileSize > 5 * 1024 * 1024) {
                     gc_collect_cycles();
                 }
             }
@@ -919,9 +939,9 @@ class CaseService
         $path = $file->storeAs('case_documents', $filename, 'public');
         
         $displayType = $this->getDisplayType($docType);
-        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
         if ($index > 0) {
-            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($index + 1) . ').pdf';
+            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
         }
         
         $documentData = [
@@ -937,7 +957,7 @@ class CaseService
             'uploaded_at' => now()
         ];
         
-        if (in_array($docType, ['request_to_docket', 'request_for_pre_hearing'])) {
+        if (in_array($docType, ['request_to_docket', 'request_pre_hearing'])) {
             $documentData['pleading_type'] = $docType;
         }
         
