@@ -29,6 +29,11 @@ class CaseParty extends Model
     {
         return $this->belongsTo(CaseParty::class, 'client_party_id');
     }
+    
+    public function clientParty(): BelongsTo
+    {
+        return $this->belongsTo(CaseParty::class, 'client_party_id');
+    }
 
     public function attorneys()
     {

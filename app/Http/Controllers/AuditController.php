@@ -32,19 +32,29 @@ class AuditController extends Controller
 
     public function notificationHistory(Request $request)
     {
+        $groupBy = $request->get('group_by', 'case'); // default to case grouping
+        
         $notifications = Notification::with('case')
             ->when($request->case_id, fn($q) => $q->where('case_id', $request->case_id))
             ->when($request->email, fn($q) => $q->whereJsonContains('payload_json->email', $request->email))
             ->orderBy('sent_at', 'desc')
-            ->paginate(50);
+            ->get();
             
         $emailLogs = AuditLog::where('action', 'send_notification')
             ->with(['user', 'case'])
             ->when($request->case_id, fn($q) => $q->where('case_id', $request->case_id))
             ->when($request->email, fn($q) => $q->whereJsonContains('meta_json->email', $request->email))
             ->orderBy('created_at', 'desc')
-            ->paginate(50);
+            ->get();
+        
+        // Group data based on selected tab
+        $grouped = match($groupBy) {
+            'type' => $notifications->groupBy('notification_type'),
+            'date' => $notifications->groupBy(fn($n) => $n->sent_at->format('Y-m-d')),
+            'recipient' => $notifications->groupBy(fn($n) => $n->payload_json['email'] ?? 'Unknown'),
+            default => $notifications->groupBy('case_id'), // case
+        };
             
-        return view('audit.notification-history', compact('notifications', 'emailLogs'));
+        return view('audit.notification-history', compact('notifications', 'emailLogs', 'grouped', 'groupBy'));
     }
 }

@@ -51,21 +51,7 @@
                             @endif
                         </div>
 
-                        <strong class="mt-3 block">Assigned Hydrology Experts:</strong>
-                        <div class="text-sm mt-1">
-                            @if($case->hydrologyExperts->count() > 0)
-                                @foreach($case->hydrologyExperts as $expert)
-                                    <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $expert->getDisplayName() }}</span>
-                                @endforeach
-                            @else
-                                <span class="text-gray-500">Not assigned</span>
-                            @endif
-                            @if(auth()->user()->canAssignHydrologyExperts())
-                                <a href="{{ route('cases.assign-hydrology-expert', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
-                                    {{ $case->hydrologyExperts->count() > 0 ? 'Manage' : 'Assign' }}
-                                </a>
-                            @endif
-                        </div>
+
 
                         <strong class="mt-3 block">Assigned ALU Clerks:</strong>
                         <div class="text-sm mt-1">
@@ -95,6 +81,21 @@
                             @if(auth()->user()->canAssignAttorneys())
                                 <a href="{{ route('cases.assign-wrd', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
                                     {{ $case->wrds->count() > 0 ? 'Manage' : 'Assign' }}
+                                </a>
+                            @endif
+                        </div>
+                          <strong class="mt-3 block">Assigned Hydrology Experts:</strong>
+                        <div class="text-sm mt-1">
+                            @if($case->hydrologyExperts->count() > 0)
+                                @foreach($case->hydrologyExperts as $expert)
+                                    <span class="inline-block bg-green-100 text-green-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $expert->getDisplayName() }}</span>
+                                @endforeach
+                            @else
+                                <span class="text-gray-500">Not assigned</span>
+                            @endif
+                            @if(auth()->user()->canAssignHydrologyExperts())
+                                <a href="{{ route('cases.assign-hydrology-expert', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
+                                    {{ $case->hydrologyExperts->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
                             @endif
                         </div>
@@ -242,6 +243,42 @@
                         @if($case->parties->isEmpty())
                             <p class="text-gray-500 text-sm">No parties assigned</p>
                         @endif
+
+                        @php
+                            $userIsCounsel = auth()->user()->role === 'party' && $case->parties->where('role', 'counsel')->filter(function($party) {
+                                return $party->person->email === auth()->user()->email;
+                            })->isNotEmpty();
+                            
+                            $counselParty = $userIsCounsel ? $case->parties->where('role', 'counsel')->filter(function($party) {
+                                return $party->person->email === auth()->user()->email;
+                            })->first() : null;
+                            
+                            $userParalegals = $counselParty ? $case->parties->where('role', 'paralegal')->filter(function($p) use ($counselParty) {
+                                return $p->client_party_id === $counselParty->client_party_id;
+                            }) : collect();
+                        @endphp
+
+                        @if($userIsCounsel)
+                        <div class="mt-4 border-t pt-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-medium text-sm">My Paralegals</h5>
+                                <button onclick="showAddParalegalModal()" class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">+ Add Paralegal</button>
+                            </div>
+                            @if($userParalegals->isEmpty())
+                                <p class="text-gray-500 text-xs">No paralegals added</p>
+                            @else
+                                @foreach($userParalegals as $paralegal)
+                                <div class="flex justify-between items-center py-2 border-b text-sm">
+                                    <div>
+                                        <div class="font-medium">{{ $paralegal->person->full_name }}</div>
+                                        <div class="text-xs text-gray-600">{{ $paralegal->person->email }}</div>
+                                    </div>
+                                    <button onclick="removeParalegal({{ $paralegal->id }})" class="text-xs text-red-600 hover:text-red-800">Remove</button>
+                                </div>
+                                @endforeach
+                            @endif
+                        </div>
+                        @endif
                     </div>
                     <div>
                         <h4 class="font-medium mb-2">Service List</h4>
@@ -282,21 +319,21 @@
                         })->count() === 0;
                         $allPdfs = $case->documents->where('mime', '!=', 'application/pdf')->where('doc_type', '!=', 'notice_publication')->count() === 0;
                     @endphp
-                    
+
                     <div class="flex items-center">
                         <span class="w-6 h-6 rounded-full {{ $hasApplication ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
                             {{ $hasApplication ? '✓' : '✗' }}
                         </span>
                         Application PDF Present
                     </div>
-                    
+
                     <div class="flex items-center">
                         <span class="w-6 h-6 rounded-full {{ $hasRequest ? 'bg-green-500' : 'bg-red-500' }} text-white text-xs flex items-center justify-center mr-3">
                             {{ $hasRequest ? '✓' : '✗' }}
                         </span>
                         Pleading Document Present
                     </div>
-                    
+
                     <div class="flex items-center">
                         <span class="w-6 h-6 rounded-full {{ $namingOk ? 'bg-green-500' : 'bg-yellow-500' }} text-white text-xs flex items-center justify-center mr-3">
                             {{ $namingOk ? '✓' : '!' }}
@@ -304,7 +341,7 @@
                         Filename Convention {{ $namingOk ? 'Compliant' : 'Issues' }}
                     </div>
                 </div>
-                
+
                 <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
                     <p class="text-sm text-blue-800">
                         <strong>Next Steps:</strong> After reviewing the checklist, go to the Documents section below to Accept or Reject the case and manage individual documents.
@@ -787,7 +824,7 @@
     </script>
 
     <!-- Approve Case Modal -->
-    @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+    @if(in_array($case->status, ['submitted_to_hu', 'active']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
     <div id="approveModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -1024,4 +1061,63 @@
             </div>
         </div>
     </div>
+
+
+    <!-- Add Paralegal Modal -->
+    <div id="addParalegalModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Add Paralegal</h3>
+                    <form action="{{ route('cases.paralegals.add', $case) }}" method="POST">
+                        @csrf
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">First Name *</label>
+                                <input type="text" name="first_name" required class="w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Last Name *</label>
+                                <input type="text" name="last_name" required class="w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Email *</label>
+                                <input type="email" name="email" required class="w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Office Phone</label>
+                                <input type="text" name="phone_office" class="w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Mobile Phone</label>
+                                <input type="text" name="phone_mobile" class="w-full border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideAddParalegalModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Add Paralegal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showAddParalegalModal() {
+            document.getElementById('addParalegalModal').classList.remove('hidden');
+        }
+        function hideAddParalegalModal() {
+            document.getElementById('addParalegalModal').classList.add('hidden');
+        }
+        function removeParalegal(partyId) {
+            if (confirm('Are you sure you want to remove this paralegal?')) {
+                fetch(`/cases/{{ $case->id }}/paralegals/${partyId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+                }).then(response => response.json()).then(data => { location.reload(); }).catch(error => { location.reload(); });
+            }
+        }
+    </script>
+
 </x-app-layout>

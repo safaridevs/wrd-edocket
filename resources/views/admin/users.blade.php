@@ -39,7 +39,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex space-x-2">
                                         <button onclick="editUser({{ $user->id }})" class="text-blue-600 hover:text-blue-900">Edit</button>
-                                        
+
                                         @if(!$user->is_active)
                                             <form method="POST" action="{{ route('admin.users.approve', $user) }}" class="inline">
                                                 @csrf
@@ -51,7 +51,7 @@
                                                 <button type="submit" class="text-yellow-600 hover:text-yellow-900" onclick="return confirm('Deactivate this user?')">Deactivate</button>
                                             </form>
                                         @endif
-                                        
+
                                         @if($user->id !== auth()->id())
                                             <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline">
                                                 @csrf
@@ -65,12 +65,12 @@
                             @endforeach
                         </tbody>
                     </table>
-                    
+
                     <!-- Pagination -->
                     <div class="mt-4">
                         {{ $users->links() }}
                     </div>
-                    
+
                     <!-- User count -->
                     <div class="mt-2 text-sm text-gray-600">
                         Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }} users
@@ -96,7 +96,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Title</label>
-                                <input type="text" name="title" id="editTitle" class="mt-1 block w-full border-gray-300 rounded-md" placeholder="e.g., WRAP Director, ALU Managing Attorney">
+                                <input type="text" name="title" id="editTitle" class="mt-1 block w-full border-gray-300 rounded-md" placeholder="e.g., WRAP Director">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Email</label>
@@ -105,12 +105,13 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Role</label>
                                 <select name="role" id="editRole" class="mt-1 block w-full border-gray-300 rounded-md" required>
-                                    <option value="admin">Admin</option>
-                                    <option value="alu_manager">ALU Manager</option>
+                                    <option value="admin">IT Admin</option>
+                                    {{-- <option value="alu_manager">ALU Manager</option> --}}
                                     <option value="alu_atty">ALU Attorney</option>
                                     <option value="alu_clerk">ALU Clerk</option>
-                                    <option value="hu_admin">HU Admin</option>
-                                    <option value="hu_clerk">HU Clerk</option>
+                                    <option value="hu_admin">Hearing Unit Admin</option>
+                                    <option value="hu_admin">Hearing Unit Examiner</option>
+                                    <option value="hu_clerk">Hearing Unit Clerk</option>
                                     <option value="hydrology_expert">Hydrology Expert</option>
                                     <option value="wrd">WRD</option>
                                     <option value="party">Party</option>
@@ -152,7 +153,7 @@
         document.getElementById('editUserForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
-            
+
             fetch(this.action, {
                 method: 'POST',
                 body: formData,

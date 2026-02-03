@@ -1109,7 +1109,12 @@ class CaseController extends Controller
 
         try {
             $stampingService = app(\App\Services\PdfStampingService::class);
-            $stampingService->stampDocument($document, $case);
+            $result = $stampingService->stampDocument($document, $case);
+
+            if (!$result) {
+                \Log::error('Stamping service returned false for document: ' . $documentId);
+                return response()->json(['success' => false, 'error' => 'Failed to stamp document. Check logs for details.']);
+            }
 
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
@@ -1198,5 +1203,108 @@ class CaseController extends Controller
             $errors[] = 'Either Request to Docket or Request for Pre-Hearing document must be uploaded.';
         }
         return $errors;
+    }
+
+    public function addParalegal(Request $request, CaseModel $case)
+    {
+        $user = Auth::user();
+
+        // Only attorneys (party role) can add paralegals to cases they represent
+        if ($user->role !== 'party') {
+            abort(403, 'Only attorneys can add paralegals.');
+        }
+
+        // Check if user is counsel on this case
+        $isCounsel = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+            $q->where('email', $user->email);
+        })->exists();
+
+        if (!$isCounsel) {
+            abort(403, 'You can only add paralegals to cases you are representing.');
+        }
+
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone_office' => 'nullable|string|max:20',
+            'phone_mobile' => 'nullable|string|max:20'
+        ]);
+
+        // Find or create person
+        $person = \App\Models\Person::where('email', $validated['email'])->first();
+
+        if (!$person) {
+            $person = \App\Models\Person::create([
+                'type' => 'individual',
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'phone_office' => $validated['phone_office'] ?? null,
+                'phone_mobile' => $validated['phone_mobile'] ?? null
+            ]);
+        }
+
+        // Check if already a party
+        $exists = $case->parties()->where('person_id', $person->id)->exists();
+        if ($exists) {
+            return back()->withErrors(['error' => 'This person is already associated with this case.']);
+        }
+
+        // Get the counsel party record for the attorney
+        $counselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+            $q->where('email', $user->email);
+        })->first();
+
+        // Add paralegal linked to the attorney's counsel record
+        \App\Models\CaseParty::create([
+            'case_id' => $case->id,
+            'person_id' => $person->id,
+            'role' => 'paralegal',
+            'client_party_id' => $counselParty->client_party_id, // Link to same client as attorney
+            'service_enabled' => true
+        ]);
+
+        // Add to service list
+        \App\Models\ServiceList::create([
+            'case_id' => $case->id,
+            'person_id' => $person->id,
+            'email' => $person->email,
+            'service_method' => 'email',
+            'is_primary' => false
+        ]);
+
+        return back()->with('success', 'Paralegal added successfully.');
+    }
+
+    public function removeParalegal(CaseModel $case, $partyId)
+    {
+        $user = Auth::user();
+
+        if ($user->role !== 'party') {
+            abort(403);
+        }
+
+        $paralegalParty = $case->parties()->where('id', $partyId)->where('role', 'paralegal')->firstOrFail();
+
+        // Check if user is the attorney for this paralegal's client
+        $isCounsel = $case->parties()
+            ->where('role', 'counsel')
+            ->where('client_party_id', $paralegalParty->client_party_id)
+            ->whereHas('person', function($q) use ($user) {
+                $q->where('email', $user->email);
+            })->exists();
+
+        if (!$isCounsel) {
+            abort(403, 'You can only remove your own paralegals.');
+        }
+
+        // Remove from service list
+        $case->serviceList()->where('person_id', $paralegalParty->person_id)->delete();
+
+        // Remove party
+        $paralegalParty->delete();
+
+        return response()->json(['success' => true, 'message' => 'Paralegal removed successfully.']);
     }
 }

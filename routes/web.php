@@ -169,6 +169,10 @@ Route::middleware('auth')->group(function () {
     Route::get('audit/notifications', [\App\Http\Controllers\AuditController::class, 'notificationHistory'])->name('audit.notifications');
     Route::get('audit/system', [\App\Http\Controllers\AuditController::class, 'systemLogs'])->name('audit.system');
     Route::get('cases/{case}/audit', [\App\Http\Controllers\AuditController::class, 'caseHistory'])->name('cases.audit');
+    
+    // Paralegal routes
+    Route::post('cases/{case}/paralegals', [CaseController::class, 'addParalegal'])->name('cases.paralegals.add');
+    Route::delete('cases/{case}/paralegals/{party}', [CaseController::class, 'removeParalegal'])->name('cases.paralegals.remove');
 });
 
 require __DIR__.'/auth.php';

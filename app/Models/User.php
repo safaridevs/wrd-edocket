@@ -179,7 +179,7 @@ class User extends Authenticatable
             return true;
         }
 
-        // Check if user email matches any person in the case (direct party)
+        // Check if user email matches any person in the case (direct party, counsel, or paralegal)
         $isParty = $case->parties()->whereHas('person', function($query) {
             $query->where('email', $this->email);
         })->exists();
@@ -224,9 +224,22 @@ class User extends Authenticatable
         return Attorney::where('email', $this->email)->exists();
     }
 
+    public function isParalegal(): bool
+    {
+        return CaseParty::where('role', 'paralegal')
+            ->whereHas('person', function($query) {
+                $query->where('email', $this->email);
+            })->exists();
+    }
+
     public function canAssignHydrologyExperts(): bool
     {
         return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+    }
+
+    public function canAssignParalegal(): bool
+    {
+        return $this->isAttorney();
     }
 
     public function canTransmitMaterials(): bool

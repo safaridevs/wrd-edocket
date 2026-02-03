@@ -496,8 +496,8 @@ class CaseService
             $this->notificationService->notify(
                 $party->person,
                 'case_accepted',
-                'Case Approved',
-                "Case {$case->case_no} has been approved and is proceeding to hearing.",
+                'Case Accepted',
+                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
                 $case
             );
         }
@@ -507,8 +507,8 @@ class CaseService
             $this->notificationService->notify(
                 $case->assignedAttorney,
                 'case_accepted',
-                'Case Approved',
-                "Case {$case->case_no} has been approved and is proceeding to hearing.",
+                'Case Accepted',
+                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
                 $case
             );
         }
@@ -518,8 +518,8 @@ class CaseService
             $this->notificationService->notify(
                 $case->assignedHydrologyExpert,
                 'case_accepted',
-                'Case Approved',
-                "Case {$case->case_no} has been approved and is proceeding to hearing.",
+                'Case Accepted',
+                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
                 $case
             );
         }
@@ -530,7 +530,7 @@ class CaseService
     public function notifySelectedParties(CaseModel $case, array $recipients, ?string $customMessage, User $user): int
     {
         $notificationCount = 0;
-        $baseMessage = "Case {$case->case_no} has been approved and is proceeding to hearing.";
+        $baseMessage = "Case {$case->case_no} has been accepted and is proceeding to hearing.";
         $fullMessage = $customMessage ? $baseMessage . "\n\n" . $customMessage : $baseMessage;
 
         foreach ($recipients as $recipient) {
@@ -541,8 +541,8 @@ class CaseService
                 if ($party && $party->person) {
                     $this->notificationService->notify(
                         $party->person,
-                        'case_approved',
-                        'Case Approved - Action Required',
+                        'case_accepted',
+                        'Case Accepted - Action Required',
                         $fullMessage,
                         $case
                     );
@@ -553,8 +553,8 @@ class CaseService
                 if ($attorney) {
                     $this->notificationService->notify(
                         $attorney,
-                        'case_approved',
-                        'Case Approved - Client Notification',
+                        'case_accepted',
+                        'Case Accepted - Client Notification',
                         $fullMessage,
                         $case
                     );
@@ -936,7 +936,9 @@ class CaseService
     private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString): void
     {
         $filename = time() . '_' . $file->getClientOriginalName();
+        \Log::info('Attempting file upload', ['filename' => $filename, 'disk' => 'public', 'path' => 'case_documents']);
         $path = $file->storeAs('case_documents', $filename, 'public');
+        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
         
         $displayType = $this->getDisplayType($docType);
         $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';

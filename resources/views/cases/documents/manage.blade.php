@@ -159,6 +159,7 @@
                                 <div class="flex flex-wrap gap-2 ml-4">
                                     @if($document->storage_uri)
                                         <a href="{{ Storage::url($document->storage_uri) }}" target="_blank" 
+                                           onclick="markDocumentAsViewed({{ $document->id }})"
                                            class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded">
                                             📄 View
                                         </a>
@@ -171,11 +172,17 @@
                                     @if(in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                                         @if(!$document->approved && !$document->rejected_reason)
                                             <button onclick="approveDocument({{ $document->id }})" 
-                                                    class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
+                                                    id="approve-btn-{{ $document->id }}"
+                                                    disabled
+                                                    class="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded whitespace-nowrap cursor-not-allowed"
+                                                    title="View document first to enable this button">
                                                 ✓ Accept
                                             </button>
                                             <button onclick="rejectDocument({{ $document->id }})" 
-                                                    class="text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap">
+                                                    id="reject-btn-{{ $document->id }}"
+                                                    disabled
+                                                    class="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded whitespace-nowrap cursor-not-allowed"
+                                                    title="View document first to enable this button">
                                                 ✗ Reject
                                             </button>
                                         @elseif($document->approved && !$document->stamped && in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']))
@@ -310,6 +317,43 @@
     </div>
 
     <script>
+        // Track viewed documents in session storage
+        const viewedDocuments = new Set(JSON.parse(sessionStorage.getItem('viewedDocuments') || '[]'));
+
+        function markDocumentAsViewed(documentId) {
+            viewedDocuments.add(documentId);
+            sessionStorage.setItem('viewedDocuments', JSON.stringify([...viewedDocuments]));
+            
+            // Enable buttons after a short delay (to ensure document opened)
+            setTimeout(() => {
+                enableDocumentButtons(documentId);
+            }, 1000);
+        }
+
+        function enableDocumentButtons(documentId) {
+            const approveBtn = document.getElementById(`approve-btn-${documentId}`);
+            const rejectBtn = document.getElementById(`reject-btn-${documentId}`);
+            
+            if (approveBtn) {
+                approveBtn.disabled = false;
+                approveBtn.className = 'text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
+                approveBtn.title = '';
+            }
+            
+            if (rejectBtn) {
+                rejectBtn.disabled = false;
+                rejectBtn.className = 'text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
+                rejectBtn.title = '';
+            }
+        }
+
+        // On page load, enable buttons for already viewed documents
+        document.addEventListener('DOMContentLoaded', function() {
+            viewedDocuments.forEach(docId => {
+                enableDocumentButtons(docId);
+            });
+        });
+
         function showUploadModal() {
             document.getElementById('uploadModal').classList.remove('hidden');
         }
@@ -457,19 +501,30 @@
             );
         }
 
-        // Enable/disable confirm button based on checkbox
+        // Enable/disable confirm button based on checkbox and reject reason
         document.addEventListener('DOMContentLoaded', function() {
             const checkbox = document.getElementById('documentViewedCheckbox');
             const confirmBtn = document.getElementById('confirmActionBtn');
+            const rejectReasonInput = document.getElementById('rejectReasonInput');
+            const rejectReasonSection = document.getElementById('rejectReasonSection');
             
-            checkbox.addEventListener('change', function() {
-                confirmBtn.disabled = !this.checked;
-                if (this.checked) {
+            function updateButtonState() {
+                const isRejectAction = !rejectReasonSection.classList.contains('hidden');
+                const checkboxChecked = checkbox.checked;
+                const hasRejectReason = rejectReasonInput.value.trim().length > 0;
+                
+                const shouldEnable = isRejectAction ? (checkboxChecked && hasRejectReason) : checkboxChecked;
+                
+                confirmBtn.disabled = !shouldEnable;
+                if (shouldEnable) {
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
                 } else {
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
                 }
-            });
+            }
+            
+            checkbox.addEventListener('change', updateButtonState);
+            rejectReasonInput.addEventListener('input', updateButtonState);
         });
 
 
@@ -520,22 +575,38 @@
         }
 
         function stampDocument(documentId) {
+            console.log('stampDocument called with ID:', documentId);
             if (confirm('Are you sure you want to apply electronic stamp to this document?')) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/stamp`, {
+                console.log('User confirmed, sending request...');
+                const url = `/cases/{{ $case->id }}/documents/${documentId}/stamp`;
+                console.log('URL:', url);
+                
+                fetch(url, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json'
                     }
                 })
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Response data:', data);
                     if (data.success) {
+                        alert('Document stamped successfully!');
                         location.reload();
                     } else {
-                        alert('Failed to stamp document');
+                        alert('Failed to stamp document: ' + (data.error || 'Unknown error'));
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error stamping document: ' + error.message);
                 });
+            } else {
+                console.log('User cancelled');
             }
         }
     </script>

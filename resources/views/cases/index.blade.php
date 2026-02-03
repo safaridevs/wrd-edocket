@@ -3,7 +3,7 @@
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 @if(auth()->user()->isHUAdmin() || auth()->user()->isHULawClerk())
-                    Incoming Requests
+                    Filed Pleadings
                 @else
                     My Cases
                 @endif
@@ -52,7 +52,7 @@
                                                     ->whereHas('person', function($query) {
                                                         $query->where('email', auth()->user()->email);
                                                     })->first();
-                                                
+
                                                 if ($counselParty && $counselParty->client_party_id) {
                                                     // Get the client this attorney represents
                                                     $clientParty = $case->parties()->find($counselParty->client_party_id);
@@ -91,7 +91,7 @@
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
                                 @endif --}}
 
-                                @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
+                                @if(($case->status === 'active' || $case->status === 'approved') && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
                                 <a href="{{ route('cases.documents.upload', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
                                 @endif
                             </td>

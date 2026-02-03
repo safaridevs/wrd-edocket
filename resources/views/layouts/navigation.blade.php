@@ -16,23 +16,23 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    
+
                     <x-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
                         {{ __('Cases') }}
                     </x-nav-link>
-                    
+
                     @if(Auth::user()->canCreateCase())
                         <x-nav-link :href="route('cases.create')" :active="request()->routeIs('cases.create')">
                             {{ __('New Case') }}
                         </x-nav-link>
                     @endif
-                    
+
                     @if(Auth::user()->canManageUsers())
                         <x-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
-                            {{ __('Admin') }}
+                            {{ __('IT Admin') }}
                         </x-nav-link>
                     @endif
-                    
+
                     @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
                         <x-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
                             {{ __('Email History') }}
@@ -97,18 +97,18 @@
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
-                        
+
                         @php
                             $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
                             $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
                         @endphp
-                        
+
                         @if($hasPersonRecord)
                             <x-dropdown-link :href="route('party.contact.edit')">
                                 {{ __('Contact Information') }}
                             </x-dropdown-link>
                         @endif
-                        
+
                         @if($hasAttorneyRecord)
                             <x-dropdown-link :href="route('attorney.profile.edit')">
                                 {{ __('Attorney Profile') }}
@@ -147,23 +147,23 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            
+
             <x-responsive-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
                 {{ __('Cases') }}
             </x-responsive-nav-link>
-            
+
             @if(Auth::user()->canCreateCase())
                 <x-responsive-nav-link :href="route('cases.create')" :active="request()->routeIs('cases.create')">
                     {{ __('New Case') }}
                 </x-responsive-nav-link>
             @endif
-            
+
             @if(Auth::user()->canManageUsers())
                 <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
                     {{ __('Admin') }}
                 </x-responsive-nav-link>
             @endif
-            
+
             @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
                 <x-responsive-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
                     {{ __('Email History') }}
@@ -182,18 +182,18 @@
                 <x-responsive-nav-link :href="route('profile.edit')">
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
-                
+
                 @php
                     $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
                     $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
                 @endphp
-                
+
                 @if($hasPersonRecord)
                     <x-responsive-nav-link :href="route('party.contact.edit')">
                         {{ __('Contact Information') }}
                     </x-responsive-nav-link>
                 @endif
-                
+
                 @if($hasAttorneyRecord)
                     <x-responsive-nav-link :href="route('attorney.profile.edit')">
                         {{ __('Attorney Profile') }}

@@ -11,9 +11,9 @@
                 </svg>
             </div>
             <h2 class="text-3xl font-bold text-gray-900 mb-3">Public Case Search</h2>
-            <p class="text-gray-600 text-lg">Search approved water rights cases and view public documents</p>
+            <p class="text-gray-600 text-lg">Search OSE Hearing Unit Cases</p>
         </div>
-        
+
         <!-- Search Form -->
         <form method="GET" action="{{ route('public.cases.index') }}" class="max-w-4xl mx-auto">
             <div class="flex flex-col sm:flex-row gap-4">
@@ -24,8 +24,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <input type="text" 
-                               name="search" 
+                        <input type="text"
+                               name="search"
                                value="{{ request('search') }}"
                                placeholder="Search by case number, caption, or party name..."
                                class="w-full pl-12 pr-4 py-4 border-gray-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 search-focus text-lg">
@@ -73,9 +73,9 @@
                                     ✓ Approved
                                 </span>
                             </div>
-                            
+
                             <p class="text-gray-900 mb-3">{{ $case->caption }}</p>
-                            
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>
                                     <strong>Case Type:</strong> {{ ucfirst($case->case_type) }}
@@ -94,7 +94,7 @@
                                 </div>
                                 @endif
                             </div>
-                            
+
                             @if($case->parties->count() > 0)
                             <div class="mt-3">
                                 <strong class="text-sm text-gray-600">Parties:</strong>
@@ -113,9 +113,9 @@
                             </div>
                             @endif
                         </div>
-                        
+
                         <div class="ml-4">
-                            <a href="{{ route('public.cases.show', $case) }}" 
+                            <a href="{{ route('public.cases.show', $case) }}"
                                class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -128,7 +128,7 @@
                 </div>
                 @endforeach
             </div>
-            
+
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
                 {{ $cases->links() }}

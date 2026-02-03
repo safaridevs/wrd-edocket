@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>OSE E-Docket System - New Mexico Office of the State Engineer</title>
+        <title>OSE E-Docket - New Mexico Office of the State Engineer</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-gray-50">
@@ -16,7 +16,7 @@
                             <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         </div>
                         <div>
-                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket System</h1>
+                            <h1 class="text-xl font-bold text-blue-900">OSE E-Docket</h1>
                             <p class="text-sm text-gray-600 hidden md:block">New Mexico Office of the State Engineer</p>
                         </div>
                     </div>
@@ -47,14 +47,14 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
                 <div class="text-center">
                     <h1 class="text-4xl md:text-5xl font-bold text-white mb-6">
-                        OSE E-Docket System
+                        OSE E-Docket
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
                         Access approved water rights hearing cases, documents, and proceedings from the New Mexico Office of the State Engineer Hearing Unit.
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                            Browse Approved Cases
+                            Browse Cases
                         </a>
                         @guest
                         <a href="{{ route('register') }}" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors border border-blue-600">
@@ -72,7 +72,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div class="text-center">
                         <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::where('status', 'approved')->count() }}</div>
-                        <div class="text-gray-600 mt-2">Approved Cases</div>
+                        <div class="text-gray-600 mt-2">Cases</div>
                     </div>
                     <div class="text-center">
                         <div class="text-3xl font-bold text-green-600">{{ \App\Models\Document::whereHas('case', function($q) { $q->where('status', 'approved'); })->count() }}</div>
@@ -90,9 +90,9 @@
         <div id="approved-cases" class="bg-gray-50 py-16">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-12">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Approved Water Rights Cases</h2>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Water Rights Cases</h2>
                     <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Browse approved water rights hearing cases. All documents and proceedings are available for public review.
+                        Browse water rights hearing cases. All documents and proceedings are available for public review.
                     </p>
                 </div>
 
@@ -115,7 +115,7 @@
                                         <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                                     </div>
                                     <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                                        Approved
+                                        Accepted
                                     </span>
                                 </div>
 

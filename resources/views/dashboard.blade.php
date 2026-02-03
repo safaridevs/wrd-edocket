@@ -6,7 +6,16 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900">Welcome back, {{ auth()->user()->name }}</h1>
-                        <p class="text-gray-600 mt-1">{{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }} • {{ now()->format('l, F j, Y') }}</p>
+                        <p class="text-gray-600 mt-1">
+                            @if(auth()->user()->isAttorney())
+                                Attorney
+                            @elseif(auth()->user()->isParalegal())
+                                Paralegal
+                            @else
+                                {{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}
+                            @endif
+                            • {{ now()->format('l, F j, Y') }}
+                        </p>
                     </div>
                     <div class="flex items-center space-x-4">
                         @if(auth()->user()->canCreateCase())
@@ -38,24 +47,33 @@
                             <p class="text-2xl font-bold text-gray-900">
                                 @if(auth()->user()->role === 'party')
                                     @php
-                                        $directCasesCount = \App\Models\CaseModel::whereHas('parties.person', function($query) {
-                                            $query->where('email', auth()->user()->email);
-                                        })->whereIn('status', ['active', 'approved'])->count();
-                                        
-                                        $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
-                                        $attorneyCasesCount = 0;
-                                        if ($attorney) {
-                                            $attorneyCasesCount = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
+                                        if (auth()->user()->isParalegal()) {
+                                            // Get cases where user is paralegal
+                                            $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
+                                                $query->where('role', 'paralegal')
+                                                      ->whereHas('person', function($subQuery) {
+                                                          $subQuery->where('email', auth()->user()->email);
+                                                      });
+                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
+                                        } elseif (auth()->user()->isAttorney()) {
+                                            // Get cases where user is counsel (attorney)
+                                            $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                                 $query->where('role', 'counsel')
                                                       ->whereHas('person', function($subQuery) {
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
-                                            })->whereIn('status', ['active', 'approved'])->count();
+                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
+                                        } else {
+                                            // Regular party - get cases where they are applicant, protestant, etc.
+                                            $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
+                                                $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent', 'violator', 'alleged_violator'])
+                                                      ->whereHas('person', function($subQuery) {
+                                                          $subQuery->where('email', auth()->user()->email);
+                                                      });
+                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
                                         }
-                                        
-                                        $totalCases = $directCasesCount + $attorneyCasesCount;
                                     @endphp
-                                    {{ $totalCases }}
+                                    {{ $myCases }}
                                 @else
                                     {{ auth()->user()->createdCases()->count() }}
                                 @endif
@@ -135,22 +153,45 @@
                         <div class="p-6">
                             @php
                                 if (auth()->user()->role === 'party') {
-                                    $directCases = \App\Models\CaseModel::whereHas('parties.person', function($query) {
-                                        $query->where('email', auth()->user()->email);
-                                    })->whereIn('status', ['active', 'approved'])->get();
-                                    
-                                    $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
-                                    $attorneyCases = collect();
-                                    if ($attorney) {
-                                        $attorneyCases = \App\Models\CaseModel::whereHas('parties', function($query) use ($attorney) {
+                                    if (auth()->user()->isParalegal()) {
+                                        // Get cases where user is paralegal
+                                        $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
+                                            $query->where('role', 'paralegal')
+                                                  ->whereHas('person', function($subQuery) {
+                                                      $subQuery->where('email', auth()->user()->email);
+                                                  });
+                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                          ->with(['parties' => function($query) {
+                                              $query->whereIn('role', ['counsel', 'paralegal'])
+                                                    ->with('person', 'clientParty.person');
+                                          }])
+                                          ->latest()->take(5)->get();
+                                    } elseif (auth()->user()->isAttorney()) {
+                                        // Get cases where user is counsel (attorney)
+                                        $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                             $query->where('role', 'counsel')
                                                   ->whereHas('person', function($subQuery) {
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
-                                        })->whereIn('status', ['active', 'approved'])->get();
+                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                          ->with(['parties' => function($query) {
+                                              $query->where('role', 'counsel')
+                                                    ->whereHas('person', function($subQuery) {
+                                                        $subQuery->where('email', auth()->user()->email);
+                                                    })->with('clientParty.person');
+                                          }])
+                                          ->latest()->take(5)->get();
+                                    } else {
+                                        // Regular party - get their cases
+                                        $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
+                                            $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent', 'violator', 'alleged_violator'])
+                                                  ->whereHas('person', function($subQuery) {
+                                                      $subQuery->where('email', auth()->user()->email);
+                                                  });
+                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                          ->with('parties.person')
+                                          ->latest()->take(5)->get();
                                     }
-                                    
-                                    $recentCases = $directCases->merge($attorneyCases)->sortByDesc('created_at')->take(5);
                                 } else {
                                     $recentCases = auth()->user()->isHearingUnit() 
                                         ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->latest()->take(5)->get()
@@ -170,30 +211,56 @@
                                                 <h4 class="font-medium text-gray-900">{{ $case->case_no }}</h4>
                                                 <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} • {{ $case->created_at->format('M j, Y') }}</p>
                                                 @php
-                                                    $userRole = null;
-                                                    // Check if direct party
-                                                    $isDirectParty = $case->parties()->whereHas('person', function($query) {
-                                                        $query->where('email', auth()->user()->email);
-                                                    })->first();
-                                                    
-                                                    if ($isDirectParty) {
-                                                        $userRole = ucfirst($isDirectParty->role) . ' (Self)';
-                                                    } else {
-                                                        // Check if attorney using consolidated system
-                                                        $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
-                                                        if ($attorney) {
-                                                            $clientParty = $case->parties()->where('role', 'counsel')
-                                                                ->whereHas('person', function($query) {
-                                                                    $query->where('email', auth()->user()->email);
-                                                                })->with('person')->first();
-                                                            if ($clientParty) {
-                                                                $userRole = 'Attorney for ' . $clientParty->person->full_name;
+                                                    if (auth()->user()->isParalegal()) {
+                                                        // For paralegals, show the attorney they work with
+                                                        $paralegalParty = $case->parties->where('role', 'paralegal')
+                                                            ->filter(function($party) {
+                                                                return $party->person->email === auth()->user()->email;
+                                                            })->first();
+                                                        
+                                                        $attorneyName = 'Unknown Attorney';
+                                                        $clientName = 'Unknown Client';
+                                                        
+                                                        if ($paralegalParty) {
+                                                            $counselParty = \App\Models\CaseParty::where('role', 'counsel')
+                                                                ->where('client_party_id', $paralegalParty->client_party_id)
+                                                                ->with('person', 'clientParty.person')
+                                                                ->first();
+                                                            
+                                                            if ($counselParty) {
+                                                                $attorneyName = $counselParty->person->full_name;
+                                                                if ($counselParty->clientParty) {
+                                                                    $clientName = $counselParty->clientParty->person->full_name;
+                                                                }
                                                             }
                                                         }
+                                                    } elseif (auth()->user()->isAttorney()) {
+                                                        // For attorneys, show which client they represent
+                                                        $counselParty = $case->parties->where('role', 'counsel')
+                                                            ->filter(function($party) {
+                                                                return $party->person->email === auth()->user()->email;
+                                                            })->first();
+                                                        
+                                                        $clientName = 'Unknown Client';
+                                                        if ($counselParty && $counselParty->clientParty) {
+                                                            $clientName = $counselParty->clientParty->person->full_name;
+                                                        }
+                                                    } else {
+                                                        // For regular parties, show their role
+                                                        $userParty = $case->parties->filter(function($party) {
+                                                            return $party->person->email === auth()->user()->email;
+                                                        })->first();
+                                                        
+                                                        $partyRole = $userParty ? ucfirst(str_replace('_', ' ', $userParty->role)) : 'Party';
                                                     }
                                                 @endphp
-                                                @if($userRole)
-                                                    <p class="text-xs text-blue-600 font-medium">{{ $userRole }}</p>
+                                                @if(auth()->user()->isParalegal())
+                                                    <p class="text-xs text-purple-600 font-medium">Attorney: {{ $attorneyName }}</p>
+                                                    <p class="text-xs text-blue-600">Client: {{ $clientName }}</p>
+                                                @elseif(auth()->user()->isAttorney())
+                                                    <p class="text-xs text-blue-600 font-medium">Representing: {{ $clientName }}</p>
+                                                @else
+                                                    <p class="text-xs text-green-600 font-medium">Role: {{ $partyRole }}</p>
                                                 @endif
                                             </div>
                                         </div>
@@ -237,38 +304,115 @@
                 <div class="space-y-6">
                     <!-- My Role -->
                     @if(auth()->user()->role === 'party')
+                        @if(auth()->user()->isParalegal())
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+                            <div class="p-6 border-b border-gray-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Paralegal Profile</h3>
+                            </div>
+                            <div class="p-6">
+                                @php
+                                    $paralegalParties = \App\Models\CaseParty::where('role', 'paralegal')
+                                        ->whereHas('person', function($query) {
+                                            $query->where('email', auth()->user()->email);
+                                        })
+                                        ->whereHas('case', function($query) {
+                                            $query->whereIn('status', ['active', 'approved', 'submitted_to_hu']);
+                                        })
+                                        ->with('case', 'clientParty.person')
+                                        ->get();
+                                    
+                                    $assignedCases = $paralegalParties->count();
+                                    $attorneys = $paralegalParties->map(function($p) {
+                                        return \App\Models\CaseParty::where('role', 'counsel')
+                                            ->where('client_party_id', $p->client_party_id)
+                                            ->with('person')
+                                            ->first();
+                                    })->filter()->unique('person.email');
+                                @endphp
+                                
+                                <div class="mb-4">
+                                    <p class="text-sm font-medium text-gray-700">{{ auth()->user()->name }}</p>
+                                    <p class="text-xs text-gray-500">{{ auth()->user()->email }}</p>
+                                </div>
+                                
+                                <div class="border-t pt-4">
+                                    <p class="text-sm font-medium text-gray-700 mb-2">Assigned Cases: {{ $assignedCases }}</p>
+                                    @if($attorneys->count() > 0)
+                                        <p class="text-xs text-gray-600 mb-2">Working with:</p>
+                                        <div class="space-y-2">
+                                            @foreach($attorneys as $counsel)
+                                                @if($counsel && $counsel->person)
+                                                <div class="text-xs bg-purple-50 p-2 rounded">
+                                                    <p class="font-medium text-purple-900">{{ $counsel->person->full_name }}</p>
+                                                    <p class="text-purple-600">Attorney</p>
+                                                </div>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        @elseif(auth()->user()->isAttorney())
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div class="p-6 border-b border-gray-200">
-                            <h3 class="text-lg font-semibold text-gray-900">My Role</h3>
+                            <h3 class="text-lg font-semibold text-gray-900">Attorney Profile</h3>
                         </div>
                         <div class="p-6">
                             @php
-                                $person = \App\Models\Person::where('email', auth()->user()->email)->first();
                                 $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
-                            @endphp
-                            
-                            @if($person)
-                                <div class="flex items-center space-x-2 mb-3">
-                                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                                    <span class="text-sm font-medium text-gray-700">Party: {{ $person->full_name }}</span>
-                                </div>
-                            @endif
-                            
-                            @if($attorney)
-                                <div class="flex items-center space-x-2 mb-3">
-                                    <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                    <span class="text-sm font-medium text-gray-700">Attorney: {{ $attorney->name }}</span>
-                                </div>
-                                @php
-                                    $clientCount = \App\Models\CaseParty::where('role', 'counsel')
+                                $clientCount = 0;
+                                $activeClients = collect();
+                                
+                                if ($attorney) {
+                                    $counselParties = \App\Models\CaseParty::where('role', 'counsel')
                                         ->whereHas('person', function($query) {
                                             $query->where('email', auth()->user()->email);
-                                        })->count();
-                                @endphp
-                                <p class="text-xs text-gray-500">Representing {{ $clientCount }} client(s)</p>
+                                        })
+                                        ->whereHas('case', function($query) {
+                                            $query->whereIn('status', ['active', 'approved', 'submitted_to_hu']);
+                                        })
+                                        ->with('clientParty.person', 'case')
+                                        ->get();
+                                    
+                                    $clientCount = $counselParties->count();
+                                    $activeClients = $counselParties->take(3);
+                                }
+                            @endphp
+                            
+                            @if($attorney)
+                                <div class="mb-4">
+                                    <p class="text-sm font-medium text-gray-700">{{ $attorney->name }}</p>
+                                    @if($attorney->bar_number)
+                                        <p class="text-xs text-gray-500">Bar #: {{ $attorney->bar_number }}</p>
+                                    @endif
+                                    <p class="text-xs text-gray-500">{{ $attorney->email }}</p>
+                                </div>
+                                
+                                <div class="border-t pt-4">
+                                    <p class="text-sm font-medium text-gray-700 mb-2">Active Clients: {{ $clientCount }}</p>
+                                    @if($activeClients->count() > 0)
+                                        <div class="space-y-2">
+                                            @foreach($activeClients as $counsel)
+                                                @if($counsel->clientParty)
+                                                <div class="text-xs bg-blue-50 p-2 rounded">
+                                                    <p class="font-medium text-blue-900">{{ $counsel->clientParty->person->full_name }}</p>
+                                                    <p class="text-blue-600">Case: {{ $counsel->case->case_no }}</p>
+                                                </div>
+                                                @endif
+                                            @endforeach
+                                            @if($clientCount > 3)
+                                                <p class="text-xs text-gray-500 text-center">+ {{ $clientCount - 3 }} more</p>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
+                            @else
+                                <p class="text-sm text-gray-500">No attorney profile found</p>
                             @endif
                         </div>
                     </div>
+                    @endif
                     @endif
 
                     <!-- Quick Actions -->
