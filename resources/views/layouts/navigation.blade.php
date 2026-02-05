@@ -5,7 +5,7 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}" class="flex items-center space-x-2">
+                    <a href="{{ route('welcome') }}" class="flex items-center space-x-2">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-8 w-auto">
                         <span class="font-bold text-gray-800">E-Docket</span>
                     </a>

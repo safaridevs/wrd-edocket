@@ -141,7 +141,13 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <h4 class="font-medium mb-2">Case Parties</h4>
-                        @foreach($case->parties->where('role', '!=', 'counsel') as $index => $party)
+                        @php
+                            $sortedParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
+                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6];
+                                return $order[$party->role] ?? 99;
+                            });
+                        @endphp
+                        @foreach($sortedParties as $index => $party)
                         <div class="border rounded-lg mb-3 bg-gray-50">
                             <div class="p-3 cursor-pointer" onclick="togglePartyDetails({{ $index }})">
                                 <div class="flex justify-between items-center">
@@ -156,7 +162,7 @@
                                             <div class="text-xs text-blue-600 mt-1">
                                                 <span class="bg-blue-100 px-2 py-1 rounded">Represented by Attorney</span>
                                             </div>
-                                        @else
+                                        @elseif($party->role !== 'paralegal')
                                             <div class="text-xs text-gray-500 mt-1">
                                                 <span class="bg-gray-100 px-2 py-1 rounded">Self-Represented</span>
                                             </div>
@@ -221,6 +227,7 @@
                                                 @foreach($party->attorneys as $attorneyParty)
                                                     @php
                                                         $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                                                        $attorneyParalegals = $case->parties->where('role', 'paralegal')->where('client_party_id', $party->id);
                                                     @endphp
                                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3 last:mb-0">
                                                         <div><strong>Name:</strong> {{ $attorneyParty->person->full_name }}</div>
@@ -232,6 +239,22 @@
                                                             <div><strong>Bar Number:</strong> {{ $attorney->bar_number }}</div>
                                                         @endif
                                                     </div>
+                                                    @if($attorneyParalegals->isNotEmpty())
+                                                        <div class="mt-3 pt-3 border-t border-blue-200">
+                                                            <strong class="text-purple-700 text-sm">Paralegals:</strong>
+                                                            <div class="mt-2 space-y-2">
+                                                                @foreach($attorneyParalegals as $paralegal)
+                                                                <div class="bg-purple-50 p-2 rounded text-sm">
+                                                                    <div class="font-medium">{{ $paralegal->person->full_name }}</div>
+                                                                    <div class="text-xs text-gray-600">{{ $paralegal->person->email }}</div>
+                                                                    @if($paralegal->person->phone_office)
+                                                                        <div class="text-xs text-gray-600">Phone: {{ $paralegal->person->phone_office }}</div>
+                                                                    @endif
+                                                                </div>
+                                                                @endforeach
+                                                            </div>
+                                                        </div>
+                                                    @endif
                                                 @endforeach
                                             </div>
                                         </div>

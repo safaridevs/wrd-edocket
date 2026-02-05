@@ -78,7 +78,7 @@
                                     {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
                                        ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' :
                                         ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800')) }}">
-                                    {{ ucfirst(str_replace('_', ' ', $case->status)) }}
+                                    {{ $case->status === 'approved' ? 'Accepted' : ucfirst(str_replace('_', ' ', $case->status)) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

@@ -40,11 +40,14 @@
                 @if($case->parties->count() > 0)
                     <div class="space-y-4">
                         @php
-                            $clientParties = $case->parties->where('role', '!=', 'counsel');
-                            $attorneyParties = $case->parties->where('role', 'counsel');
+                            // Only show client parties (not counsel or paralegal) and sort them
+                            $clientParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
+                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6];
+                                return $order[$party->role] ?? 99;
+                            });
                         @endphp
 
-                        {{-- Display Client Parties --}}
+                        {{-- Display Client Parties with their Attorneys nested --}}
                         @foreach($clientParties as $party)
                         <div class="border rounded-lg p-4 bg-gray-50">
                             <div class="flex justify-between items-start">
@@ -119,32 +122,45 @@
                         </div>
                         @endforeach
 
-                        {{-- Display Unlinked Attorney Parties (if any) --}}
+                        {{-- Display Paralegal Parties --}}
                         @php
-                            $unlinkedAttorneys = $attorneyParties->whereNull('client_party_id');
+                            $paralegalParties = $case->parties->where('role', 'paralegal');
                         @endphp
-                        @if($unlinkedAttorneys->count() > 0)
-                            <div class="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
-                                <div class="text-sm font-medium text-yellow-800 mb-2">Unlinked Attorneys:</div>
-                                @foreach($unlinkedAttorneys as $attorneyParty)
-                                <div class="flex justify-between items-start mb-2 last:mb-0">
-                                    <div class="flex-1">
-                                        <div class="flex items-center space-x-3">
-                                            <h4 class="font-medium">{{ $attorneyParty->person->full_name }}</h4>
-                                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">Attorney (No Client Link)</span>
-                                        </div>
-                                        <div class="text-sm text-gray-600">{{ $attorneyParty->person->email }}</div>
+                        @foreach($paralegalParties as $paralegal)
+                        <div class="border rounded-lg p-4 bg-purple-50">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-3 mb-2">
+                                        <h4 class="font-medium">{{ $paralegal->person->full_name }}</h4>
+                                        <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">Paralegal</span>
+                                        @if($paralegal->client_party_id)
+                                            @php
+                                                $clientParty = $case->parties->find($paralegal->client_party_id);
+                                            @endphp
+                                            @if($clientParty)
+                                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">For: {{ $clientParty->person->full_name }}</span>
+                                            @endif
+                                        @endif
                                     </div>
-                                    @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
-                                    <div class="flex space-x-2">
-                                        <button onclick="editParty({{ $attorneyParty->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
-                                        <button onclick="removeParty({{ $attorneyParty->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                    <div class="text-sm text-gray-600">
+                                        <div>{{ $paralegal->person->email }}</div>
+                                        @if($paralegal->person->phone_mobile || $paralegal->person->phone_office)
+                                            <div>
+                                                @if($paralegal->person->phone_mobile)Mobile: {{ $paralegal->person->phone_mobile }}@endif
+                                                @if($paralegal->person->phone_mobile && $paralegal->person->phone_office) • @endif
+                                                @if($paralegal->person->phone_office)Office: {{ $paralegal->person->phone_office }}@endif
+                                            </div>
+                                        @endif
                                     </div>
-                                    @endif
                                 </div>
-                                @endforeach
+                                @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                <div class="flex space-x-2">
+                                    <button onclick="removeParty({{ $paralegal->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
+                                </div>
+                                @endif
                             </div>
-                        @endif
+                        </div>
+                        @endforeach
                     </div>
                 @else
                     <p class="text-gray-500 text-center py-8">No parties added to this case yet.</p>

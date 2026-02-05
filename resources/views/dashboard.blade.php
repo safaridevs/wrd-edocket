@@ -269,7 +269,7 @@
                                                 {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
                                                    ($case->status === 'approved' ? 'bg-blue-100 text-blue-800' :
                                                    ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800')) }}">
-                                                {{ ucfirst(str_replace('_', ' ', $case->status)) }}
+                                                {{ $case->status === 'approved' ? 'Accepted' : ucfirst(str_replace('_', ' ', $case->status)) }}
                                             </span>
                                             <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-800">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

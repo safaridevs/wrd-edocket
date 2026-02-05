@@ -5,7 +5,7 @@
     <!-- Breadcrumb -->
     <nav class="mb-6">
         <ol class="flex items-center space-x-2 text-sm text-gray-500">
-            <li><a href="{{ route('public.cases.index') }}" class="hover:text-gray-700">Public Cases</a></li>
+            <li><a href="{{ route('public.cases.index') }}" class="hover:text-gray-700">Cases</a></li>
             <li><span class="mx-2">/</span></li>
             <li class="text-gray-900">{{ $case->case_no }}</li>
         </ol>
@@ -17,20 +17,21 @@
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $case->case_no }}</h1>
                 <div class="flex items-center space-x-3">
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-                        Approved Case
-                    </span>
                     <span class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</span>
+                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                        Active
+                    </span>
+
                 </div>
             </div>
             <div class="text-right text-sm text-gray-600">
                 <div><strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}</div>
                 @if($case->approved_at)
-                <div><strong>Approved:</strong> {{ $case->approved_at->format('M j, Y') }}</div>
+                <div><strong>Accepted:</strong> {{ $case->approved_at->format('M j, Y') }}</div>
                 @endif
             </div>
         </div>
-        
+
         <div class="border-t pt-4">
             <h3 class="font-medium text-gray-900 mb-2">Caption</h3>
             <p class="text-gray-700">{{ $case->caption }}</p>
@@ -40,6 +41,14 @@
     <!-- OSE File Numbers -->
     @if($case->oseFileNumbers->count() > 0)
     <div class="bg-white rounded-lg shadow p-6 mb-6">
+        @php
+            $applicant = $case->parties->where('role', 'applicant')->first();
+        @endphp
+        @if($applicant)
+        <div class="text-sm text-gray-600 mb-3">
+            <strong>Applicant:</strong> {{ $applicant->person->full_name }}
+        </div>
+        @endif
         <h3 class="text-lg font-medium text-gray-900 mb-4">OSE File Numbers</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             @foreach($case->oseFileNumbers as $ose)
@@ -57,7 +66,13 @@
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Case Parties</h3>
         <div class="space-y-4">
-            @foreach($case->parties as $party)
+            @php
+                $sortedParties = $case->parties->sortBy(function($party) {
+                    $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6, 'counsel' => 7];
+                    return $order[$party->role] ?? 99;
+                });
+            @endphp
+            @foreach($sortedParties as $party)
             <div class="border rounded-lg p-4 bg-gray-50">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
@@ -67,16 +82,16 @@
                                 {{ ucfirst($party->role) }}
                             </span>
                         </div>
-                        
+
                         @if($party->person->type === 'company' && $party->person->organization)
                         <p class="text-sm text-gray-600 mb-2">{{ $party->person->organization }}</p>
                         @endif
-                        
+
                         <div class="text-sm text-gray-600">
                             @if($party->person->email)
                             <div><strong>Email:</strong> {{ $party->person->email }}</div>
                             @endif
-                            
+
                             @if($party->person->address_line1 || $party->person->city)
                             <div class="mt-2">
                                 <strong>Address:</strong>
@@ -106,7 +121,7 @@
     <!-- Public Documents -->
     @if($case->documents->count() > 0)
     <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Public Documents ({{ $case->documents->count() }})</h3>
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Documents ({{ $case->documents->count() }})</h3>
         <div class="space-y-3">
             @foreach($case->documents->sortByDesc('uploaded_at') as $document)
             <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
@@ -117,12 +132,12 @@
                             📋 E-Stamped
                         </span>
                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                            ✓ Approved
+                            ✓ Accepted
                         </span>
                     </div>
                     <div class="text-sm text-gray-600 mt-1">
-                        {{ ucfirst(str_replace('_', ' ', $document->doc_type)) }} • 
-                        {{ number_format($document->size_bytes / 1024, 1) }} KB • 
+                        {{ ucfirst(str_replace('_', ' ', $document->doc_type)) }} •
+                        {{ number_format($document->size_bytes / 1024, 1) }} KB •
                         Uploaded {{ $document->uploaded_at->format('M j, Y') }}
                         @if($document->stamped_at)
                             • Stamped {{ $document->stamped_at->format('M j, Y') }}
@@ -130,7 +145,7 @@
                     </div>
                 </div>
                 <div class="ml-4">
-                    <a href="{{ route('public.documents.download', $document) }}" 
+                    <a href="{{ route('public.documents.download', $document) }}"
                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                        target="_blank">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,7 +174,7 @@
 
     <!-- Back to Search -->
     <div class="mt-8 text-center">
-        <a href="{{ route('public.cases.index') }}" 
+        <a href="{{ route('public.cases.index') }}"
            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>

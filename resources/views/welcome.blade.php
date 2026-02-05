@@ -50,7 +50,7 @@
                         OSE E-Docket
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-                        Access approved water rights hearing cases, documents, and proceedings from the New Mexico Office of the State Engineer Hearing Unit.
+                        Access Office Of The State Engineer Hearing Unit cases
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
@@ -68,15 +68,11 @@
 
         <!-- Stats Section -->
         <div class="bg-white py-12">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="text-center">
                         <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::where('status', 'approved')->count() }}</div>
                         <div class="text-gray-600 mt-2">Cases</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-3xl font-bold text-green-600">{{ \App\Models\Document::whereHas('case', function($q) { $q->where('status', 'approved'); })->count() }}</div>
-                        <div class="text-gray-600 mt-2">Public Documents</div>
                     </div>
                     <div class="text-center">
                         <div class="text-3xl font-bold text-purple-600">{{ \App\Models\CaseModel::where('status', 'active')->count() }}</div>
@@ -226,7 +222,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                             </svg>
                         </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Legal Resources</h3>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Legal Resources, Instructions and Guideline</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Information for Parties</h3>
                         <div class="space-y-3">
                             <a href="https://nmonesource.com/nmos/en/a/s/index.do?cont=chapter+72+water+code" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 NMSA 1978, Chapter 72 Water Code
@@ -244,7 +241,33 @@
                                 Title 19 Chapter 27 - Underground Water Rules
                             </a>
                         </div>
+                        <br>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Alternative Dispute Resolution (ADR)</h3>
+                        <div class="space-y-3">
+                            <a href="{{ asset('documents/New Mexico Mediation Procedures Act.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                New Mexico Mediation Precedures Act
+                            </a>
+                            <a href="{{ asset('documents/OSE Mediation - NM Law and Mediation.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                OSE Mediation - NM Law and Mediation
+                            </a>
+                            <a href="{{ asset('documents/OSE Mediation FAQs.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                OSE Mediation FAQs
+                            </a>
+                            <a href="{{ asset('documents/Instructions for Parties in State Engineer Administrative Hearings_Rev_11_2_22.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Instructions for Parties in State Engineer Administrative Hearings Rev 11-2-22
+                            </a>
+
+                        </div>
+                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Instructions for Parties</h3>
+                        <div class="space-y-3">
+                            <a href="{{ asset('documents/Mediation Guidelines.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Mediation Guidelines
+                            </a>
+
+                        </div>
                     </div>
+
+                    {{--  --}}
                 </div>
             </div>
         </div>
