@@ -433,7 +433,7 @@
                                 <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
                             </div>
                         </div>
-                        <button type="button" onclick="addOptionalDocument()" class="mt-3 text-blue-600 text-sm hover:text-blue-800">+ Add Another Optional Document</button>
+                        <button type="button" onclick="addOptionalDocument()" class="mt-3 text-blue-600 text-sm hover:text-blue-800">+ add additional supporting document</button>
                     </div>
                     @endif
 

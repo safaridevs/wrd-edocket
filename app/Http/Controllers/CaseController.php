@@ -105,6 +105,7 @@ class CaseController extends Controller
             'assigned_clerks.*' => 'exists:users,id',
             'optional_docs' => 'nullable|array',
             'optional_docs.*.type' => 'nullable|string',
+            'optional_docs.*.custom_title' => 'nullable|string|max:255',
             'optional_docs.*.files' => 'nullable|array',
             'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:10240',
             'affirmation' => 'required|accepted',
@@ -907,6 +908,7 @@ class CaseController extends Controller
 
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
+            'custom_title' => 'nullable|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
             'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
             'description' => 'nullable|string|max:500'
@@ -953,19 +955,26 @@ class CaseController extends Controller
             $uploadedCount = 0;
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('case_documents', $filename, 'public');
-
-                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
+                    $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
+                    
+                    $timestamp = now()->format('Y-m-d_His');
+                    $uniqueId = substr(md5(uniqid()), 0, 6);
+                    $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
+                    $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
+                    
+                    $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                    
+                    $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                     if ($index > 0) {
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
+                        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
                     }
 
                     $documentData = [
                         'case_id' => $case->id,
                         'doc_type' => $validated['doc_type'],
+                        'custom_title' => $validated['custom_title'] ?? null,
                         'original_filename' => $originalFilename,
-                        'stored_filename' => $filename,
+                        'stored_filename' => $storedFilename,
                         'mime' => $file->getMimeType(),
                         'size_bytes' => $file->getSize(),
                         'checksum' => md5_file($file->getRealPath()),
@@ -975,7 +984,6 @@ class CaseController extends Controller
                         'pleading_type' => $validated['pleading_type'] ?? 'none'
                     ];
 
-                    // Set pleading type for pleading documents
                     if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
                         $documentData['pleading_type'] = $validated['pleading_type'];
                     } else {
@@ -1121,6 +1129,38 @@ class CaseController extends Controller
             \Log::error('Document stamping failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'error' => 'Failed to stamp document: ' . $e->getMessage()]);
         }
+    }
+
+    public function updateDocumentTitle(Request $request, CaseModel $case, $documentId)
+    {
+        $document = $case->documents()->findOrFail($documentId);
+
+        if (!auth()->user()->isHearingUnit() && $document->uploaded_by_user_id !== auth()->id()) {
+            return response()->json(['success' => false, 'error' => 'Unauthorized']);
+        }
+
+        $validated = $request->validate([
+            'custom_title' => 'nullable|string|max:255'
+        ]);
+
+        $customTitle = $validated['custom_title'] ?? null;
+        $displayType = $this->getDisplayType($document->doc_type);
+        $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
+        
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
+
+        $document->update([
+            'custom_title' => $customTitle,
+            'original_filename' => $originalFilename
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    private function getDisplayType($docType)
+    {
+        $documentType = \App\Models\DocumentType::where('code', $docType)->first();
+        return $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $docType));
     }
 
     public function destroyDocument(CaseModel $case, $documentId)

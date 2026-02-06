@@ -257,10 +257,14 @@ class CaseService
             
             foreach ($request->file('documents.pleading') as $index => $file) {
                 if ($file && $file->isValid()) {
-                    $filename = time() . '_' . $file->getClientOriginalName();
-                    $path = $file->storeAs('case_documents', $filename, 'public');
-                    
                     $displayType = $this->getDisplayType($pleadingType);
+                    $timestamp = now()->format('Y-m-d_His');
+                    $uniqueId = substr(md5(uniqid()), 0, 6);
+                    $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
+                    $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
+                    
+                    $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                    
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
                     if ($index > 0) {
                         $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
@@ -270,7 +274,7 @@ class CaseService
                         'case_id' => $case->id,
                         'doc_type' => $pleadingType,
                         'original_filename' => $originalFilename,
-                        'stored_filename' => $filename,
+                        'stored_filename' => $storedFilename,
                         'mime' => $file->getMimeType(),
                         'size_bytes' => $file->getSize(),
                         'checksum' => md5_file($file->getRealPath()),
@@ -314,23 +318,30 @@ class CaseService
         if ($request->has('optional_docs')) {
             foreach ($request->input('optional_docs') as $index => $optionalDoc) {
                 if (isset($optionalDoc['type']) && $optionalDoc['type'] && $request->hasFile("optional_docs.{$index}.files")) {
+                    $customTitle = $optionalDoc['custom_title'] ?? null;
                     foreach ($request->file("optional_docs.{$index}.files") as $fileIndex => $file) {
                         if ($file && $file->isValid()) {
-                            $filename = time() . '_' . $file->getClientOriginalName();
-                            $path = $file->storeAs('case_documents', $filename, 'public');
-                            
                             $displayType = $this->getDisplayType($optionalDoc['type']);
+                            $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
                             
-                            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
+                            $timestamp = now()->format('Y-m-d_His');
+                            $uniqueId = substr(md5(uniqid()), 0, 6);
+                            $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
+                            $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
+                            
+                            $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                            
+                            $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
-                                $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
+                                $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
                             }
                             
                             $documentData = [
                                 'case_id' => $case->id,
                                 'doc_type' => $optionalDoc['type'],
+                                'custom_title' => $customTitle,
                                 'original_filename' => $originalFilename,
-                                'stored_filename' => $filename,
+                                'stored_filename' => $storedFilename,
                                 'mime' => $file->getMimeType(),
                                 'size_bytes' => $file->getSize(),
                                 'checksum' => md5_file($file->getRealPath()),
@@ -340,7 +351,7 @@ class CaseService
                             ];
                             
                             Document::create($documentData);
-                            \Log::info("Optional document created: {$optionalDoc['type']} - {$filename}");
+                            \Log::info("Optional document created: {$optionalDoc['type']} - {$storedFilename}");
                         }
                     }
                 }
@@ -352,17 +363,20 @@ class CaseService
             foreach ($request->input('documents.other') as $index => $otherDoc) {
                 if (isset($otherDoc['type']) && $otherDoc['type'] && $request->hasFile("documents.other.{$index}.file")) {
                     $files = $request->file("documents.other.{$index}.file");
-                    // Handle both single file and array of files
                     if (!is_array($files)) {
                         $files = [$files];
                     }
                     
                     foreach ($files as $fileIndex => $file) {
                         if ($file && $file->isValid()) {
-                            $filename = time() . '_' . $file->getClientOriginalName();
-                            $path = $file->storeAs('case_documents', $filename, 'public');
-                            
                             $displayType = $this->getDisplayType($otherDoc['type']);
+                            
+                            $timestamp = now()->format('Y-m-d_His');
+                            $uniqueId = substr(md5(uniqid()), 0, 6);
+                            $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
+                            $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
+                            
+                            $path = $file->storeAs('case_documents', $storedFilename, 'public');
                             
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
@@ -373,7 +387,7 @@ class CaseService
                                 'case_id' => $case->id,
                                 'doc_type' => $otherDoc['type'],
                                 'original_filename' => $originalFilename,
-                                'stored_filename' => $filename,
+                                'stored_filename' => $storedFilename,
                                 'mime' => $file->getMimeType(),
                                 'size_bytes' => $file->getSize(),
                                 'checksum' => md5_file($file->getRealPath()),
@@ -383,7 +397,7 @@ class CaseService
                             ];
                             
                             Document::create($documentData);
-                            \Log::info("Other document created: {$otherDoc['type']} - {$filename}");
+                            \Log::info("Other document created: {$otherDoc['type']} - {$storedFilename}");
                         }
                     }
                 }
@@ -933,24 +947,32 @@ class CaseService
         }
     }
 
-    private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString): void
+    private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString, ?string $customTitle = null): void
     {
-        $filename = time() . '_' . $file->getClientOriginalName();
-        \Log::info('Attempting file upload', ['filename' => $filename, 'disk' => 'public', 'path' => 'case_documents']);
-        $path = $file->storeAs('case_documents', $filename, 'public');
-        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
+        \Log::info('Attempting file upload', ['filename' => $file->getClientOriginalName(), 'disk' => 'public', 'path' => 'case_documents']);
         
         $displayType = $this->getDisplayType($docType);
-        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
+        $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
+        
+        $timestamp = now()->format('Y-m-d_His');
+        $uniqueId = substr(md5(uniqid()), 0, 6);
+        $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
+        $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
+        
+        $path = $file->storeAs('case_documents', $storedFilename, 'public');
+        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
+        
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
         if ($index > 0) {
-            $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
+            $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
         }
         
         $documentData = [
             'case_id' => $case->id,
             'doc_type' => $docType,
+            'custom_title' => $customTitle,
             'original_filename' => $originalFilename,
-            'stored_filename' => $filename,
+            'stored_filename' => $storedFilename,
             'mime' => $file->getMimeType(),
             'size_bytes' => $file->getSize(),
             'checksum' => md5_file($file->getRealPath()),

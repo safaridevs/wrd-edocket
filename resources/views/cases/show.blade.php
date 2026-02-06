@@ -69,6 +69,7 @@
                             @endif
                         </div>
 
+                        @if(auth()->user()->canAssignAttorneys() || auth()->user()->isHearingUnit())
                         <strong class="mt-3 block">Assigned WRD Experts:</strong>
                         <div class="text-sm mt-1">
                             @if($case->wrds->count() > 0)
@@ -99,6 +100,7 @@
                                 </a>
                             @endif
                         </div>
+                        @endif
                     </div>
                 </div>
                 <div class="mt-4">

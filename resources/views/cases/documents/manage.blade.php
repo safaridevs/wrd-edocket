@@ -72,7 +72,21 @@
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between mb-2">
                                         <div class="flex items-center space-x-3">
-                                            <h4 class="font-medium">{{ $document->original_filename }}</h4>
+                                            <div class="flex items-center space-x-2">
+                                                <h4 class="font-medium" id="doc-title-{{ $document->id }}">{{ $document->original_filename }}</h4>
+                                                <input type="text" id="doc-title-input-{{ $document->id }}" class="hidden border-gray-300 rounded px-2 py-1 text-sm" value="{{ $document->custom_title ?? '' }}" />
+                                                @if(auth()->user()->isHearingUnit() || $document->uploaded_by_user_id === auth()->id())
+                                                    <button onclick="editDocumentTitle({{ $document->id }})" id="edit-btn-{{ $document->id }}" class="text-blue-600 hover:text-blue-800 text-xs" title="Edit custom title">
+                                                        ✏️
+                                                    </button>
+                                                    <button onclick="saveDocumentTitle({{ $document->id }})" id="save-btn-{{ $document->id }}" class="hidden text-green-600 hover:text-green-800 text-xs" title="Save">
+                                                        ✓
+                                                    </button>
+                                                    <button onclick="cancelEditTitle({{ $document->id }})" id="cancel-btn-{{ $document->id }}" class="hidden text-red-600 hover:text-red-800 text-xs" title="Cancel">
+                                                        ✗
+                                                    </button>
+                                                @endif
+                                            </div>
                                             <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</span>
                                             
                                             @if($document->approved)
@@ -266,7 +280,7 @@
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">File Document</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data">
+                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
                             <div>
@@ -277,6 +291,20 @@
                                     <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ $docType->name }}</option>
                                     @endforeach
                                 </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title (Optional)</label>
+                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255" 
+                                       class="block w-full border-gray-300 rounded-md" 
+                                       placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
+                                       oninput="updateFilenamePreview()">
+                                <p class="text-xs text-gray-500 mt-1">Leave blank to use document type as filename</p>
+                            </div>
+
+                            <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <p class="text-xs font-medium text-blue-800 mb-1">Filename Preview:</p>
+                                <p id="previewText" class="text-sm text-blue-900 font-mono"></p>
                             </div>
 
                             <div id="pleadingTypeSection" class="hidden">
@@ -354,6 +382,25 @@
             });
         });
 
+        function updateFilenamePreview() {
+            const docTypeSelect = document.querySelector('select[name="doc_type"]');
+            const customTitleInput = document.getElementById('customTitleInput');
+            const previewDiv = document.getElementById('filenamePreview');
+            const previewText = document.getElementById('previewText');
+            
+            const docType = docTypeSelect.options[docTypeSelect.selectedIndex]?.text || '';
+            const customTitle = customTitleInput.value.trim();
+            const titleOrType = customTitle || docType;
+            
+            if (titleOrType && docType) {
+                const today = new Date().toISOString().split('T')[0];
+                previewText.textContent = `${today} - ${titleOrType}.pdf`;
+                previewDiv.classList.remove('hidden');
+            } else {
+                previewDiv.classList.add('hidden');
+            }
+        }
+
         function showUploadModal() {
             document.getElementById('uploadModal').classList.remove('hidden');
         }
@@ -373,6 +420,8 @@
             } else {
                 pleadingSection.classList.add('hidden');
             }
+            
+            updateFilenamePreview();
         }
 
         function validateFiles(input) {
@@ -608,6 +657,59 @@
             } else {
                 console.log('User cancelled');
             }
+        }
+
+        function confirmUpload(event) {
+            const customTitle = document.getElementById('customTitleInput').value.trim();
+            if (customTitle) {
+                const message = `You have entered a custom title:\n\n"${customTitle}"\n\nIs this correct?`;
+                if (!confirm(message)) {
+                    event.preventDefault();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function editDocumentTitle(documentId) {
+            document.getElementById(`doc-title-${documentId}`).classList.add('hidden');
+            document.getElementById(`doc-title-input-${documentId}`).classList.remove('hidden');
+            document.getElementById(`edit-btn-${documentId}`).classList.add('hidden');
+            document.getElementById(`save-btn-${documentId}`).classList.remove('hidden');
+            document.getElementById(`cancel-btn-${documentId}`).classList.remove('hidden');
+            document.getElementById(`doc-title-input-${documentId}`).focus();
+        }
+
+        function cancelEditTitle(documentId) {
+            document.getElementById(`doc-title-${documentId}`).classList.remove('hidden');
+            document.getElementById(`doc-title-input-${documentId}`).classList.add('hidden');
+            document.getElementById(`edit-btn-${documentId}`).classList.remove('hidden');
+            document.getElementById(`save-btn-${documentId}`).classList.add('hidden');
+            document.getElementById(`cancel-btn-${documentId}`).classList.add('hidden');
+        }
+
+        function saveDocumentTitle(documentId) {
+            const newTitle = document.getElementById(`doc-title-input-${documentId}`).value.trim();
+            
+            fetch(`/cases/{{ $case->id }}/documents/${documentId}/update-title`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ custom_title: newTitle })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Failed to update title: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error updating title: ' + error.message);
+            });
         }
     </script>
 </x-app-layout>
