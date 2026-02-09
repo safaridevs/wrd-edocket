@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\DocumentType;
+use App\Models\Role;
 use Illuminate\Http\Request;
 
 class AdminController extends Controller
@@ -11,6 +13,71 @@ class AdminController extends Controller
     {
         $users = User::orderBy('name')->paginate(50);
         return view('admin.users', compact('users'));
+    }
+
+    public function documentTypes()
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $documentTypes = DocumentType::with('roles')->orderBy('sort_order')->get();
+        $roles = Role::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.document-types', compact('documentTypes', 'roles'));
+    }
+
+    public function storeDocumentType(Request $request)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:50|unique:document_types,code',
+            'category' => 'required|in:case_creation,party_upload,system',
+            'sort_order' => 'nullable|integer|min:0',
+            'is_required' => 'sometimes|boolean',
+            'is_pleading' => 'sometimes|boolean',
+            'allows_multiple' => 'sometimes|boolean',
+            'is_active' => 'sometimes|boolean',
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'exists:roles,id'
+        ]);
+
+        $documentType = DocumentType::create([
+            'name' => $validated['name'],
+            'code' => $validated['code'],
+            'category' => $validated['category'],
+            'sort_order' => $validated['sort_order'] ?? 0,
+            'is_required' => $request->boolean('is_required'),
+            'is_pleading' => $request->boolean('is_pleading'),
+            'allows_multiple' => $request->boolean('allows_multiple'),
+            'is_active' => $request->boolean('is_active'),
+        ]);
+
+        if (!empty($validated['role_ids'])) {
+            $documentType->roles()->sync($validated['role_ids']);
+        }
+
+        return back()->with('success', 'Document type created successfully.');
+    }
+
+    public function updateDocumentTypeRoles(Request $request, DocumentType $documentType)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'role_ids' => 'nullable|array',
+            'role_ids.*' => 'exists:roles,id'
+        ]);
+
+        $documentType->roles()->sync($validated['role_ids'] ?? []);
+
+        return response()->json(['success' => true]);
     }
 
     public function updateUserRole(Request $request, User $user)

@@ -33,6 +33,12 @@
                         </x-nav-link>
                     @endif
 
+                    @if(Auth::user()->hasAnyRole(['hu_admin']))
+                        <x-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">
+                            {{ __('Document Types') }}
+                        </x-nav-link>
+                    @endif
+
                     @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
                         <x-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
                             {{ __('Email History') }}
@@ -161,6 +167,12 @@
             @if(Auth::user()->canManageUsers())
                 <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
                     {{ __('Admin') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(Auth::user()->hasAnyRole(['hu_admin']))
+                <x-responsive-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">
+                    {{ __('Document Types') }}
                 </x-responsive-nav-link>
             @endif
 

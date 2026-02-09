@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class DocumentType extends Model
 {
@@ -10,7 +11,6 @@ class DocumentType extends Model
         'name',
         'code',
         'category',
-        'allowed_roles',
         'is_required',
         'is_pleading',
         'allows_multiple',
@@ -19,17 +19,31 @@ class DocumentType extends Model
     ];
 
     protected $casts = [
-        'allowed_roles' => 'array',
         'is_required' => 'boolean',
         'is_pleading' => 'boolean',
         'allows_multiple' => 'boolean',
         'is_active' => 'boolean'
     ];
 
-    public function scopeForRole($query, $role)
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
+    public function scopeForRole($query, $roleName)
     {
         return $query->where('is_active', true)
-                    ->whereJsonContains('allowed_roles', $role);
+                    ->whereHas('roles', function($q) use ($roleName) {
+                        $q->where('name', $roleName);
+                    });
+    }
+
+    public function scopeForRoleGroup($query, $group)
+    {
+        return $query->where('is_active', true)
+                    ->whereHas('roles', function($q) use ($group) {
+                        $q->where('group', $group);
+                    });
     }
 
     public function scopeForCategory($query, $category)

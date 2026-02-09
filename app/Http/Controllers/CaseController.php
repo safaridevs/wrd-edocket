@@ -42,8 +42,17 @@ class CaseController extends Controller
 
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        $documentTypes = \App\Models\DocumentType::forCaseCreation()->orderBy('sort_order')->get();
-        return view('cases.create', compact('basinCodes', 'attorneys', 'documentTypes'));
+        
+        $userRole = Auth::user()->getCurrentRole();
+        $documentTypes = \App\Models\DocumentType::forRole($userRole)
+            ->orderBy('sort_order')->get();
+        $pleadingDocs = $documentTypes
+            ->where('is_pleading', true);
+        $optionalDocs = $documentTypes
+            ->where('is_pleading', false)
+            ->where('category', 'case_creation');
+        
+        return view('cases.create', compact('basinCodes', 'attorneys', 'documentTypes', 'pleadingDocs', 'optionalDocs'));
     }
 
     public function store(Request $request)
@@ -485,12 +494,15 @@ class CaseController extends Controller
 
         $case->load(['documents.uploader']);
 
+        $userRole = Auth::user()->getCurrentRole();
+        
         if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
-            $documentTypes = \App\Models\DocumentType::where('is_active', true)
+            $documentTypes = \App\Models\DocumentType::forRole($userRole)
                 ->where('category', 'party_upload')
                 ->orderBy('sort_order')->get();
         } else {
-            $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('sort_order')->get();
+            $documentTypes = \App\Models\DocumentType::forRole($userRole)
+                ->orderBy('sort_order')->get();
         }
 
         return view('cases.upload-documents', compact('case', 'documentTypes'));
@@ -576,11 +588,17 @@ class CaseController extends Controller
 
     public function assignPartyAttorney(Request $request, CaseModel $case, $partyId)
     {
+        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
         $party = $case->parties()->findOrFail($partyId);
 
         $validated = $request->validate([
-            'attorney_name' => 'required|string|max:255',
-            'attorney_email' => 'required|email|max:255',
+            'attorney_option' => 'nullable|in:existing,new',
+            'attorney_id' => 'nullable|exists:attorneys,id',
+            'attorney_name' => 'nullable|string|max:255',
+            'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
             'bar_number' => 'nullable|string|max:50',
             'address_line1' => 'nullable|string|max:500',
@@ -591,19 +609,65 @@ class CaseController extends Controller
         ]);
 
         try {
-            $attorney = \App\Models\Attorney::create([
-                'name' => $validated['attorney_name'],
-                'email' => $validated['attorney_email'],
-                'phone' => $validated['attorney_phone'],
-                'bar_number' => $validated['bar_number'],
-                'address_line1' => $validated['address_line1'],
-                'address_line2' => $validated['address_line2'],
-                'city' => $validated['city'],
-                'state' => $validated['state'],
-                'zip' => $validated['zip']
+            // Remove existing counsel for this client (single attorney expected)
+            $existingCounsel = $case->parties()
+                ->where('role', 'counsel')
+                ->where('client_party_id', $party->id)
+                ->get();
+
+            foreach ($existingCounsel as $counselParty) {
+                \App\Models\ServiceList::where('case_id', $case->id)
+                    ->where('person_id', $counselParty->person_id)
+                    ->delete();
+                $counselParty->delete();
+            }
+
+            $attorney = null;
+            if (!empty($validated['attorney_id'])) {
+                $attorney = \App\Models\Attorney::find($validated['attorney_id']);
+            } elseif (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
+                $attorney = \App\Models\Attorney::create([
+                    'name' => $validated['attorney_name'],
+                    'email' => $validated['attorney_email'],
+                    'phone' => $validated['attorney_phone'],
+                    'bar_number' => $validated['bar_number'],
+                    'address_line1' => $validated['address_line1'],
+                    'address_line2' => $validated['address_line2'],
+                    'city' => $validated['city'],
+                    'state' => $validated['state'],
+                    'zip' => $validated['zip']
+                ]);
+            }
+
+            if (!$attorney) {
+                return response()->json(['success' => false, 'error' => 'Select an existing attorney or enter a new one.']);
+            }
+
+            $attorneyPerson = \App\Models\Person::firstOrCreate(
+                ['email' => $attorney->email],
+                [
+                    'type' => 'individual',
+                    'first_name' => explode(' ', $attorney->name)[0] ?? '',
+                    'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
+                    'phone_office' => $attorney->phone
+                ]
+            );
+
+            \App\Models\CaseParty::create([
+                'case_id' => $case->id,
+                'person_id' => $attorneyPerson->id,
+                'role' => 'counsel',
+                'client_party_id' => $party->id,
+                'service_enabled' => true
             ]);
 
-            // Attorney assignment logic would go here if needed
+            \App\Models\ServiceList::firstOrCreate([
+                'case_id' => $case->id,
+                'person_id' => $attorneyPerson->id,
+                'email' => $attorneyPerson->email,
+                'service_method' => 'email',
+                'is_primary' => false
+            ]);
 
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
@@ -613,13 +677,27 @@ class CaseController extends Controller
 
     public function removeAttorney(CaseModel $case, $partyId)
     {
+        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
         $party = $case->parties()->findOrFail($partyId);
 
         if ($party->person->type === 'company') {
             return response()->json(['success' => false, 'error' => 'Companies must have attorney representation']);
         }
 
-        // Self-representation logic would go here if needed
+        $counselParties = $case->parties()
+            ->where('role', 'counsel')
+            ->where('client_party_id', $party->id)
+            ->get();
+
+        foreach ($counselParties as $counselParty) {
+            \App\Models\ServiceList::where('case_id', $case->id)
+                ->where('person_id', $counselParty->person_id)
+                ->delete();
+            $counselParty->delete();
+        }
 
         return response()->json(['success' => true]);
     }
@@ -898,7 +976,8 @@ class CaseController extends Controller
     public function manageDocuments(CaseModel $case)
     {
         $case->load(['documents.uploader']);
-        $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('sort_order')->get();
+        $userRole = Auth::user()->getCurrentRole();
+        $documentTypes = \App\Models\DocumentType::forRole($userRole)->orderBy('sort_order')->get();
         return view('cases.documents.manage', compact('case', 'documentTypes'));
     }
 

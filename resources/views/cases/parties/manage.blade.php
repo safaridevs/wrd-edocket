@@ -455,6 +455,7 @@
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('attorneyContent').innerHTML = html;
+                    initAttorneyModal();
                     document.getElementById('attorneyModal').classList.remove('hidden');
                 })
                 .catch(error => {
@@ -503,6 +504,50 @@
                 console.error('Error:', error);
                 alert('Failed to assign attorney');
             });
+        }
+
+        function initAttorneyModal() {
+            // Ensure modal scripts work even when HTML is injected via innerHTML
+            toggleAttorneyFields();
+        }
+
+        function toggleAttorneyFields() {
+            const modal = document.getElementById('attorneyModal');
+            if (!modal || modal.classList.contains('hidden')) return;
+
+            const option = modal.querySelector('input[name="attorney_option"]:checked')?.value;
+            const existingSelect = modal.querySelector('select[name="attorney_id"]');
+            const newFields = modal.querySelector('#newAttorneyFields');
+            const newInputs = newFields ? newFields.querySelectorAll('input') : [];
+
+            if (option === 'existing') {
+                if (existingSelect) {
+                    existingSelect.disabled = false;
+                    existingSelect.classList.remove('opacity-50', 'bg-gray-100');
+                }
+                if (newFields) newFields.classList.add('opacity-50');
+                newInputs.forEach(input => {
+                    input.disabled = true;
+                    input.classList.add('bg-gray-100');
+                });
+            } else if (option === 'new') {
+                if (existingSelect) {
+                    existingSelect.disabled = true;
+                    existingSelect.value = '';
+                    existingSelect.classList.add('opacity-50', 'bg-gray-100');
+                }
+                if (newFields) newFields.classList.remove('opacity-50');
+                newInputs.forEach(input => {
+                    input.disabled = false;
+                    input.classList.remove('bg-gray-100');
+                });
+            }
+        }
+
+        function handleAttorneyForm(event, partyId) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            assignAttorney(partyId, formData);
         }
 
         function removeAttorney(partyId) {
