@@ -10,6 +10,27 @@
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
+                        @php
+                            $applicantNames = $case->parties
+                                ->where('role', 'applicant')
+                                ->map(fn($party) => $party->person->full_name)
+                                ->filter()
+                                ->values();
+
+                            $displayApplicants = '';
+                            if ($applicantNames->count() === 1) {
+                                $displayApplicants = $applicantNames[0];
+                            } elseif ($applicantNames->count() === 2) {
+                                $displayApplicants = $applicantNames[0] . ' and ' . $applicantNames[1];
+                            } elseif ($applicantNames->count() > 2) {
+                                $displayApplicants = $applicantNames[0] . ' and ' . $applicantNames[1] . ' et al.';
+                            }
+                        @endphp
+                        @if($displayApplicants)
+                            <div class="text-xl font-semibold text-gray-900 mb-1">
+                                {{ $displayApplicants }}
+                            </div>
+                        @endif
                         <h3 class="text-lg font-medium">{{ $case->case_no }}</h3>
                         <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                         <span class="inline-block mt-2 px-2 py-1 text-xs rounded-full
@@ -273,11 +294,11 @@
                             $userIsCounsel = auth()->user()->role === 'party' && $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;
                             })->isNotEmpty();
-                            
+
                             $counselParty = $userIsCounsel ? $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;
                             })->first() : null;
-                            
+
                             $userParalegals = $counselParty ? $case->parties->where('role', 'paralegal')->filter(function($p) use ($counselParty) {
                                 return $p->client_party_id === $counselParty->client_party_id;
                             }) : collect();
@@ -383,11 +404,13 @@
                         @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
                         <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Documents' : 'Manage Documents' }}</a>
                         @endif
-                        @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
-                        <a href="{{ route('documents.file', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm">File Document</a>
-                        @endif
-                        @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
-                        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">File Documents</button>
+                        @if(!in_array($case->status, ['closed', 'archived']))
+                            @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
+                            <a href="{{ route('documents.file', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm">File Document</a>
+                            @endif
+                            @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
+                            <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">File Documents</button>
+                            @endif
                         @endif
                         @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                         <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>

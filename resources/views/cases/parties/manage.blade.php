@@ -29,7 +29,7 @@
                             📧 Notify Parties
                         </button>
                         @endif
-                        @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                        @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                         <button onclick="showAddPartyModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
                             + Add Party
                         </button>
@@ -80,7 +80,7 @@
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
                                             <div class="flex justify-between items-start mb-1">
                                                 <div class="text-sm font-medium text-green-800">Attorney:</div>
-                                                @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                                 <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
                                                     Edit Attorney
                                                 </button>
@@ -103,7 +103,7 @@
                                             @endforeach
                                         </div>
                                     @else
-                                        @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                        @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                         <div class="mt-2">
                                             <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
                                                 + Add Attorney
@@ -112,7 +112,7 @@
                                         @endif
                                     @endif
                                 </div>
-                                @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
@@ -153,7 +153,7 @@
                                         @endif
                                     </div>
                                 </div>
-                                @if(auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])))
+                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                 <div class="flex space-x-2">
                                     <button onclick="removeParty({{ $paralegal->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
                                 </div>

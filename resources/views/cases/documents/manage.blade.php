@@ -51,9 +51,11 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
-                        <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
-                            + File Document
-                        </button>
+                        @if($case->status !== 'closed')
+                            <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
+                                + File Document
+                            </button>
+                        @endif
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
                             <option value="">All Types</option>
                             @foreach($documentTypes->unique('code') as $docType)
