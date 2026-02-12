@@ -14,7 +14,8 @@ class DocumentService
     public function __construct(
         private NotificationService $notificationService,
         private DocumentValidationService $validationService,
-        private PdfStampingService $pdfStampingService
+        private PdfStampingService $pdfStampingService,
+        private CaseStorageService $caseStorageService
     ) {}
 
     public function uploadDocument(CaseModel $case, UploadedFile $file, string $documentType, User $uploader, string $pleadingType = 'none'): Document
@@ -36,7 +37,8 @@ class DocumentService
 
         $namingCompliant = $this->validationService->validateNaming($file->getClientOriginalName(), $case->case_number);
 
-        $path = $file->storeAs("cases/{$case->id}/documents", $filename, 'private');
+        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
+        $path = $file->storeAs($storageFolder, $filename, 'public');
 
         $document = Document::create([
             'case_id' => $case->id,

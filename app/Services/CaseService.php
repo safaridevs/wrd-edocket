@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Storage;
 class CaseService
 {
     public function __construct(
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
+        private CaseStorageService $caseStorageService
     ) {}
 
     public function createCase(array $data, User $creator, ?Request $request = null): CaseModel
@@ -239,13 +240,15 @@ class CaseService
     {
         // Load OSE file numbers for naming convention
         $case->load('oseFileNumbers');
-        
+
         // Get OSE string for naming
         $oseString = $this->getOseString($case);
+
+        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
         
         // Handle required documents (Application)
         if ($request->hasFile('documents.application')) {
-            $this->processFileArray($request->file('documents.application'), $case, 'application', $uploader, $oseString);
+            $this->processFileArray($request->file('documents.application'), $case, 'application', $uploader, $oseString, $storageFolder);
         }
         
         // Handle pleading documents (from pleading_type selection)
@@ -263,7 +266,7 @@ class CaseService
                     $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
                     $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
                     
-                    $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                     
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
                     if ($index > 0) {
@@ -297,7 +300,13 @@ class CaseService
         
         // Handle multiple notice_publication documents
         if ($request->hasFile('documents.notice_publication')) {
-            $this->processFileArray($request->file('documents.notice_publication'), $case, 'notice_publication', $uploader, $oseString);
+            $this->processFileArray($request->file('documents.notice_publication'), $case, 'notice_publication', $uploader, $oseString, $storageFolder);
+        }
+
+        // Handle compliance documents
+        if ($case->case_type === 'compliance' && $request->hasFile('documents.compliance')) {
+            $complianceType = $request->input('compliance_doc_type') ?: 'compliance_document';
+            $this->processFileArray($request->file('documents.compliance'), $case, $complianceType, $uploader, $oseString, $storageFolder);
         }
         
         // Handle multiple document types with standardized naming
@@ -310,7 +319,7 @@ class CaseService
         
         foreach ($multipleDocTypes as $docType => $displayType) {
             if ($request->hasFile("documents.{$docType}")) {
-                $this->processFileArray($request->file("documents.{$docType}"), $case, $docType, $uploader, $oseString);
+                $this->processFileArray($request->file("documents.{$docType}"), $case, $docType, $uploader, $oseString, $storageFolder);
             }
         }
         
@@ -329,7 +338,7 @@ class CaseService
                             $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
                             $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
                             
-                            $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                             
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
@@ -376,7 +385,7 @@ class CaseService
                             $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
                             $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
                             
-                            $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                             
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
@@ -933,12 +942,12 @@ class CaseService
         return $recipients;
     }
 
-    private function processFileArray($files, CaseModel $case, string $docType, User $uploader, string $oseString): void
+    private function processFileArray($files, CaseModel $case, string $docType, User $uploader, string $oseString, string $storageFolder): void
     {
         foreach ($files as $index => $file) {
             if ($file && $file->isValid()) {
                 $fileSize = $file->getSize();
-                $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString);
+                $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString, $storageFolder);
                 unset($file);
                 if ($fileSize > 5 * 1024 * 1024) {
                     gc_collect_cycles();
@@ -947,9 +956,9 @@ class CaseService
         }
     }
 
-    private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString, ?string $customTitle = null): void
+    private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString, string $storageFolder, ?string $customTitle = null): void
     {
-        \Log::info('Attempting file upload', ['filename' => $file->getClientOriginalName(), 'disk' => 'public', 'path' => 'case_documents']);
+        \Log::info('Attempting file upload', ['filename' => $file->getClientOriginalName(), 'disk' => 'public', 'path' => $storageFolder]);
         
         $displayType = $this->getDisplayType($docType);
         $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
@@ -959,7 +968,7 @@ class CaseService
         $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
         $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
         
-        $path = $file->storeAs('case_documents', $storedFilename, 'public');
+        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
         \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
         
         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';

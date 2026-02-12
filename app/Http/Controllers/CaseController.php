@@ -6,12 +6,16 @@ use App\Models\CaseModel;
 use App\Models\CaseAssignment;
 use App\Models\OseFileNumber;
 use App\Services\CaseService;
+use App\Services\CaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class CaseController extends Controller
 {
-    public function __construct(private CaseService $caseService) {}
+    public function __construct(
+        private CaseService $caseService,
+        private CaseStorageService $caseStorageService
+    ) {}
 
     public function index()
     {
@@ -61,7 +65,9 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
+        $caseType = $request->input('case_type');
+
+        $rules = [
             'case_type' => 'required|in:aggrieved,protested,compliance',
             'caption' => 'required|string|max:1000',
             'parties' => 'required|array|min:1',
@@ -96,10 +102,7 @@ class CaseController extends Controller
             'ose_numbers.*.basin_code_to' => 'nullable|string|exists:ose_basin_codes,initial',
             'ose_numbers.*.file_no_from' => 'nullable|string|max:50',
             'ose_numbers.*.file_no_to' => 'nullable|string|max:50',
-            'pleading_type' => 'required|in:request_pre_hearing,request_to_docket',
             'documents' => 'nullable|array',
-            'documents.application' => 'required|array',
-            'documents.application.*' => 'required|file|mimes:pdf|max:10240',
             'documents.notice_publication' => 'nullable|array',
             'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
             'documents.pleading' => 'nullable|array',
@@ -119,7 +122,22 @@ class CaseController extends Controller
             'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:10240',
             'affirmation' => 'required|accepted',
             'action' => 'required|in:draft,validate,submit'
-        ]);
+        ];
+
+        if ($caseType === 'compliance') {
+            $rules['pleading_type'] = 'nullable|in:request_pre_hearing,request_to_docket';
+            $rules['documents.application'] = 'nullable|array';
+            $rules['documents.application.*'] = 'nullable|file|mimes:pdf|max:10240';
+            $rules['compliance_doc_type'] = 'required|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand';
+            $rules['documents.compliance'] = 'required|array';
+            $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:10240';
+        } else {
+            $rules['pleading_type'] = 'required|in:request_pre_hearing,request_to_docket';
+            $rules['documents.application'] = 'required|array';
+            $rules['documents.application.*'] = 'required|file|mimes:pdf|max:10240';
+        }
+
+        $validated = $request->validate($rules);
 
         try {
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
@@ -1031,6 +1049,8 @@ class CaseController extends Controller
                 }
             }
 
+            $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
+
             $uploadedCount = 0;
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
@@ -1041,7 +1061,7 @@ class CaseController extends Controller
                     $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
                     $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
                     
-                    $path = $file->storeAs('case_documents', $storedFilename, 'public');
+                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                     
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                     if ($index > 0) {
