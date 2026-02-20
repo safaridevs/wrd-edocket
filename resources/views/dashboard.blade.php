@@ -66,7 +66,7 @@
                                         } else {
                                             // Regular party - get cases where they are applicant, protestant, etc.
                                             $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                                $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent', 'violator', 'alleged_violator'])
+                                                $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent'])
                                                       ->whereHas('person', function($subQuery) {
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
@@ -184,7 +184,7 @@
                                     } else {
                                         // Regular party - get their cases
                                         $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                            $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent', 'violator', 'alleged_violator'])
+                                            $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent'])
                                                   ->whereHas('person', function($subQuery) {
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });

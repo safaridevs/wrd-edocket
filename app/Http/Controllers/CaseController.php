@@ -49,7 +49,7 @@ class CaseController extends Controller
         
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)
-            ->orderBy('sort_order')->get();
+            ->orderBy('name')->get();
         $pleadingDocs = $documentTypes
             ->where('is_pleading', true);
         $optionalDocs = $documentTypes
@@ -71,7 +71,7 @@ class CaseController extends Controller
             'case_type' => 'required|in:aggrieved,protested,compliance',
             'caption' => 'required|string|max:1000',
             'parties' => 'required|array|min:1',
-            'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent,violator,alleged_violator',
+            'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
@@ -517,10 +517,10 @@ class CaseController extends Controller
         if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
             $documentTypes = \App\Models\DocumentType::forRole($userRole)
                 ->where('category', 'party_upload')
-                ->orderBy('sort_order')->get();
+                ->orderBy('name')->get();
         } else {
             $documentTypes = \App\Models\DocumentType::forRole($userRole)
-                ->orderBy('sort_order')->get();
+                ->orderBy('name')->get();
         }
 
         return view('cases.upload-documents', compact('case', 'documentTypes'));
@@ -739,7 +739,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -903,7 +903,7 @@ class CaseController extends Controller
         $party = $case->parties()->findOrFail($partyId);
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent,violator,alleged_violator',
+            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -995,7 +995,7 @@ class CaseController extends Controller
     {
         $case->load(['documents.uploader']);
         $userRole = Auth::user()->getCurrentRole();
-        $documentTypes = \App\Models\DocumentType::forRole($userRole)->orderBy('sort_order')->get();
+        $documentTypes = \App\Models\DocumentType::forRole($userRole)->orderBy('name')->get();
         return view('cases.documents.manage', compact('case', 'documentTypes'));
     }
 
@@ -1290,7 +1290,8 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'reason' => 'required|string|max:500'
+            'reason' => 'required|string|max:500',
+            'closing_letter_confirmed' => 'required|accepted'
         ]);
 
         if ($this->caseService->closeCase($case, auth()->user(), $validated['reason'])) {
@@ -1313,6 +1314,23 @@ class CaseController extends Controller
         return back()->with('error', 'Unable to archive case.');
     }
 
+    public function reopen(Request $request, CaseModel $case)
+    {
+        if (auth()->user()->role !== 'hu_admin') {
+            abort(403, 'Only HU Admin can reopen cases.');
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500'
+        ]);
+
+        if ($this->caseService->reopenCase($case, auth()->user(), $validated['reason'])) {
+            return back()->with('success', 'Case reopened and parties notified.');
+        }
+
+        return back()->with('error', 'Unable to reopen case.');
+    }
+
     private function validateSubmissionRequirements(CaseModel $case): array
     {
 
@@ -1325,9 +1343,9 @@ class CaseController extends Controller
 
         // Check if at least one primary party exists (Applicant for regular cases, or compliance roles for compliance cases)
         if ($case->case_type === 'compliance') {
-            $hasComplianceParty = $case->parties()->whereIn('role', ['respondent', 'violator', 'alleged_violator'])->exists();
+            $hasComplianceParty = $case->parties()->whereIn('role', ['respondent'])->exists();
             if (!$hasComplianceParty) {
-                $errors[] = 'At least one Respondent, Violator, or Alleged Violator must be added to compliance cases.';
+                $errors[] = 'At least one Respondent must be added to compliance cases.';
             }
         } else {
             $hasApplicant = $case->parties()->where('role', 'applicant')->exists();

@@ -47,4 +47,16 @@ class AuditService
             'title' => $title
         ]);
     }
+
+    public static function logEmailNotificationBatch(User $user, ?CaseModel $case, array $emails, string $type, string $title): void
+    {
+        $emails = array_values(array_unique(array_filter($emails)));
+
+        AuditLog::log('send_notification', $user, $case, [
+            'recipients' => $emails,
+            'recipient_count' => count($emails),
+            'notification_type' => $type,
+            'title' => $title
+        ]);
+    }
 }

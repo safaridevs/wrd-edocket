@@ -59,7 +59,7 @@
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
                             <option value="">All Types</option>
                             @foreach($documentTypes->unique('code') as $docType)
-                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                            <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -290,7 +290,7 @@
                                 <select name="doc_type" required class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
                                     <option value="">Select document type...</option>
                                     @foreach($documentTypes as $docType)
-                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ $docType->name }}</option>
+                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                     @endforeach
                                 </select>
                             </div>

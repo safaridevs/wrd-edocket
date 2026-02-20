@@ -13,13 +13,14 @@ class CaseStorageService
             return $metadata['storage_folder'];
         }
 
-        $case->loadMissing('parties.person');
+        $case->loadMissing(['parties.person', 'oseFileNumbers']);
 
         $year = $this->getCaseYear($case);
         $sequence = $this->getCaseSequence($case);
         $applicantDisplay = $this->getApplicantDisplay($case);
+        $oseSuffix = $this->getOseSuffix($case);
 
-        $folder = "{$year}/{$sequence} {$applicantDisplay}";
+        $folder = "{$year}/{$sequence} {$applicantDisplay}{$oseSuffix}";
 
         $metadata['storage_folder'] = $folder;
         $case->metadata = $metadata;
@@ -69,7 +70,7 @@ class CaseStorageService
             return $this->sanitizeFolderSegment($names[0] . ' et al');
         }
 
-        $fallbackRoles = ['respondent', 'violator', 'alleged_violator', 'aggrieved_party', 'protestant', 'intervenor'];
+        $fallbackRoles = ['respondent', 'aggrieved_party', 'protestant', 'intervenor'];
         $fallbackNames = $case->parties
             ->whereIn('role', $fallbackRoles)
             ->map(fn($party) => $party->person?->full_name)
@@ -89,6 +90,33 @@ class CaseStorageService
         }
 
         return 'Unknown Applicant';
+    }
+
+    private function getOseSuffix(CaseModel $case): string
+    {
+        if (!$case->oseFileNumbers || $case->oseFileNumbers->count() === 0) {
+            return '';
+        }
+
+        $oseList = [];
+        foreach ($case->oseFileNumbers as $ose) {
+            if ($ose->file_no_from && $ose->file_no_to) {
+                $oseList[] = $ose->file_no_from . '-' . $ose->file_no_to;
+            } elseif ($ose->file_no_from) {
+                $oseList[] = $ose->file_no_from;
+            } elseif ($ose->file_no_to) {
+                $oseList[] = $ose->file_no_to;
+            }
+        }
+
+        if (count($oseList) === 0) {
+            return '';
+        }
+
+        $oseText = count($oseList) > 1 ? $oseList[0] . ' et al' : $oseList[0];
+        $oseText = $this->sanitizeFolderSegment($oseText);
+
+        return $oseText !== '' ? ' - ' . $oseText : '';
     }
 
     private function sanitizeFolderSegment(string $value): string

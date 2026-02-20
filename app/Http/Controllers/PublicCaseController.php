@@ -25,12 +25,17 @@ class PublicCaseController extends Controller
                       $pq->where('first_name', 'like', "%{$search}%")
                         ->orWhere('last_name', 'like', "%{$search}%")
                         ->orWhere('organization', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('oseFileNumbers', function($oq) use ($search) {
+                      $oq->where('basin_code', 'like', "%{$search}%")
+                         ->orWhere('file_no_from', 'like', "%{$search}%")
+                         ->orWhere('file_no_to', 'like', "%{$search}%");
                   });
             });
         }
 
         $cases = $query->paginate(20);
-        
+
         return view('public.cases.index', compact('cases'));
     }
 
@@ -42,8 +47,8 @@ class PublicCaseController extends Controller
         }
 
         $case->load([
-            'parties.person', 
-            'oseFileNumbers', 
+            'parties.person',
+            'oseFileNumbers',
             'documents' => function($query) {
                 // Only show approved and stamped documents
                 $query->where('approved', true)->where('stamped', true);
@@ -61,7 +66,7 @@ class PublicCaseController extends Controller
         }
 
         $filePath = storage_path('app/public/' . $document->storage_uri);
-        
+
         if (!file_exists($filePath)) {
             abort(404, 'Document file not found.');
         }

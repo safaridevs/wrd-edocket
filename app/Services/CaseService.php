@@ -515,9 +515,14 @@ class CaseService
         AuditLog::log('approve_case', $user, $case);
 
         // Notify all parties
-        foreach ($case->parties as $party) {
-            $this->notificationService->notify(
-                $party->person,
+        $partyRecipients = $case->parties
+            ->map(fn($party) => $party->person)
+            ->filter()
+            ->values()
+            ->all();
+        if (!empty($partyRecipients)) {
+            $this->notificationService->notifyMultiple(
+                $partyRecipients,
                 'case_accepted',
                 'Case Accepted',
                 "Case {$case->case_no} has been accepted and is proceeding to hearing.",
@@ -555,6 +560,8 @@ class CaseService
         $notificationCount = 0;
         $baseMessage = "Case {$case->case_no} has been accepted and is proceeding to hearing.";
         $fullMessage = $customMessage ? $baseMessage . "\n\n" . $customMessage : $baseMessage;
+        $partyRecipients = [];
+        $attorneyRecipients = [];
 
         foreach ($recipients as $recipient) {
             [$type, $id] = explode('_', $recipient, 2);
@@ -562,28 +569,36 @@ class CaseService
             if ($type === 'party') {
                 $party = $case->parties()->find($id);
                 if ($party && $party->person) {
-                    $this->notificationService->notify(
-                        $party->person,
-                        'case_accepted',
-                        'Case Accepted - Action Required',
-                        $fullMessage,
-                        $case
-                    );
+                    $partyRecipients[] = $party->person;
                     $notificationCount++;
                 }
             } elseif ($type === 'attorney') {
                 $attorney = \App\Models\Attorney::find($id);
                 if ($attorney) {
-                    $this->notificationService->notify(
-                        $attorney,
-                        'case_accepted',
-                        'Case Accepted - Client Notification',
-                        $fullMessage,
-                        $case
-                    );
+                    $attorneyRecipients[] = $attorney;
                     $notificationCount++;
                 }
             }
+        }
+
+        if (!empty($partyRecipients)) {
+            $this->notificationService->notifyMultiple(
+                $partyRecipients,
+                'case_accepted',
+                'Case Accepted - Action Required',
+                $fullMessage,
+                $case
+            );
+        }
+
+        if (!empty($attorneyRecipients)) {
+            $this->notificationService->notifyMultiple(
+                $attorneyRecipients,
+                'case_accepted',
+                'Case Accepted - Client Notification',
+                $fullMessage,
+                $case
+            );
         }
 
         AuditLog::log('notify_parties', $user, $case, ['recipients_count' => $notificationCount]);
@@ -816,12 +831,54 @@ class CaseService
         AuditLog::log('close_case', $user, $case, ['reason' => $reason]);
 
         // Notify all parties
-        foreach ($case->parties as $party) {
-            $this->notificationService->notify(
-                $party->person,
+        $partyRecipients = $case->parties
+            ->map(fn($party) => $party->person)
+            ->filter()
+            ->values()
+            ->all();
+        if (!empty($partyRecipients)) {
+            $this->notificationService->notifyMultiple(
+                $partyRecipients,
                 'case_closed',
                 'Case Closed',
                 "Case {$case->case_no} has been closed. Reason: {$reason}",
+                $case
+            );
+        }
+
+        return true;
+    }
+
+    public function reopenCase(CaseModel $case, User $user, string $reason): bool
+    {
+        if ($user->role !== 'hu_admin') {
+            return false;
+        }
+
+        if ($case->status !== 'closed') {
+            return false;
+        }
+
+        $case->update([
+            'status' => 'active',
+            'closed_at' => null,
+            'closed_by_user_id' => null,
+            'closure_reason' => null
+        ]);
+
+        AuditLog::log('reopen_case', $user, $case, ['reason' => $reason]);
+
+        $partyRecipients = $case->parties
+            ->map(fn($party) => $party->person)
+            ->filter()
+            ->values()
+            ->all();
+        if (!empty($partyRecipients)) {
+            $this->notificationService->notifyMultiple(
+                $partyRecipients,
+                'case_reopened',
+                'Case Reopened',
+                "Case {$case->case_no} has been reopened. Reason: {$reason}",
                 $case
             );
         }

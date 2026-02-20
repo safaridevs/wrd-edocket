@@ -66,10 +66,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
                         <select name="doc_type" required class="block w-full border-gray-300 rounded-md">
                             <option value="">Select Type</option>
+                            <option value="affidavit_publication">Affidavit Of Publication</option>
+                            <option value="aggrieval_letter">Aggrieval Letter</option>
                             <option value="filing_other">Filing</option>
                             <option value="protest_letter">Protest Letter</option>
-                            <option value="aggrieval_letter">Aggrieval Letter</option>
-                            <option value="affidavit_publication">Affidavit of Publication</option>
                         </select>
                     </div>
 

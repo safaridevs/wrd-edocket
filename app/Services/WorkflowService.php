@@ -42,17 +42,23 @@ class WorkflowService
 
     public function assignStaff(CaseModel $case, User $aluManager, array $assignments): void
     {
+        $recipients = [];
+
         foreach ($assignments as $assignment) {
             $user = User::find($assignment['user_id']);
             if ($user) {
-                $this->notificationService->notify(
-                    $user,
-                    'case_assignment',
-                    'Case Assignment',
-                    "You have been assigned to case {$case->case_number}.",
-                    $case
-                );
+                $recipients[] = $user;
             }
+        }
+
+        if (!empty($recipients)) {
+            $this->notificationService->notifyMultiple(
+                $recipients,
+                'case_assignment',
+                'Case Assignment',
+                "You have been assigned to case {$case->case_number}.",
+                $case
+            );
         }
     }
 
@@ -73,11 +79,16 @@ class WorkflowService
     public function notifyServedParties(CaseModel $case, string $type, string $title, string $message): void
     {
         $servedParties = $case->parties()->where('is_served', true)->get();
-        
+        $recipients = [];
+
         foreach ($servedParties as $party) {
             if ($party->email && $user = User::where('email', $party->email)->first()) {
-                $this->notificationService->notify($user, $type, $title, $message, $case);
+                $recipients[] = $user;
             }
+        }
+
+        if (!empty($recipients)) {
+            $this->notificationService->notifyMultiple($recipients, $type, $title, $message, $case);
         }
     }
 }

@@ -158,8 +158,6 @@
                                     <option value="">Select Role</option>
                                     <option value="applicant" {{ old('parties.0.role') == 'applicant' ? 'selected' : '' }}>Applicant</option>
                                     <option value="respondent" {{ old('parties.0.role') == 'respondent' ? 'selected' : '' }} class="compliance-role" style="display: none;">Respondent</option>
-                                    <option value="violator" {{ old('parties.0.role') == 'violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Violator</option>
-                                    <option value="alleged_violator" {{ old('parties.0.role') == 'alleged_violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Alleged Violator</option>
                                 </select>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -307,8 +305,6 @@
                     <div class="mt-4 space-x-2" id="add-party-buttons">
                         <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800 regular-case-btn">+ Add Applicant</button>
                         <button type="button" onclick="addParty('respondent')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Respondent</button>
-                        <button type="button" onclick="addParty('violator')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Violator</button>
-                        <button type="button" onclick="addParty('alleged_violator')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Alleged Violator</button>
                         <button type="button" onclick="addParty('protestant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Protestant</button>
                         <button type="button" onclick="addParty('counsel')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Counsel</button>
                     </div>
@@ -421,7 +417,7 @@
                                         <select name="optional_docs[0][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(0)">
                                             <option value="">Select document type...</option>
                                             @foreach($optionalDocs as $docType)
-                                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                            <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -901,7 +897,7 @@
 
         function addOptionalDocument() {
             const optionalDocsContainer = document.getElementById('optional-documents');
-            const optionalDocOptions = `@foreach($optionalDocs as $docType)<option value="{{ $docType->code }}">{{ $docType->name }}</option>@endforeach`;
+            const optionalDocOptions = `@foreach($optionalDocs as $docType)<option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>@endforeach`;
 
             optionalDocsContainer.insertAdjacentHTML('beforeend', `
                 <div class="border rounded-lg p-4 optional-doc-item">

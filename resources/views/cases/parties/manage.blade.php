@@ -42,7 +42,7 @@
                         @php
                             // Only show client parties (not counsel or paralegal) and sort them
                             $clientParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
-                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6];
+                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
                                 return $order[$party->role] ?? 99;
                             });
                         @endphp
@@ -204,8 +204,6 @@
                                         <option value="applicant">Applicant</option>
                                         <option value="protestant">Protestant</option>
                                         <option value="respondent">Respondent</option>
-                                        <option value="violator">Violator</option>
-                                        <option value="alleged_violator">Alleged Violator</option>
                                     </select>
                                 </div>
                                 <div>

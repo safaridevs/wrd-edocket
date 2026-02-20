@@ -68,7 +68,7 @@
         <div class="space-y-4">
             @php
                 $sortedParties = $case->parties->sortBy(function($party) {
-                    $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6, 'counsel' => 7];
+                    $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4, 'counsel' => 5];
                     return $order[$party->role] ?? 99;
                 });
             @endphp

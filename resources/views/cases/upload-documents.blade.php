@@ -136,7 +136,7 @@
                                         <select name="documents[other][0][type]" class="border-gray-300 rounded-md text-sm">
                                             <option value="">Select Document Type</option>
                                             @foreach($documentTypes as $docType)
-                                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                            <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                             @endforeach
                                         </select>
                                         <input type="file" name="documents[other][0][file]" accept=".pdf,.docx,.doc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
@@ -168,7 +168,7 @@
                                     <select name="documents[other][0][type]" class="border-gray-300 rounded-md text-sm">
                                         <option value="">Select Document Type</option>
                                         @foreach($documentTypes as $docType)
-                                        <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                        <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                         @endforeach
                                     </select>
                                     <input type="file" name="documents[other][0][file]" accept=".pdf,.docx,.doc" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100">
@@ -262,7 +262,7 @@
             const newField = document.createElement('div');
             newField.className = 'grid grid-cols-2 gap-3 mt-3';
             
-            const documentOptions = `@foreach($documentTypes as $docType)<option value="{{ $docType->code }}">{{ $docType->name }}</option>@endforeach`;
+            const documentOptions = `@foreach($documentTypes as $docType)<option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>@endforeach`;
             
             newField.innerHTML = `
                 <select name="documents[other][${otherDocumentCount}][type]" class="border-gray-300 rounded-md text-sm">

@@ -9,8 +9,6 @@
                     <option value="applicant" {{ $party->role === 'applicant' ? 'selected' : '' }} class="regular-role">Applicant</option>
                     <option value="protestant" {{ $party->role === 'protestant' ? 'selected' : '' }}>Protestant</option>
                     <option value="respondent" {{ $party->role === 'respondent' ? 'selected' : '' }} class="compliance-role" style="display: none;">Respondent</option>
-                    <option value="violator" {{ $party->role === 'violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Violator</option>
-                    <option value="alleged_violator" {{ $party->role === 'alleged_violator' ? 'selected' : '' }} class="compliance-role" style="display: none;">Alleged Violator</option>
                 </select>
             </div>
             <div>

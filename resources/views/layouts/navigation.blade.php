@@ -41,7 +41,7 @@
 
                     @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
                         <x-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
-                            {{ __('Email History') }}
+                            {{ __('Filling History') }}
                         </x-nav-link>
                     @endif
                 </div>
@@ -178,7 +178,7 @@
 
             @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
                 <x-responsive-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
-                    {{ __('Email History') }}
+                    {{ __('Filing History') }}
                 </x-responsive-nav-link>
             @endif
         </div>

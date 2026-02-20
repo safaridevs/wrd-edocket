@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/reject', [CaseController::class, 'reject'])->middleware('permission:reject_filings')->name('cases.reject');
     Route::post('cases/{case}/approve', [CaseController::class, 'approve'])->name('cases.approve');
     Route::post('cases/{case}/close', [CaseController::class, 'close'])->name('cases.close');
+    Route::post('cases/{case}/reopen', [CaseController::class, 'reopen'])->name('cases.reopen');
     Route::post('cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
     Route::get('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorneyForm'])->name('cases.assign-attorney');
     Route::post('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorney'])->name('cases.assign-attorney.store');

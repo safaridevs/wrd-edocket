@@ -27,7 +27,7 @@
                         <input type="text"
                                name="search"
                                value="{{ request('search') }}"
-                               placeholder="Search by case number, caption, or party name..."
+                               placeholder="Search by case number, caption, party name, or OSE file number..."
                                class="w-full pl-12 pr-4 py-4 border-gray-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 search-focus text-lg">
                     </div>
                 </div>

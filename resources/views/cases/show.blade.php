@@ -166,7 +166,7 @@
                         <h4 class="font-medium mb-2">Case Parties</h4>
                         @php
                             $sortedParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
-                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'violator' => 4, 'alleged_violator' => 5, 'intervenor' => 6];
+                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
                                 return $order[$party->role] ?? 99;
                             });
                         @endphp
@@ -423,6 +423,9 @@
                         <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
                         @elseif($case->status === 'closed')
                         <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
+                        @if(auth()->user()->role === 'hu_admin')
+                        <button onclick="showReopenModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Reopen Case</button>
+                        @endif
                         @if(in_array(auth()->user()->role, ['hu_admin', 'admin']))
                         <button onclick="archiveCase()" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-600">Archive Case</button>
                         @endif
@@ -441,7 +444,7 @@
                             $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('name')->get();
                         @endphp
                         @foreach($documentTypes as $docType)
-                            <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                            <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                         @endforeach
                     </select>
                     <select id="statusFilter" class="border-gray-300 rounded-md text-sm">
@@ -845,6 +848,14 @@
             document.getElementById('uploadForm').reset();
         }
 
+        function showReopenModal() {
+            document.getElementById('reopenModal').classList.remove('hidden');
+        }
+
+        function hideReopenModal() {
+            document.getElementById('reopenModal').classList.add('hidden');
+        }
+
         // Attorney modal functions
         window.toggleAttorneyFields = function() {
             const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
@@ -961,6 +972,9 @@
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Close Case {{ $case->case_no }}</h3>
                     <p class="text-sm text-gray-600 mb-4">This will close the case and notify all parties. Closed cases can be archived later.</p>
+                    <div class="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                        Please upload the closing letter before closing this case.
+                    </div>
 
                     <form action="{{ route('cases.close', $case) }}" method="POST">
                         @csrf
@@ -968,9 +982,41 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Closure *</label>
                             <textarea name="reason" required rows="4" class="block w-full border-gray-300 rounded-md" placeholder="Please provide the reason for closing this case..."></textarea>
                         </div>
+                        <div class="mb-4">
+                            <label class="flex items-start">
+                                <input type="checkbox" name="closing_letter_confirmed" value="1" required class="mt-1 mr-2">
+                                <span class="text-sm text-gray-700">I confirm that the closing letter has been uploaded for this case.</span>
+                            </label>
+                        </div>
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideCloseModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
                             <button type="submit" class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600">Close Case</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Reopen Case Modal -->
+    @if($case->status === 'closed' && auth()->user()->role === 'hu_admin')
+    <div id="reopenModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Reopen Case {{ $case->case_no }}</h3>
+                    <p class="text-sm text-gray-600 mb-4">This will reopen the case and notify all parties.</p>
+
+                    <form action="{{ route('cases.reopen', $case) }}" method="POST">
+                        @csrf
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Reopening *</label>
+                            <textarea name="reason" required rows="4" class="block w-full border-gray-300 rounded-md" placeholder="Please provide the reason for reopening this case..."></textarea>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="hideReopenModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Reopen Case</button>
                         </div>
                     </form>
                 </div>
@@ -1082,7 +1128,7 @@
                                             ->orderBy('sort_order')->get();
                                     @endphp
                                     @foreach($documentTypes as $docType)
-                                    <option value="{{ $docType->code }}">{{ $docType->name }}</option>
+                                    <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                     @endforeach
                                 </select>
                             </div>

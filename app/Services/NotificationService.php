@@ -41,7 +41,7 @@ class NotificationService
                 if ($logAudit) {
                     $currentUser = auth()->user();
                     if ($currentUser) {
-                        AuditService::logEmailNotification($currentUser, $case, $email, $type, $title);
+                        AuditService::logEmailNotificationBatch($currentUser, $case, [$email], $type, $title);
                     }
                 }
             } catch (\Exception $e) {
@@ -73,9 +73,34 @@ class NotificationService
 
     public function notifyMultiple(array $users, string $type, string $title, string $message, ?CaseModel $case = null): void
     {
+        $emails = [];
+
         foreach ($users as $user) {
-            $this->notify($user, $type, $title, $message, $case);
+            $emails[] = $this->getRecipientEmail($user);
+            $this->notify($user, $type, $title, $message, $case, false);
         }
+
+        $currentUser = auth()->user();
+        if ($currentUser) {
+            AuditService::logEmailNotificationBatch($currentUser, $case, $emails, $type, $title);
+        }
+    }
+
+    private function getRecipientEmail($recipient): ?string
+    {
+        if ($recipient instanceof User) {
+            return $recipient->email;
+        }
+
+        if ($recipient instanceof \App\Models\Person) {
+            return $recipient->email;
+        }
+
+        if ($recipient instanceof \App\Models\Attorney) {
+            return $recipient->email;
+        }
+
+        return null;
     }
 
     public function getUnreadCount(User $user): int
