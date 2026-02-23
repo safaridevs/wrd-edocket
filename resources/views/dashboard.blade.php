@@ -195,7 +195,7 @@
                             @endphp
                             
                             @if($recentCases->count() > 0)
-                                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                     @foreach($recentCases as $case)
                                     <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col">
                                         <div class="flex items-start justify-between">
@@ -251,7 +251,7 @@
                                             <span>{{ $case->created_at->format('M j, Y') }}</span>
                                         </div>
 
-                                        <a href="{{ route('cases.show', $case) }}" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-center transition-colors">
+                                        <a href="{{ route('cases.show', $case) }}" class="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-center transition-colors">
                                             View Case Details
                                         </a>
                                     </div>
