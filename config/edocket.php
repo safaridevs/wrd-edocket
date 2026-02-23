@@ -36,6 +36,6 @@ return [
     
     'case_routing' => [
         'auto_assign_hu' => true,
-        'default_hu_role' => 'hu_officer'
+        'default_hu_role' => 'hu_clerk'
     ]
 ];

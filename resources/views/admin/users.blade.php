@@ -105,16 +105,17 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Role</label>
                                 <select name="role" id="editRole" class="mt-1 block w-full border-gray-300 rounded-md" required>
-                                    <option value="admin">IT Admin</option>
-                                    {{-- <option value="alu_manager">ALU Manager</option> --}}
-                                    <option value="alu_atty">ALU Attorney</option>
+                                    <option value="admin">Admin</option>
+                                    <option value="hu_admin">HU Admin</option>
+                                    <option value="hu_clerk">HU Clerk</option>
+                                    <option value="alu_mgr">ALU Manager</option>
                                     <option value="alu_clerk">ALU Clerk</option>
-                                    <option value="hu_admin">Hearing Unit Admin</option>
-                                    <option value="hu_admin">Hearing Unit Examiner</option>
-                                    <option value="hu_clerk">Hearing Unit Clerk</option>
-                                    <option value="hydrology_expert">Hydrology Expert</option>
+                                    <option value="alu_atty">ALU Attorney</option>
                                     <option value="wrd">WRD</option>
+                                    <option value="wrap_dir">WRAP Director</option>
+                                    <option value="hydrology_expert">Hydrology Expert</option>
                                     <option value="party">Party</option>
+                                    <option value="unaffiliated">Unaffiliated</option>
                                 </select>
                             </div>
                         </div>

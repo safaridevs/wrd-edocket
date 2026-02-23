@@ -148,7 +148,7 @@ class CaseController extends Controller
                     CaseAssignment::create([
                         'case_id' => $case->id,
                         'user_id' => $attorneyId,
-                        'assignment_type' => 'alu_attorney',
+                        'assignment_type' => 'alu_atty',
                         'assigned_by' => Auth::id()
                     ]);
                 }
@@ -356,13 +356,13 @@ class CaseController extends Controller
             'attorney_ids.*' => 'exists:users,id'
         ]);
 
-        $case->assignments()->where('assignment_type', 'alu_attorney')->delete();
+        $case->assignments()->whereIn('assignment_type', ['alu_attorney', 'alu_atty'])->delete();
 
         foreach ($validated['attorney_ids'] as $attorneyId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
                 'user_id' => $attorneyId,
-                'assignment_type' => 'alu_attorney',
+                'assignment_type' => 'alu_atty',
                 'assigned_by' => Auth::id()
             ]);
         }

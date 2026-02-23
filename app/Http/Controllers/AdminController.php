@@ -83,7 +83,7 @@ class AdminController extends Controller
     public function updateUserRole(Request $request, User $user)
     {
         $validated = $request->validate([
-            'role' => 'required|in:wrd_expert,wrap_director,alu_managing_atty,alu_law_clerk,alu_attorney,hydrology_expert,hu_admin,hu_law_clerk,unaffiliated,system_admin'
+            'role' => 'required|in:admin,hu_admin,hu_clerk,alu_mgr,alu_clerk,alu_atty,wrd,wrap_dir,hydrology_expert,party,unaffiliated'
         ]);
 
         $user->update(['role' => $validated['role']]);
@@ -113,7 +113,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'title' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'role' => 'required|in:admin,alu_manager,alu_atty,alu_clerk,hu_admin,hu_clerk,hydrology_expert,wrd,party'
+            'role' => 'required|in:admin,hu_admin,hu_clerk,alu_mgr,alu_clerk,alu_atty,wrd,wrap_dir,hydrology_expert,party,unaffiliated'
         ]);
 
         $user->update($validated);

@@ -10,8 +10,8 @@ class ImpersonationController extends Controller
     public function switchRole(Request $request)
     {
         $roles = [
-            'alu_clerk', 'alu_atty', 'alu_mgr', 'hu_admin', 'hu_clerk', 
-            'party', 'admin', 'hydrology_expert', 'wrd_expert', 'wrap_director'
+            'admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_atty',
+            'wrd', 'wrap_dir', 'hydrology_expert', 'party', 'unaffiliated'
         ];
         
         $role = $request->input('role');

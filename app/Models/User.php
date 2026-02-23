@@ -82,23 +82,21 @@ class User extends Authenticatable
 
     public function getCurrentRole(): string
     {
-        return session('impersonated_role', $this->role);
+        return $this->normalizeRole(session('impersonated_role', $this->role));
     }
 
     public function getConsolidatedRole(): string
     {
         $role = $this->getCurrentRole();
-        
-        // Map specific roles to consolidated roles
+
         $roleMap = [
             'alu_clerk' => 'alu',
-            'alu_attorney' => 'alu', 
-            'alu_managing_atty' => 'alu',
+            'alu_atty' => 'alu',
+            'alu_mgr' => 'alu',
             'hu_admin' => 'hu',
             'hu_clerk' => 'hu',
-            'hu_examiner' => 'hu',
         ];
-        
+
         return $roleMap[$role] ?? $role;
     }
 
@@ -108,16 +106,16 @@ class User extends Authenticatable
     }
 
     // Role checks
-    public function isWRDExpert(): bool { return $this->getCurrentRole() === 'wrd_expert'; }
-    public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_director'; }
-    public function isALUManagingAtty(): bool { return $this->getCurrentRole() === 'alu_managing_atty'; }
-    public function isALULawClerk(): bool { return $this->getCurrentRole() === 'alu_law_clerk'; }
-    public function isALUAttorney(): bool { return $this->getCurrentRole() === 'alu_attorney'; }
+    public function isWRDExpert(): bool { return $this->getCurrentRole() === 'wrd'; }
+    public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_dir'; }
+    public function isALUManagingAtty(): bool { return $this->getCurrentRole() === 'alu_mgr'; }
+    public function isALULawClerk(): bool { return $this->getCurrentRole() === 'alu_clerk'; }
+    public function isALUAttorney(): bool { return $this->getCurrentRole() === 'alu_atty'; }
     public function isHydrologyExpert(): bool { return $this->getCurrentRole() === 'hydrology_expert'; }
     public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
-    public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_law_clerk'; }
+    public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_clerk'; }
     public function isUnaffiliated(): bool { return $this->getCurrentRole() === 'unaffiliated'; }
-    public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'system_admin'; }
+    public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'admin'; }
     public function isHearingUnit(): bool { return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']); }
 
     // Permission methods
@@ -201,17 +199,17 @@ class User extends Authenticatable
 
     public function canManageUsers(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignAttorneys(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
     }
 
     public function attorneyRecord()
@@ -234,7 +232,7 @@ class User extends Authenticatable
 
     public function canAssignHydrologyExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk','hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignParalegal(): bool
@@ -272,5 +270,21 @@ class User extends Authenticatable
             'assign_attorneys' => $this->canAssignAttorneys(),
             'transmit_materials' => $this->canTransmitMaterials(),
         ];
+    }
+
+    private function normalizeRole(string $role): string
+    {
+        $aliases = [
+            'alu_attorney' => 'alu_atty',
+            'alu_managing_atty' => 'alu_mgr',
+            'alu_manager' => 'alu_mgr',
+            'wrap_director' => 'wrap_dir',
+            'wrd_expert' => 'wrd',
+            'hu_law_clerk' => 'hu_clerk',
+            'hu_examiner' => 'hu_clerk',
+            'system_admin' => 'admin',
+        ];
+
+        return $aliases[$role] ?? $role;
     }
 }

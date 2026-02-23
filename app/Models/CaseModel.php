@@ -106,7 +106,7 @@ class CaseModel extends Model
     public function aluAttorneys()
     {
         return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
-            ->wherePivot('assignment_type', 'alu_attorney')
+            ->wherePivot('assignment_type', 'alu_atty')
             ->withPivot('assigned_at', 'assigned_by')
             ->withTimestamps();
     }

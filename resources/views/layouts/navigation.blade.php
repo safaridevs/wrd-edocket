@@ -62,7 +62,7 @@
                         </button>
                     </x-slot>
                     <x-slot name="content">
-                        @foreach(['alu_clerk', 'alu_atty', 'alu_mgr', 'hu_admin', 'hu_clerk', 'party', 'admin', 'hydrology_expert'] as $role)
+                        @foreach(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_atty', 'wrd', 'wrap_dir', 'hydrology_expert', 'party', 'unaffiliated'] as $role)
                             <form method="POST" action="{{ route('impersonate.switch') }}" class="block">
                                 @csrf
                                 <input type="hidden" name="role" value="{{ $role }}">

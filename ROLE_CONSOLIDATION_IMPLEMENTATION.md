@@ -27,11 +27,10 @@ public function getConsolidatedRole(): string
     // Map specific roles to consolidated roles
     $roleMap = [
         'alu_clerk' => 'alu',
-        'alu_attorney' => 'alu', 
-        'alu_managing_atty' => 'alu',
+        'alu_atty' => 'alu', 
+        'alu_mgr' => 'alu',
         'hu_admin' => 'hu',
         'hu_clerk' => 'hu',
-        'hu_examiner' => 'hu',
     ];
     
     return $roleMap[$role] ?? $role;
@@ -59,7 +58,7 @@ public function getDisplayName(): string
 ## Role Consolidation Strategy
 
 ### Current Implementation
-- **Database**: Keeps existing specific role values (alu_clerk, alu_attorney, etc.)
+- **Database**: Keeps existing specific role values (alu_clerk, alu_atty, alu_mgr, etc.)
 - **Application Logic**: Uses `getConsolidatedRole()` method when needed
 - **Permissions**: Existing permission methods continue to work unchanged
 
@@ -68,8 +67,8 @@ When ready to fully consolidate roles:
 
 1. **Update existing records**:
 ```sql
-UPDATE users SET role = 'alu' WHERE role IN ('alu_clerk', 'alu_attorney', 'alu_managing_atty');
-UPDATE users SET role = 'hu' WHERE role IN ('hu_admin', 'hu_clerk', 'hu_examiner');
+UPDATE users SET role = 'alu' WHERE role IN ('alu_clerk', 'alu_atty', 'alu_mgr');
+UPDATE users SET role = 'hu' WHERE role IN ('hu_admin', 'hu_clerk');
 ```
 
 2. **Update permission methods** to use consolidated roles
@@ -79,8 +78,8 @@ UPDATE users SET role = 'hu' WHERE role IN ('hu_admin', 'hu_clerk', 'hu_examiner
 
 | User | Role | Title | Display Name |
 |------|------|-------|--------------|
-| Sara Johnson | wrap_director | WRAP Director | Sara Johnson, WRAP Director |
-| Owen Smith | alu_managing_atty | ALU Managing Attorney | Owen Smith, ALU Managing Attorney |
+| Sara Johnson | wrap_dir | WRAP Director | Sara Johnson, WRAP Director |
+| Owen Smith | alu_mgr | ALU Manager | Owen Smith, ALU Manager |
 | Jane Doe | alu_clerk | Senior Law Clerk | Jane Doe, Senior Law Clerk |
 | John Brown | hu_admin | HU Administrator | John Brown, HU Administrator |
 

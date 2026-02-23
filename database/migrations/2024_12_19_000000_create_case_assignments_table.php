@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('case_id')->constrained('cases')->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('assignment_type', ['hydrology_expert', 'wrd', 'alu_clerk', 'alu_attorney']);
+            $table->enum('assignment_type', ['hydrology_expert', 'wrd', 'alu_clerk', 'alu_atty']);
             $table->timestamp('assigned_at')->useCurrent();
             $table->foreignId('assigned_by')->constrained('users');
             $table->timestamps();
