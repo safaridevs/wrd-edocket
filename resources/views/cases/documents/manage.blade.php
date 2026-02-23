@@ -15,7 +15,7 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            
+
             <!-- Case Info -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h3 class="text-lg font-medium mb-2">{{ $case->case_no }}</h3>
@@ -89,8 +89,8 @@
                                                     </button>
                                                 @endif
                                             </div>
-                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</span>
-                                            
+                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ $document->doc_type_label }}</span>
+
                                             @if($document->approved)
                                                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                             @elseif($document->rejected_reason)
@@ -129,29 +129,29 @@
                                                 </span>
                                             @endif
                                         </div>
-                                        
+
 
                                     </div>
-                                    
+
                                     <div class="text-sm text-gray-600 space-y-1">
                                         <div class="flex items-center space-x-4">
                                             <span>📁 {{ number_format($document->size_bytes / 1024, 1) }} KB</span>
                                             <span>📅 {{ $document->uploaded_at->format('M j, Y g:i A') }}</span>
                                             <span>👤 {{ $document->uploader->name }}</span>
                                         </div>
-                                        
+
                                         @if($document->pleading_type && $document->pleading_type !== 'none')
                                             <div class="text-blue-600">
                                                 <strong>Pleading Type:</strong> {{ ucfirst(str_replace('_', ' ', $document->pleading_type)) }}
                                             </div>
                                         @endif
-                                        
+
                                         @if($document->rejected_reason)
                                             <div class="text-red-600 bg-red-50 p-2 rounded mt-2">
                                                 <strong>Rejection Reason:</strong> {{ $document->rejected_reason }}
                                             </div>
                                         @endif
-                                        
+
                                         @if($document->stamp_text)
                                             <div class="text-purple-600 bg-purple-50 p-2 rounded mt-2">
                                                 <strong>Stamp:</strong> {{ $document->stamp_text }}
@@ -171,10 +171,10 @@
                                         @endif
                                     </div>
                                 </div>
-                                
+
                                 <div class="flex flex-wrap gap-2 ml-4">
                                     @if($document->storage_uri)
-                                        <a href="{{ Storage::url($document->storage_uri) }}" target="_blank" 
+                                        <a href="{{ Storage::url($document->storage_uri) }}" target="_blank"
                                            onclick="markDocumentAsViewed({{ $document->id }})"
                                            class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded">
                                             📄 View
@@ -184,17 +184,17 @@
                                             📄 No File
                                         </span>
                                     @endif
-                                    
+
                                     @if(in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                                         @if(!$document->approved && !$document->rejected_reason)
-                                            <button onclick="approveDocument({{ $document->id }})" 
+                                            <button onclick="approveDocument({{ $document->id }})"
                                                     id="approve-btn-{{ $document->id }}"
                                                     disabled
                                                     class="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded whitespace-nowrap cursor-not-allowed"
                                                     title="View document first to enable this button">
                                                 ✓ Accept
                                             </button>
-                                            <button onclick="rejectDocument({{ $document->id }})" 
+                                            <button onclick="rejectDocument({{ $document->id }})"
                                                     id="reject-btn-{{ $document->id }}"
                                                     disabled
                                                     class="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded whitespace-nowrap cursor-not-allowed"
@@ -202,27 +202,27 @@
                                                 ✗ Reject
                                             </button>
                                         @elseif($document->approved && !$document->stamped && in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']))
-                                            <button onclick="stampDocument({{ $document->id }})" 
+                                            <button onclick="stampDocument({{ $document->id }})"
                                                     class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
                                                 📋 Stamp
                                             </button>
                                         @elseif($document->rejected_reason)
-                                            <button onclick="approveDocument({{ $document->id }})" 
+                                            <button onclick="approveDocument({{ $document->id }})"
                                                     class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
                                                 ✓ Accept
                                             </button>
                                         @endif
-                                        
+
                                         @if($hasNamingIssue || $hasFileIssue)
-                                            <button onclick="requestFix({{ $document->id }})" 
+                                            <button onclick="requestFix({{ $document->id }})"
                                                     class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
                                                 🔧 Request Fix
                                             </button>
                                         @endif
                                     @endif
-                                    
+
                                     @if(auth()->user()->role === 'admin' || $document->uploaded_by_user_id === auth()->id())
-                                        <button onclick="deleteDocument({{ $document->id }})" 
+                                        <button onclick="deleteDocument({{ $document->id }})"
                                                 class="text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap">
                                             🗑️ Delete
                                         </button>
@@ -250,19 +250,19 @@
                 <div class="p-6">
                     <h3 id="confirmTitle" class="text-lg font-medium mb-4">Confirm Action</h3>
                     <p id="confirmMessage" class="text-gray-600 mb-4">Are you sure you want to proceed?</p>
-                    
+
                     <div class="mb-4">
                         <label class="flex items-center">
                             <input type="checkbox" id="documentViewedCheckbox" class="mr-2">
                             <span class="text-sm">I confirm that I have viewed this document</span>
                         </label>
                     </div>
-                    
+
                     <div id="rejectReasonSection" class="mb-4 hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Reason for rejection:</label>
                         <textarea id="rejectReasonInput" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Please provide a reason for rejection..."></textarea>
                     </div>
-                    
+
                     <div class="flex justify-end space-x-3">
                         <button type="button" onclick="hideConfirmModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                             Cancel
@@ -297,8 +297,8 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title (Optional)</label>
-                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255" 
-                                       class="block w-full border-gray-300 rounded-md" 
+                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
+                                       class="block w-full border-gray-300 rounded-md"
                                        placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
                                        oninput="updateFilenamePreview()">
                                 <p class="text-xs text-gray-500 mt-1">Leave blank to use document type as filename</p>
@@ -327,11 +327,11 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
-                                <textarea name="description" rows="3" class="block w-full border-gray-300 rounded-md" 
+                                <textarea name="description" rows="3" class="block w-full border-gray-300 rounded-md"
                                           placeholder="Brief description of the document..."></textarea>
                             </div>
                         </div>
-                        
+
                         <div class="flex justify-end space-x-3 mt-6">
                             <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                                 Cancel
@@ -353,7 +353,7 @@
         function markDocumentAsViewed(documentId) {
             viewedDocuments.add(documentId);
             sessionStorage.setItem('viewedDocuments', JSON.stringify([...viewedDocuments]));
-            
+
             // Enable buttons after a short delay (to ensure document opened)
             setTimeout(() => {
                 enableDocumentButtons(documentId);
@@ -363,13 +363,13 @@
         function enableDocumentButtons(documentId) {
             const approveBtn = document.getElementById(`approve-btn-${documentId}`);
             const rejectBtn = document.getElementById(`reject-btn-${documentId}`);
-            
+
             if (approveBtn) {
                 approveBtn.disabled = false;
                 approveBtn.className = 'text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
                 approveBtn.title = '';
             }
-            
+
             if (rejectBtn) {
                 rejectBtn.disabled = false;
                 rejectBtn.className = 'text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
@@ -389,11 +389,11 @@
             const customTitleInput = document.getElementById('customTitleInput');
             const previewDiv = document.getElementById('filenamePreview');
             const previewText = document.getElementById('previewText');
-            
+
             const docType = docTypeSelect.options[docTypeSelect.selectedIndex]?.text || '';
             const customTitle = customTitleInput.value.trim();
             const titleOrType = customTitle || docType;
-            
+
             if (titleOrType && docType) {
                 const today = new Date().toISOString().split('T')[0];
                 previewText.textContent = `${today} - ${titleOrType}.pdf`;
@@ -416,20 +416,20 @@
             const select = document.querySelector('select[name="doc_type"]');
             const selectedOption = select.options[select.selectedIndex];
             const pleadingSection = document.getElementById('pleadingTypeSection');
-            
+
             if (selectedOption && selectedOption.dataset.isPleading === 'true') {
                 pleadingSection.classList.remove('hidden');
             } else {
                 pleadingSection.classList.add('hidden');
             }
-            
+
             updateFilenamePreview();
         }
 
         function validateFiles(input) {
             const files = Array.from(input.files);
             const maxSize = 10 * 1024 * 1024; // 10MB
-            
+
             for (let file of files) {
                 if (file.size > maxSize) {
                     alert(`File "${file.name}" is too large. Each file must be less than 10MB.`);
@@ -437,7 +437,7 @@
                     return;
                 }
             }
-            
+
             if (files.length > 0) {
                 const fileNames = files.map(f => f.name).join(', ');
                 console.log(`Selected ${files.length} file(s): ${fileNames}`);
@@ -447,7 +447,7 @@
         function filterDocuments() {
             const filterType = document.getElementById('filterType').value;
             const documents = document.querySelectorAll('.document-item');
-            
+
             documents.forEach(doc => {
                 if (!filterType || doc.dataset.type === filterType) {
                     doc.style.display = 'block';
@@ -464,20 +464,20 @@
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
             document.getElementById('documentViewedCheckbox').checked = false;
-            
+
             const confirmBtn = document.getElementById('confirmActionBtn');
             confirmBtn.disabled = true;
             confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
-            
+
             document.getElementById('rejectReasonInput').value = '';
-            
+
             const rejectSection = document.getElementById('rejectReasonSection');
             if (isReject) {
                 rejectSection.classList.remove('hidden');
             } else {
                 rejectSection.classList.add('hidden');
             }
-            
+
             currentAction = action;
             currentDocumentId = documentId;
             document.getElementById('confirmModal').classList.remove('hidden');
@@ -512,7 +512,7 @@
                     alert('Please provide a reason for rejection');
                     return;
                 }
-                
+
                 fetch(`/cases/{{ $case->id }}/documents/${currentDocumentId}/reject`, {
                     method: 'POST',
                     headers: {
@@ -558,14 +558,14 @@
             const confirmBtn = document.getElementById('confirmActionBtn');
             const rejectReasonInput = document.getElementById('rejectReasonInput');
             const rejectReasonSection = document.getElementById('rejectReasonSection');
-            
+
             function updateButtonState() {
                 const isRejectAction = !rejectReasonSection.classList.contains('hidden');
                 const checkboxChecked = checkbox.checked;
                 const hasRejectReason = rejectReasonInput.value.trim().length > 0;
-                
+
                 const shouldEnable = isRejectAction ? (checkboxChecked && hasRejectReason) : checkboxChecked;
-                
+
                 confirmBtn.disabled = !shouldEnable;
                 if (shouldEnable) {
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
@@ -573,7 +573,7 @@
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
                 }
             }
-            
+
             checkbox.addEventListener('change', updateButtonState);
             rejectReasonInput.addEventListener('input', updateButtonState);
         });
@@ -631,7 +631,7 @@
                 console.log('User confirmed, sending request...');
                 const url = `/cases/{{ $case->id }}/documents/${documentId}/stamp`;
                 console.log('URL:', url);
-                
+
                 fetch(url, {
                     method: 'POST',
                     headers: {
@@ -692,7 +692,7 @@
 
         function saveDocumentTitle(documentId) {
             const newTitle = document.getElementById(`doc-title-input-${documentId}`).value.trim();
-            
+
             fetch(`/cases/{{ $case->id }}/documents/${documentId}/update-title`, {
                 method: 'POST',
                 headers: {

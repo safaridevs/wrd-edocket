@@ -42,7 +42,7 @@
             <h3>📄 Submitted Documents</h3>
             <ul>
                 @foreach($case->documents as $document)
-                <li>{{ $document->original_filename }} ({{ ucfirst(str_replace('_', ' ', $document->doc_type)) }})</li>
+                <li>{{ $document->original_filename }} ({{ $document->doc_type_label }})</li>
                 @endforeach
             </ul>
             

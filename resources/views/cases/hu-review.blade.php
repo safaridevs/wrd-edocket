@@ -79,7 +79,7 @@
                     <div class="flex items-center justify-between p-3 border rounded">
                         <div>
                             <div class="font-medium">{{ $doc->original_filename }}</div>
-                            <div class="text-sm text-gray-500">{{ ucfirst(str_replace('_', ' ', $doc->doc_type)) }} • {{ number_format($doc->size_bytes / 1024, 1) }} KB</div>
+                            <div class="text-sm text-gray-500">{{ $doc->doc_type_label }} • {{ number_format($doc->size_bytes / 1024, 1) }} KB</div>
                         </div>
                         <div class="flex items-center space-x-2">
                             @if($doc->naming_compliant)

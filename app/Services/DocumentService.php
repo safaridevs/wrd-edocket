@@ -110,8 +110,8 @@ class DocumentService
         $this->notificationService->notify(
             $document->uploader,
             'document_approved',
-            'Document Approved',
-            "Your document '{$document->original_filename}' has been approved.",
+            'Document Accepted',
+            "Your document '{$document->original_filename}' has been accepted.",
             $document->case
         );
 

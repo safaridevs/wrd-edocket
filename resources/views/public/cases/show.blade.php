@@ -136,7 +136,7 @@
                         </span>
                     </div>
                     <div class="text-sm text-gray-600 mt-1">
-                        {{ ucfirst(str_replace('_', ' ', $document->doc_type)) }} •
+                        {{ $document->doc_type_label }} •
                         {{ number_format($document->size_bytes / 1024, 1) }} KB •
                         Uploaded {{ $document->uploaded_at->format('M j, Y') }}
                         @if($document->stamped_at)

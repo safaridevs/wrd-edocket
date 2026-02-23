@@ -47,7 +47,7 @@
             <div class="document-info">
                 <h3 style="margin-top: 0; color: #059669;">📋 Stamped Document</h3>
                 <p><strong>Document:</strong> {{ $document->original_filename }}</p>
-                <p><strong>Document Type:</strong> {{ ucfirst(str_replace('_', ' ', $document->doc_type)) }}</p>
+                <p><strong>Document Type:</strong> {{ $document->doc_type_label }}</p>
                 @if($document->pleading_type && $document->pleading_type !== 'none')
                 <p><strong>Pleading Type:</strong> {{ ucfirst(str_replace('_', ' ', $document->pleading_type)) }}</p>
                 @endif

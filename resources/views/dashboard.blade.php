@@ -161,10 +161,8 @@
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
                                         })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
-                                          ->with(['parties' => function($query) {
-                                              $query->whereIn('role', ['counsel', 'paralegal'])
-                                                    ->with('person', 'clientParty.person');
-                                          }])
+                                          ->with('parties.person', 'oseFileNumbers')
+                                          ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     } elseif (auth()->user()->isAttorney()) {
                                         // Get cases where user is counsel (attorney)
@@ -174,12 +172,8 @@
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
                                         })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
-                                          ->with(['parties' => function($query) {
-                                              $query->where('role', 'counsel')
-                                                    ->whereHas('person', function($subQuery) {
-                                                        $subQuery->where('email', auth()->user()->email);
-                                                    })->with('clientParty.person');
-                                          }])
+                                          ->with('parties.person', 'oseFileNumbers')
+                                          ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     } else {
                                         // Regular party - get their cases
@@ -189,94 +183,77 @@
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
                                         })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
-                                          ->with('parties.person')
+                                          ->with('parties.person', 'oseFileNumbers')
+                                          ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     }
                                 } else {
                                     $recentCases = auth()->user()->isHearingUnit() 
-                                        ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->latest()->take(5)->get()
-                                        : auth()->user()->createdCases()->latest()->take(5)->get();
+                                        ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->with('parties.person', 'oseFileNumbers')->withCount('documents')->latest()->take(5)->get()
+                                        : auth()->user()->createdCases()->with('parties.person', 'oseFileNumbers')->withCount('documents')->latest()->take(5)->get();
                                 }
                             @endphp
                             
                             @if($recentCases->count() > 0)
-                                <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                     @foreach($recentCases as $case)
-                                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                        <div class="flex items-center space-x-4">
-                                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                                <span class="text-blue-600 font-semibold text-sm">{{ substr($case->case_no, -2) }}</span>
-                                            </div>
+                                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-6 flex flex-col">
+                                        <div class="flex items-start justify-between">
                                             <div>
-                                                <h4 class="font-medium text-gray-900">{{ $case->case_no }}</h4>
-                                                <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} • {{ $case->created_at->format('M j, Y') }}</p>
                                                 @php
-                                                    if (auth()->user()->isParalegal()) {
-                                                        // For paralegals, show the attorney they work with
-                                                        $paralegalParty = $case->parties->where('role', 'paralegal')
-                                                            ->filter(function($party) {
-                                                                return $party->person->email === auth()->user()->email;
-                                                            })->first();
-                                                        
-                                                        $attorneyName = 'Unknown Attorney';
-                                                        $clientName = 'Unknown Client';
-                                                        
-                                                        if ($paralegalParty) {
-                                                            $counselParty = \App\Models\CaseParty::where('role', 'counsel')
-                                                                ->where('client_party_id', $paralegalParty->client_party_id)
-                                                                ->with('person', 'clientParty.person')
-                                                                ->first();
-                                                            
-                                                            if ($counselParty) {
-                                                                $attorneyName = $counselParty->person->full_name;
-                                                                if ($counselParty->clientParty) {
-                                                                    $clientName = $counselParty->clientParty->person->full_name;
-                                                                }
-                                                            }
-                                                        }
-                                                    } elseif (auth()->user()->isAttorney()) {
-                                                        // For attorneys, show which client they represent
-                                                        $counselParty = $case->parties->where('role', 'counsel')
-                                                            ->filter(function($party) {
-                                                                return $party->person->email === auth()->user()->email;
-                                                            })->first();
-                                                        
-                                                        $clientName = 'Unknown Client';
-                                                        if ($counselParty && $counselParty->clientParty) {
-                                                            $clientName = $counselParty->clientParty->person->full_name;
-                                                        }
+                                                    $applicantNames = $case->parties
+                                                        ->where('role', 'applicant')
+                                                        ->map(fn($party) => $party->person?->full_name)
+                                                        ->filter()
+                                                        ->values();
+
+                                                    if ($applicantNames->count() === 1) {
+                                                        $displayApplicants = $applicantNames[0];
+                                                    } elseif ($applicantNames->count() === 2) {
+                                                        $displayApplicants = $applicantNames[0] . ' & ' . $applicantNames[1];
+                                                    } elseif ($applicantNames->count() > 2) {
+                                                        $displayApplicants = $applicantNames[0] . ' & ' . $applicantNames[1] . ' et al';
                                                     } else {
-                                                        // For regular parties, show their role
-                                                        $userParty = $case->parties->filter(function($party) {
-                                                            return $party->person->email === auth()->user()->email;
-                                                        })->first();
-                                                        
-                                                        $partyRole = $userParty ? ucfirst(str_replace('_', ' ', $userParty->role)) : 'Party';
+                                                        $displayApplicants = '';
                                                     }
                                                 @endphp
-                                                @if(auth()->user()->isParalegal())
-                                                    <p class="text-xs text-purple-600 font-medium">Attorney: {{ $attorneyName }}</p>
-                                                    <p class="text-xs text-blue-600">Client: {{ $clientName }}</p>
-                                                @elseif(auth()->user()->isAttorney())
-                                                    <p class="text-xs text-blue-600 font-medium">Representing: {{ $clientName }}</p>
-                                                @else
-                                                    <p class="text-xs text-green-600 font-medium">Role: {{ $partyRole }}</p>
+                                                @if($displayApplicants)
+                                                    <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">{{ $displayApplicants }}</p>
                                                 @endif
+                                                <h4 class="text-lg font-semibold text-gray-900">{{ $case->case_no }}</h4>
+                                                <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                                             </div>
-                                        </div>
-                                        <div class="flex items-center space-x-3">
-                                            <span class="px-2 py-1 text-xs font-medium rounded-full
+                                            <span class="px-3 py-1 text-xs font-semibold rounded-full
                                                 {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                                                   ($case->status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                                                   ($case->status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
                                                    ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800')) }}">
                                                 {{ $case->status === 'approved' ? 'Accepted' : ucfirst(str_replace('_', ' ', $case->status)) }}
                                             </span>
-                                            <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-800">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                                </svg>
-                                            </a>
                                         </div>
+
+                                        <p class="text-sm text-gray-700 mt-3 line-clamp-2">{{ $case->caption }}</p>
+
+                                        @if($case->oseFileNumbers && $case->oseFileNumbers->count() > 0)
+                                        <div class="mt-4">
+                                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">OSE File Numbers</p>
+                                            <div class="flex flex-wrap gap-2">
+                                                @foreach($case->oseFileNumbers as $ose)
+                                                    <span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-md">
+                                                        {{ $ose->file_no_from }}{{ $ose->file_no_to ? ' - ' . $ose->file_no_to : '' }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                        @endif
+
+                                        <div class="mt-4 flex items-center justify-between text-sm text-gray-600">
+                                            <span>{{ $case->documents_count ?? 0 }} documents</span>
+                                            <span>{{ $case->created_at->format('M j, Y') }}</span>
+                                        </div>
+
+                                        <a href="{{ route('cases.show', $case) }}" class="mt-5 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-center transition-colors">
+                                            View Case Details
+                                        </a>
                                     </div>
                                     @endforeach
                                 </div>

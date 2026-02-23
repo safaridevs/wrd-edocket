@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class Document extends Model
 {
@@ -32,6 +33,25 @@ class Document extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by_user_id');
+    }
+
+    public function documentType(): BelongsTo
+    {
+        return $this->belongsTo(DocumentType::class, 'doc_type', 'code');
+    }
+
+    public function getDocTypeLabelAttribute(): string
+    {
+        if ($this->relationLoaded('documentType') && $this->documentType) {
+            return $this->documentType->name;
+        }
+
+        $documentType = DocumentType::where('code', $this->doc_type)->first();
+        if ($documentType) {
+            return $documentType->name;
+        }
+
+        return Str::title(str_replace('_', ' ', $this->doc_type));
     }
 
     public function stamp(): void

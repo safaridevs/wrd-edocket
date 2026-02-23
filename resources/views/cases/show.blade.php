@@ -484,7 +484,7 @@
                                 </div>
                             </div>
                             <div class="text-sm text-gray-600 mt-1">
-                                {{ ucfirst(str_replace('_', ' ', $doc->doc_type)) }}
+                                {{ $doc->doc_type_label }}
                                 @if($doc->pleading_type)
                                     • {{ ucfirst(str_replace('_', ' ', $doc->pleading_type)) }}
                                 @endif
