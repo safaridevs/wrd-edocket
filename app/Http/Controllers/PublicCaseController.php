@@ -11,7 +11,7 @@ class PublicCaseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = CaseModel::where('status', 'approved')
+        $query = CaseModel::whereIn('status', ['approved', 'active'])
             ->with(['parties.person', 'oseFileNumbers'])
             ->orderBy('created_at', 'desc');
 
@@ -41,8 +41,8 @@ class PublicCaseController extends Controller
 
     public function show(CaseModel $case)
     {
-        // Only allow approved cases
-        if ($case->status !== 'approved') {
+        // Only allow approved or active cases
+        if (!in_array($case->status, ['approved', 'active'])) {
             abort(404, 'Case not found or not available for public viewing.');
         }
 
@@ -60,8 +60,8 @@ class PublicCaseController extends Controller
 
     public function downloadDocument(Document $document)
     {
-        // Only allow download of approved and stamped documents from approved cases
-        if (!$document->approved || !$document->stamped || $document->case->status !== 'approved') {
+        // Only allow download of approved and stamped documents from approved or active cases
+        if (!$document->approved || !$document->stamped || !in_array($document->case->status, ['approved', 'active'])) {
             abort(404, 'Document not available for public download.');
         }
 

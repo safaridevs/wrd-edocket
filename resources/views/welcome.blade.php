@@ -71,7 +71,7 @@
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::where('status', 'approved')->count() }}</div>
+                        <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::whereIn('status', ['approved', 'active'])->count() }}</div>
                         <div class="text-gray-600 mt-2">Cases</div>
                     </div>
                     <div class="text-center">
@@ -86,14 +86,14 @@
         <div id="approved-cases" class="bg-gray-50 py-16">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-12">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Water Rights Cases</h2>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Hearing Unit Cases</h2>
                     <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Browse water rights hearing cases. All documents and proceedings are available for public review.
+                        Browse Hearing Unit cases. All documents and proceedings are available for public review.
                     </p>
                 </div>
 
                 @php
-                    $approvedCases = \App\Models\CaseModel::where('status', 'approved')
+                    $approvedCases = \App\Models\CaseModel::whereIn('status', ['approved', 'active'])
                         ->with(['parties.person', 'documents', 'oseFileNumbers'])
                         ->latest()
                         ->take(12)
@@ -104,14 +104,14 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         @foreach($approvedCases as $case)
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                            <div class="p-6">
+                            <div class="p-6 flex flex-col h-full">
                                 <div class="flex items-start justify-between mb-4">
                                     <div>
                                         <h3 class="font-semibold text-gray-900 text-lg">{{ $case->case_no }}</h3>
                                         <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                                     </div>
                                     <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                                        Accepted
+                                        Active
                                     </span>
                                 </div>
 
@@ -140,7 +140,7 @@
                                     <span>{{ $case->created_at->format('M j, Y') }}</span>
                                 </div>
 
-                                <a href="{{ route('public.cases.show', $case) }}" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center block">
+                                <a href="{{ route('public.cases.show', $case) }}" class="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center block">
                                     View Case Details
                                 </a>
                             </div>
@@ -161,7 +161,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         <h3 class="text-lg font-medium text-gray-900 mb-2">No Approved Cases Yet</h3>
-                        <p class="text-gray-600">Approved water rights cases will appear here for public access.</p>
+                        <p class="text-gray-600">Approved Hearing Unit cases will appear here for public access.</p>
                     </div>
                 @endif
             </div>

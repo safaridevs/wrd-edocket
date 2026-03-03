@@ -118,7 +118,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <span class="text-green-600 text-sm font-medium">Ready for hearing</span>
+                        <span class="text-green-600 text-sm font-medium"><a href="{{ route('cases.index') }}">View active cases →</a></span>
                     </div>
                 </div>
                 @endif
@@ -188,12 +188,12 @@
                                           ->latest()->take(5)->get();
                                     }
                                 } else {
-                                    $recentCases = auth()->user()->isHearingUnit() 
+                                    $recentCases = auth()->user()->isHearingUnit()
                                         ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->with('parties.person', 'oseFileNumbers')->withCount('documents')->latest()->take(5)->get()
                                         : auth()->user()->createdCases()->with('parties.person', 'oseFileNumbers')->withCount('documents')->latest()->take(5)->get();
                                 }
                             @endphp
-                            
+
                             @if($recentCases->count() > 0)
                                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                     @foreach($recentCases as $case)
@@ -297,7 +297,7 @@
                                         })
                                         ->with('case', 'clientParty.person')
                                         ->get();
-                                    
+
                                     $assignedCases = $paralegalParties->count();
                                     $attorneys = $paralegalParties->map(function($p) {
                                         return \App\Models\CaseParty::where('role', 'counsel')
@@ -306,12 +306,12 @@
                                             ->first();
                                     })->filter()->unique('person.email');
                                 @endphp
-                                
+
                                 <div class="mb-4">
                                     <p class="text-sm font-medium text-gray-700">{{ auth()->user()->name }}</p>
                                     <p class="text-xs text-gray-500">{{ auth()->user()->email }}</p>
                                 </div>
-                                
+
                                 <div class="border-t pt-4">
                                     <p class="text-sm font-medium text-gray-700 mb-2">Assigned Cases: {{ $assignedCases }}</p>
                                     @if($attorneys->count() > 0)
@@ -340,7 +340,7 @@
                                 $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
                                 $clientCount = 0;
                                 $activeClients = collect();
-                                
+
                                 if ($attorney) {
                                     $counselParties = \App\Models\CaseParty::where('role', 'counsel')
                                         ->whereHas('person', function($query) {
@@ -351,12 +351,12 @@
                                         })
                                         ->with('clientParty.person', 'case')
                                         ->get();
-                                    
+
                                     $clientCount = $counselParties->count();
                                     $activeClients = $counselParties->take(3);
                                 }
                             @endphp
-                            
+
                             @if($attorney)
                                 <div class="mb-4">
                                     <p class="text-sm font-medium text-gray-700">{{ $attorney->name }}</p>
@@ -365,7 +365,7 @@
                                     @endif
                                     <p class="text-xs text-gray-500">{{ $attorney->email }}</p>
                                 </div>
-                                
+
                                 <div class="border-t pt-4">
                                     <p class="text-sm font-medium text-gray-700 mb-2">Active Clients: {{ $clientCount }}</p>
                                     @if($activeClients->count() > 0)
@@ -406,7 +406,7 @@
                                 <span>Create New Case</span>
                             </a>
                             @endif
-                            
+
                             <a href="{{ route('cases.index') }}" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>

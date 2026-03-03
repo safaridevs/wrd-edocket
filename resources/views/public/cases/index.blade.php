@@ -70,7 +70,7 @@
                                     </a>
                                 </h4>
                                 <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-green-400 to-green-500 text-white shadow-sm">
-                                    ✓ Accepted
+                                    ✓ Active
                                 </span>
                             </div>
 
@@ -153,3 +153,4 @@
     </div>
 </div>
 @endsection
+

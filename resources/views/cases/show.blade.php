@@ -543,11 +543,22 @@
                         <div class="flex-1">
                             <div class="text-sm">
                                 <strong>{{ $log->user->getDisplayName() }}</strong>
-                                {{ str_replace('_', ' ', $log->action) }}
+                                @if($log->action === 'update_document_title')
+                                    updated document title
+                                @else
+                                    {{ str_replace('_', ' ', $log->action) }}
+                                @endif
                             </div>
                             <div class="text-xs text-gray-500">{{ $log->created_at->format('M j, Y g:i A') }}</div>
                             @if($log->meta_json)
-                            <div class="text-xs text-gray-600 mt-1">{{ json_encode($log->meta_json) }}</div>
+                                @if($log->action === 'update_document_title')
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        <div>Original: {{ $log->meta_json['old_title'] ?? 'N/A' }}</div>
+                                        <div>Current: {{ $log->meta_json['new_title'] ?? 'N/A' }}</div>
+                                    </div>
+                                @else
+                                    <div class="text-xs text-gray-600 mt-1">{{ json_encode($log->meta_json) }}</div>
+                                @endif
                             @endif
                         </div>
                     </div>
@@ -980,7 +991,15 @@
                         @csrf
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Closure *</label>
-                            <textarea name="reason" required rows="4" class="block w-full border-gray-300 rounded-md" placeholder="Please provide the reason for closing this case..."></textarea>
+                            <select id="closure-reason" name="reason" required class="block w-full border-gray-300 rounded-md" onchange="toggleOtherClosureReason()">
+                                <option value="">Select a reason</option>
+                                <option value="Final Decision">Final Decision</option>
+                                <option value="Applicant's failure to participate">Applicant's failure to participate</option>
+                                <option value="Applicant's failure to submit hearing fee">Applicant's failure to submit hearing fee</option>
+                                <option value="Withdrawal of Application">Withdrawal of Application</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <textarea id="closure-reason-other" name="other_reason" rows="4" class="mt-3 block w-full border-gray-300 rounded-md hidden" placeholder="Please provide the reason for closing this case..."></textarea>
                         </div>
                         <div class="mb-4">
                             <label class="flex items-start">
@@ -1024,6 +1043,22 @@
         </div>
     </div>
     @endif
+    <script>
+        function toggleOtherClosureReason() {
+            const select = document.getElementById('closure-reason');
+            const otherField = document.getElementById('closure-reason-other');
+            if (!select || !otherField) return;
+            if (select.value === 'Other') {
+                otherField.classList.remove('hidden');
+                otherField.required = true;
+            } else {
+                otherField.classList.add('hidden');
+                otherField.required = false;
+                otherField.value = '';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', toggleOtherClosureReason);
+    </script>
 
     <!-- Submit to HU Modal -->
     @if($case->status === 'draft' && auth()->user()->canSubmitToHU())

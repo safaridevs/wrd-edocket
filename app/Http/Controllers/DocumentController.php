@@ -21,7 +21,7 @@ class DocumentController extends Controller
         }
 
         $validated = $request->validate([
-            'document' => 'required|file|mimes:pdf|max:102400',
+            'document' => 'required|file|mimes:pdf|max:204800',
             'doc_type' => 'required|string|in:filing_other,protest_letter,aggrieval_letter,affidavit_publication'
         ], [
             'document.required' => 'Please select a document to upload.',
@@ -94,3 +94,6 @@ class DocumentController extends Controller
         return back()->with('error', 'Unable to approve document.');
     }
 }
+
+
+

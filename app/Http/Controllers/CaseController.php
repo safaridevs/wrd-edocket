@@ -17,25 +17,82 @@ class CaseController extends Controller
         private CaseStorageService $caseStorageService
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
         if ($user->isHearingUnit()) {
             // HU users see only submitted cases (not drafts)
-            $cases = CaseModel::whereNotIn('status', ['draft'])->latest()->get();
+            $query = CaseModel::whereNotIn('status', ['draft']);
+            $allowedStatuses = ['submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
         } elseif ($user->canAssignAttorneys()) {
             // ALU Manager sees all cases
-            $cases = CaseModel::latest()->get();
+            $query = CaseModel::query();
+            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
         } elseif ($user->role === 'party') {
             // Party users (including attorneys) see all active and approved cases
-            $cases = CaseModel::whereIn('status', ['active', 'approved'])->latest()->get();
+            $query = CaseModel::whereIn('status', ['active', 'approved']);
+            $allowedStatuses = ['active', 'approved'];
         } else {
             // Other users see only their created cases
-            $cases = $user->createdCases()->latest()->get();
+            $query = $user->createdCases();
+            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
         }
 
-        return view('cases.index', compact('cases'));
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('type')) {
+            $query->where('case_type', $request->type);
+        }
+
+        if ($request->filled('case_no')) {
+            $caseNo = trim((string) $request->case_no);
+            $normalizedCaseNo = str_replace(['/', ' ', '–', '—'], '-', $caseNo);
+
+            $patterns = [$caseNo, $normalizedCaseNo];
+
+            if (preg_match('/^(\d{4})[-\/\s]?0*(\d+)$/', $caseNo, $matches)) {
+                $year = $matches[1];
+                $seq = (int) $matches[2];
+                $patterns[] = $year . '-' . $seq;
+                $patterns[] = sprintf('%s-%03d', $year, $seq);
+            }
+
+            $digitsOnly = preg_replace('/\D+/', '', $caseNo);
+            if (strlen($digitsOnly) >= 5) {
+                $year = substr($digitsOnly, 0, 4);
+                $seqRaw = ltrim(substr($digitsOnly, 4), '0');
+                $seq = $seqRaw === '' ? '0' : $seqRaw;
+                $patterns[] = $year . '-' . $seq;
+                $patterns[] = sprintf('%s-%03d', $year, (int) $seq);
+                $patterns[] = $year . '%' . $seq;
+            }
+
+            $patterns = array_values(array_unique(array_filter($patterns)));
+
+            $query->where(function ($q) use ($patterns) {
+                foreach ($patterns as $pattern) {
+                    $q->orWhere('case_no', 'like', '%' . $pattern . '%');
+                }
+            });
+        }
+
+        if ($request->filled('ose_file_no')) {
+            $searchOse = $request->ose_file_no;
+            $query->whereHas('oseFileNumbers', function ($q) use ($searchOse) {
+                $q->where('basin_code', 'like', '%' . $searchOse . '%')
+                    ->orWhere('file_no_from', 'like', '%' . $searchOse . '%')
+                    ->orWhere('file_no_to', 'like', '%' . $searchOse . '%');
+            });
+        }
+
+        $cases = $query->latest()->paginate(15)->withQueryString();
+
+        $allowedTypes = ['aggrieved', 'protested', 'compliance'];
+
+        return view('cases.index', compact('cases', 'allowedStatuses', 'allowedTypes'));
     }
 
     public function create()
@@ -46,7 +103,7 @@ class CaseController extends Controller
 
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
         $attorneys = \App\Models\Attorney::orderBy('name')->get();
-        
+
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)
             ->orderBy('name')->get();
@@ -55,7 +112,7 @@ class CaseController extends Controller
         $optionalDocs = $documentTypes
             ->where('is_pleading', false)
             ->where('category', 'case_creation');
-        
+
         return view('cases.create', compact('basinCodes', 'attorneys', 'documentTypes', 'pleadingDocs', 'optionalDocs'));
     }
 
@@ -73,6 +130,9 @@ class CaseController extends Controller
             'parties' => 'required|array|min:1',
             'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
             'parties.*.type' => 'required|in:individual,company',
+            'parties.*.representation' => 'nullable|in:self,attorney',
+            'parties.*.attorney_option' => 'nullable|in:existing,new',
+            'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
             'parties.*.middle_name' => 'nullable|string|max:255',
@@ -104,13 +164,13 @@ class CaseController extends Controller
             'ose_numbers.*.file_no_to' => 'nullable|string|max:50',
             'documents' => 'nullable|array',
             'documents.notice_publication' => 'nullable|array',
-            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.pleading' => 'nullable|array',
-            'documents.pleading.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.pleading.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.protest_letter' => 'nullable|array',
-            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.supporting' => 'nullable|array',
-            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:204800',
             'assigned_attorneys' => 'nullable|array',
             'assigned_attorneys.*' => 'exists:users,id',
             'assigned_clerks' => 'nullable|array',
@@ -119,7 +179,7 @@ class CaseController extends Controller
             'optional_docs.*.type' => 'nullable|string',
             'optional_docs.*.custom_title' => 'nullable|string|max:255',
             'optional_docs.*.files' => 'nullable|array',
-            'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:10240',
+            'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:204800',
             'affirmation' => 'required|accepted',
             'action' => 'required|in:draft,validate,submit'
         ];
@@ -127,14 +187,14 @@ class CaseController extends Controller
         if ($caseType === 'compliance') {
             $rules['pleading_type'] = 'nullable|in:request_pre_hearing,request_to_docket';
             $rules['documents.application'] = 'nullable|array';
-            $rules['documents.application.*'] = 'nullable|file|mimes:pdf|max:10240';
+            $rules['documents.application.*'] = 'nullable|file|mimes:pdf|max:204800';
             $rules['compliance_doc_type'] = 'required|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand';
             $rules['documents.compliance'] = 'required|array';
-            $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:10240';
+            $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:204800';
         } else {
             $rules['pleading_type'] = 'required|in:request_pre_hearing,request_to_docket';
             $rules['documents.application'] = 'required|array';
-            $rules['documents.application.*'] = 'required|file|mimes:pdf|max:10240';
+            $rules['documents.application.*'] = 'required|file|mimes:pdf|max:204800';
         }
 
         $validated = $request->validate($rules);
@@ -513,7 +573,7 @@ class CaseController extends Controller
         $case->load(['documents.uploader']);
 
         $userRole = Auth::user()->getCurrentRole();
-        
+
         if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
             $documentTypes = \App\Models\DocumentType::forRole($userRole)
                 ->where('category', 'party_upload')
@@ -544,14 +604,14 @@ class CaseController extends Controller
 
         // Validate the form structure
         $request->validate([
-            'documents.application.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.request_to_docket.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.request_pre_hearing.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:10240',
-            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:10240',
+            'documents.application.*' => 'nullable|file|mimes:pdf|max:204800',
+            'documents.request_to_docket.*' => 'nullable|file|mimes:pdf|max:204800',
+            'documents.request_pre_hearing.*' => 'nullable|file|mimes:pdf|max:204800',
+            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:204800',
+            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:204800',
+            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.other.*.type' => 'required|string',
-            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:10240'
+            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:204800'
         ]);
 
         try {
@@ -1007,7 +1067,7 @@ class CaseController extends Controller
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'custom_title' => 'nullable|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
-            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800',
             'description' => 'nullable|string|max:500'
         ]);
 
@@ -1055,14 +1115,14 @@ class CaseController extends Controller
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
                     $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
-                    
+
                     $timestamp = now()->format('Y-m-d_His');
                     $uniqueId = substr(md5(uniqid()), 0, 6);
                     $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
                     $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-                    
+
                     $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-                    
+
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                     if ($index > 0) {
                         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
@@ -1245,13 +1305,24 @@ class CaseController extends Controller
         $customTitle = $validated['custom_title'] ?? null;
         $displayType = $this->getDisplayType($document->doc_type);
         $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
-        
+
         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
+
+        $oldFilename = $document->original_filename;
+        $oldTitle = $document->custom_title ?? $displayType;
 
         $document->update([
             'custom_title' => $customTitle,
             'original_filename' => $originalFilename
         ]);
+
+        \App\Services\AuditService::logDocumentTitleChange(
+            $case,
+            auth()->user(),
+            $document->id,
+            $oldTitle,
+            $customTitle ?? $displayType
+        );
 
         return response()->json(['success' => true]);
     }
@@ -1290,11 +1361,20 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'reason' => 'required|string|max:500',
+            'reason' => 'required|string|in:Applicant\'s failure to submit hearing fee,Applicant\'s failure to participate,Withdrawal of Application,Final Decision,Other',
+            'other_reason' => 'nullable|string|max:500',
             'closing_letter_confirmed' => 'required|accepted'
         ]);
 
-        if ($this->caseService->closeCase($case, auth()->user(), $validated['reason'])) {
+        if ($validated['reason'] === 'Other' && empty($validated['other_reason'])) {
+            return back()->withErrors(['other_reason' => 'Please provide the reason for closing this case.'])->withInput();
+        }
+
+        $reason = $validated['reason'] === 'Other'
+            ? $validated['other_reason']
+            : $validated['reason'];
+
+        if ($this->caseService->closeCase($case, auth()->user(), $reason)) {
             return back()->with('success', 'Case closed successfully.');
         }
 
@@ -1465,3 +1545,6 @@ class CaseController extends Controller
         return response()->json(['success' => true, 'message' => 'Paralegal removed successfully.']);
     }
 }
+
+
+

@@ -170,11 +170,11 @@ function editRoles(docTypeId) {
     document.getElementById('modalDocTypeName').textContent = docType.name;
     
     // Uncheck all checkboxes first
-    document.querySelectorAll('input[name="role_ids[]"]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('#rolesForm input[name="role_ids[]"]').forEach(cb => cb.checked = false);
     
     // Check the roles assigned to this document type
     docType.roles.forEach(role => {
-        const checkbox = document.querySelector(`input[name="role_ids[]"][value="${role.id}"]`);
+        const checkbox = document.querySelector(`#rolesForm input[name="role_ids[]"][value="${role.id}"]`);
         if (checkbox) checkbox.checked = true;
     });
     

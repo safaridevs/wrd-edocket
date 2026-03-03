@@ -17,6 +17,44 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow rounded-lg overflow-hidden">
+                <div class="p-6 border-b border-gray-200">
+                    <form method="GET" action="{{ route('cases.index') }}" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700">Case Number</label>
+                            <input type="text" name="case_no" value="{{ request('case_no') }}" placeholder="Search by case number" class="mt-1 block w-full border-gray-300 rounded-md">
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700">OSE File No.</label>
+                            <input type="text" name="ose_file_no" value="{{ request('ose_file_no') }}" placeholder="Search OSE file number" class="mt-1 block w-full border-gray-300 rounded-md">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">Status</label>
+                            <select name="status" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <option value="">All Statuses</option>
+                                @foreach($allowedStatuses as $status)
+                                    <option value="{{ $status }}" @selected(request('status') === $status)>
+                                        {{ ucfirst(str_replace('_', ' ', $status)) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">Type</label>
+                            <select name="type" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <option value="">All Types</option>
+                                @foreach($allowedTypes as $type)
+                                    <option value="{{ $type }}" @selected(request('type') === $type)>
+                                        {{ ucfirst($type) }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="md:col-span-1 flex items-end gap-2">
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply</button>
+                            <a href="{{ route('cases.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Clear</a>
+                        </div>
+                    </form>
+                </div>
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
@@ -106,6 +144,11 @@
                     @if(auth()->user()->canCreateCase())
                     <a href="{{ route('cases.create') }}" class="mt-2 text-blue-600 hover:text-blue-800">Create your first case</a>
                     @endif
+                </div>
+                @endif
+                @if($cases->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    {{ $cases->links() }}
                 </div>
                 @endif
             </div>
