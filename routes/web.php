@@ -150,6 +150,7 @@ Route::middleware('auth')->group(function () {
     // Admin routes
     Route::get('admin/users', [AdminController::class, 'users'])->middleware('permission:manage_users')->name('admin.users');
     Route::patch('admin/users/{user}/role', [AdminController::class, 'updateUserRole'])->middleware('permission:manage_users')->name('admin.users.role');
+    Route::get('admin/notifications', [AdminController::class, 'notificationDelivery'])->middleware('permission:manage_users')->name('admin.notifications');
     Route::get('admin/document-types', [AdminController::class, 'documentTypes'])->name('admin.document-types');
     Route::post('admin/document-types', [AdminController::class, 'storeDocumentType'])->name('admin.document-types.store');
     Route::post('admin/document-types/{documentType}/roles', [AdminController::class, 'updateDocumentTypeRoles'])->name('admin.document-types.roles');

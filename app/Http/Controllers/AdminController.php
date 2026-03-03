@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\DocumentType;
 use App\Models\Role;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 
 class AdminController extends Controller
@@ -25,6 +26,20 @@ class AdminController extends Controller
         $roles = Role::where('is_active', true)->orderBy('name')->get();
 
         return view('admin.document-types', compact('documentTypes', 'roles'));
+    }
+
+    public function notificationDelivery()
+    {
+        if (!auth()->user()->canManageUsers()) {
+            abort(403);
+        }
+
+        $notifications = Notification::with('case')
+            ->whereIn('email_status', ['failed', 'bounced'])
+            ->orderBy('sent_at', 'desc')
+            ->paginate(50);
+
+        return view('admin.notifications', compact('notifications'));
     }
 
     public function storeDocumentType(Request $request)

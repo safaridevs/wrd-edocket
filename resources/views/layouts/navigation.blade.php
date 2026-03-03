@@ -31,6 +31,9 @@
                         <x-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
                             {{ __('IT Admin') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('admin.notifications')" :active="request()->routeIs('admin.notifications')">
+                            {{ __('Email Issues') }}
+                        </x-nav-link>
                     @endif
 
                     @if(Auth::user()->hasAnyRole(['hu_admin']))
@@ -164,11 +167,14 @@
                 </x-responsive-nav-link>
             @endif
 
-            @if(Auth::user()->canManageUsers())
-                <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
-                    {{ __('Admin') }}
-                </x-responsive-nav-link>
-            @endif
+                @if(Auth::user()->canManageUsers())
+                    <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
+                        {{ __('Admin') }}
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('admin.notifications')" :active="request()->routeIs('admin.notifications')">
+                        {{ __('Email Issues') }}
+                    </x-responsive-nav-link>
+                @endif
 
             @if(Auth::user()->hasAnyRole(['hu_admin']))
                 <x-responsive-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">

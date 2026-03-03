@@ -75,7 +75,7 @@
                                 </div>
                                 <div>
                                     <h3 class="text-lg font-semibold text-gray-900">Profile Information</h3>
-                                    <p class="text-sm text-gray-600">Update your account's profile information and email address</p>
+                                    <p class="text-sm text-gray-600">Update your account's profile information</p>
                                 </div>
                             </div>
                         </div>

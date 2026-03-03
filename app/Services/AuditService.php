@@ -59,4 +59,13 @@ class AuditService
             'title' => $title
         ]);
     }
+
+    public static function logDocumentTitleChange(CaseModel $case, User $user, int $documentId, string $oldTitle, string $newTitle): void
+    {
+        AuditLog::log('update_document_title', $user, $case, [
+            'document_id' => $documentId,
+            'old_title' => $oldTitle,
+            'new_title' => $newTitle
+        ]);
+    }
 }

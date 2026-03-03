@@ -30,18 +30,6 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $user->fill($request->validated());
-
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-            
-            // Update related Person and Attorney records
-            Person::where('email', $user->getOriginal('email'))
-                  ->update(['email' => $user->email]);
-            
-            Attorney::where('email', $user->getOriginal('email'))
-                    ->update(['email' => $user->email]);
-        }
-
         $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
