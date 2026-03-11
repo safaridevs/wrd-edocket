@@ -59,6 +59,38 @@
                     @enderror
                 </div>
 
+                <!-- Water Rights Division Office Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Water Rights Division Office *</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
+                            <input type="radio" name="wrd_office" value="albuquerque" {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'checked' : '' }} required class="mt-1 mr-3">
+                            <div class="flex-1">
+                                <div class="font-semibold text-gray-900">Albuquerque Office</div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <div>5550 San Antonio Dr NE</div>
+                                    <div>Albuquerque, NM 87109</div>
+                                    <div class="mt-1">Phone: (505) 469-9662</div>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 {{ old('wrd_office', 'santa_fe') == 'santa_fe' ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
+                            <input type="radio" name="wrd_office" value="santa_fe" {{ old('wrd_office', 'santa_fe') == 'santa_fe' ? 'checked' : '' }} required class="mt-1 mr-3">
+                            <div class="flex-1">
+                                <div class="font-semibold text-gray-900">Santa Fe Office</div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    <div>407 Galisteo St STE 102</div>
+                                    <div>Santa Fe, NM 87501</div>
+                                    <div class="mt-1">Phone: (505) 827-6120</div>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    @error('wrd_office')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 <!-- ALU Attorney Assignments -->
                 @if(auth()->user()->canAssignAttorneys())
                 <div class="mb-6">
@@ -200,6 +232,16 @@
                                     <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
                                     <input type="text" name="parties[0][organization]" value="{{ old('parties.0.organization') }}" class="mt-1 block w-full border-gray-300 rounded-md">
                                 </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">C/o First Name</label>
+                                        <input type="text" name="parties[0][first_name]" value="{{ old('parties.0.first_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">C/o Last Name</label>
+                                        <input type="text" name="parties[0][last_name]" value="{{ old('parties.0.last_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
+                                    </div>
+                                </div>
                             </div>
                             <!-- Representation -->
                             <div class="mb-4">
@@ -207,7 +249,7 @@
                                 <div id="representation-0" class="mt-2">
                                     <div class="individual-representation {{ old('parties.0.type') == 'individual' ? '' : 'hidden' }}">
                                         <label class="flex items-center mb-2">
-                                            <input type="radio" name="parties[0][representation]" value="self" {{ old('parties.0.representation') == 'self' ? 'checked' : '' }} class="mr-2" onchange="toggleAttorneyFields(0)">
+                                            <input type="radio" name="parties[0][representation]" value="self" {{ old('parties.0.representation', 'self') == 'self' ? 'checked' : '' }} class="mr-2" onchange="toggleAttorneyFields(0)">
                                             Self-Represented
                                         </label>
                                         <label class="flex items-center">
@@ -216,66 +258,8 @@
                                         </label>
                                     </div>
                                     <div class="company-representation {{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
-                                        <input type="hidden" name="parties[0][representation]" value="attorney">
+                                        <input type="hidden" name="parties[0][representation]" value="attorney" disabled>
                                         <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Attorney Fields -->
-                            <div id="attorney-fields-0" class="{{ (old('parties.0.representation') == 'attorney' || old('parties.0.type') == 'company') ? '' : 'hidden' }} border-t pt-4 mt-4">
-                                <h5 class="font-medium text-gray-700 mb-3">Attorney Information</h5>
-
-                                <div class="mb-4">
-                                    <label class="flex items-center mb-2">
-                                        <input type="radio" name="parties[0][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_id') ? 'checked' : '' }}>
-                                        Select Existing Attorney
-                                    </label>
-                                    <select name="parties[0][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? '' : 'disabled' }}>
-                                        <option value="">Choose an attorney...</option>
-                                        @foreach($attorneys as $attorney)
-                                            <option value="{{ $attorney->id }}" {{ old('parties.0.attorney_id') == $attorney->id ? 'selected' : '' }}>
-                                                {{ $attorney->name }} - {{ $attorney->email }}
-                                                @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="flex items-center mb-2">
-                                        <input type="radio" name="parties[0][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(0)" {{ !old('parties.0.attorney_id') ? 'checked' : '' }}>
-                                        Add New Attorney
-                                    </label>
-                                    <div id="new-attorney-0" class="{{ old('parties.0.attorney_id') ? 'opacity-50' : '' }}">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                                <input type="text" name="parties[0][attorney_name]" value="{{ old('parties.0.attorney_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
-                                                <input type="email" name="parties[0][attorney_email]" value="{{ old('parties.0.attorney_email') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
-                                                <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                                <input type="text" name="parties[0][bar_number]" value="{{ old('parties.0.bar_number') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
-                                        <div class="mt-4">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
-                                            <input type="text" name="parties[0][attorney_address_line1]" value="{{ old('parties.0.attorney_address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            <input type="text" name="parties[0][attorney_address_line2]" value="{{ old('parties.0.attorney_address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                                <input type="text" name="parties[0][attorney_city]" value="{{ old('parties.0.attorney_city') }}" placeholder="City" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                                <input type="text" name="parties[0][attorney_state]" value="{{ old('parties.0.attorney_state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                                <input type="text" name="parties[0][attorney_zip]" value="{{ old('parties.0.attorney_zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md" {{ old('parties.0.attorney_id') ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -302,6 +286,79 @@
                                 <input type="text" name="parties[0][city]" value="{{ old('parties.0.city') }}" placeholder="City" class="border-gray-300 rounded-md">
                                 <input type="text" name="parties[0][state]" value="{{ old('parties.0.state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
                                 <input type="text" name="parties[0][zip]" value="{{ old('parties.0.zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md">
+                            </div>
+
+                            <!-- Attorney Fields -->
+                            <div id="attorney-fields-0" class="{{ (old('parties.0.representation') == 'attorney' || old('parties.0.type') == 'company') ? '' : 'hidden' }} mt-4">
+                                <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                                    <h5 class="font-semibold text-indigo-900 mb-4 flex items-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                        </svg>
+                                        Attorney Information
+                                    </h5>
+
+                                <div class="mb-4">
+                                    <label class="flex items-center mb-2">
+                                        <input type="radio" name="parties[0][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id') ? 'checked' : '' }}>
+                                        Select Existing Attorney
+                                    </label>
+                                    <select name="parties[0][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id') ? '' : 'disabled' }}>
+                                        <option value="">Choose an attorney...</option>
+                                        @foreach($attorneys as $attorney)
+                                            <option value="{{ $attorney->id }}" {{ old('parties.0.attorney_id') == $attorney->id ? 'selected' : '' }}>
+                                                {{ $attorney->name }} - {{ $attorney->email }}
+                                                @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="flex items-center mb-2">
+                                        <input type="radio" name="parties[0][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option', old('parties.0.attorney_id') ? 'existing' : 'new') == 'new' ? 'checked' : '' }}>
+                                        Add New Attorney
+                                    </label>
+                                    <div id="new-attorney-0" class="{{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'opacity-50' : '' }}">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
+                                                <input type="text" name="parties[0][attorney_name]" value="{{ old('parties.0.attorney_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
+                                                <input type="email" name="parties[0][attorney_email]" value="{{ old('parties.0.attorney_email') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
+                                                <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700">Bar Number</label>
+                                                <input type="text" name="parties[0][bar_number]" value="{{ old('parties.0.bar_number') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            </div>
+                                        </div>
+                                        <div class="mt-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
+                                            <input type="text" name="parties[0][attorney_address_line1]" value="{{ old('parties.0.attorney_address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            <input type="text" name="parties[0][attorney_address_line2]" value="{{ old('parties.0.attorney_address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                                <input type="text" name="parties[0][attorney_city]" value="{{ old('parties.0.attorney_city') }}" placeholder="City" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                                <input type="text" name="parties[0][attorney_state]" value="{{ old('parties.0.attorney_state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                                <input type="text" name="parties[0][attorney_zip]" value="{{ old('parties.0.attorney_zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="no-attorney-yet-option-0" class="mb-2 {{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
+                                    <label class="flex items-center mb-1">
+                                        <input type="radio" name="parties[0][attorney_option]" value="no_attorney_yet" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option') == 'no_attorney_yet' ? 'checked' : '' }}>
+                                        No Attorney Yet
+                                    </label>
+                                    <p class="text-xs text-gray-600">ALU Clerk can submit now and add counsel later.</p>
+                                </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -492,6 +549,12 @@
             // Initialize on page load
             updatePartyRoleOptions();
             updateDocumentSections();
+            document.querySelectorAll('select[name^="parties["][name$="[type]"]').forEach(select => {
+                const match = select.name.match(/parties\[(\d+)\]\[type\]/);
+                if (match) {
+                    togglePersonFields(parseInt(match[1], 10));
+                }
+            });
         });
 
         function updateDocumentSections() {
@@ -687,6 +750,16 @@
                             <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
                             <input type="text" name="parties[${partyCount}][organization]" class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">C/o First Name</label>
+                                <input type="text" name="parties[${partyCount}][first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">C/o Last Name</label>
+                                <input type="text" name="parties[${partyCount}][last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Representation -->
@@ -710,9 +783,37 @@
                         </div>
                     </div>
 
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Email *</label>
+                            <input type="email" name="parties[${partyCount}][email]" required class="mt-1 block w-full border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Phone</label>
+                            <input type="text" name="parties[${partyCount}][phone]" class="mt-1 block w-full border-gray-300 rounded-md">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Address</label>
+                        <input type="text" name="parties[${partyCount}][address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                        <input type="text" name="parties[${partyCount}][address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" name="parties[${partyCount}][city]" placeholder="City" class="border-gray-300 rounded-md">
+                        <input type="text" name="parties[${partyCount}][state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                        <input type="text" name="parties[${partyCount}][zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
+                    </div>
+
                     <!-- Attorney Fields -->
-                    <div id="attorney-fields-${partyCount}" class="hidden border-t pt-4 mt-4">
-                        <h5 class="font-medium text-gray-700 mb-3">Attorney Information</h5>
+                    <div id="attorney-fields-${partyCount}" class="hidden mt-4">
+                        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                            <h5 class="font-semibold text-indigo-900 mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                                Attorney Information
+                            </h5>
 
                         <div class="mb-4">
                             <label class="flex items-center mb-2">
@@ -768,28 +869,14 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email *</label>
-                            <input type="email" name="parties[${partyCount}][email]" required class="mt-1 block w-full border-gray-300 rounded-md">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Phone</label>
-                            <input type="text" name="parties[${partyCount}][phone]" class="mt-1 block w-full border-gray-300 rounded-md">
+                        <div id="no-attorney-yet-option-${partyCount}" class="mb-2 hidden">
+                            <label class="flex items-center mb-1">
+                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="no_attorney_yet" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
+                                No Attorney Yet
+                            </label>
+                            <p class="text-xs text-gray-600">ALU Clerk can submit now and add counsel later.</p>
                         </div>
                     </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Address</label>
-                        <input type="text" name="parties[${partyCount}][address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <input type="text" name="parties[${partyCount}][city]" placeholder="City" class="border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
                     </div>
                 </div>
             `);
@@ -807,35 +894,95 @@
             if (typeSelect.value === 'individual') {
                 individualFields.classList.remove('hidden');
                 companyFields.classList.add('hidden');
+                // Enable individual name fields and make them required
+                individualFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = false;
+                    if (input.name.includes('[first_name]') || input.name.includes('[last_name]')) {
+                        input.required = true;
+                    }
+                });
+                // Disable company fields so they don't submit
+                companyFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
                 if (individualRep) {
                     individualRep.classList.remove('hidden');
                     companyRep.classList.add('hidden');
+                    // Disable the hidden representation field in company div
+                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
+                    if (hiddenRepField) hiddenRepField.disabled = true;
+                }
+                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
+                if (noAttorneyYetWrapper) {
+                    noAttorneyYetWrapper.classList.add('hidden');
+                }
+                const noAttorneyYetRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="no_attorney_yet"]`);
+                if (noAttorneyYetRadio?.checked) {
+                    const newRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]`);
+                    if (newRadio) {
+                        newRadio.checked = true;
+                    }
                 }
                 // Hide attorney fields unless attorney is selected
                 const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
                 if (attorneyFields) {
                     attorneyFields.classList.toggle('hidden', !attorneySelected);
                 }
+                toggleAttorneyOption(index);
             } else if (typeSelect.value === 'company') {
                 individualFields.classList.add('hidden');
                 companyFields.classList.remove('hidden');
+                // Enable company fields
+                companyFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = false;
+                    if (input.name.includes('[organization]')) {
+                        input.required = true;
+                    }
+                });
+                // Disable individual name fields so they don't submit
+                individualFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
                 if (individualRep) {
                     individualRep.classList.add('hidden');
                     companyRep.classList.remove('hidden');
+                    // Enable the hidden representation field in company div
+                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
+                    if (hiddenRepField) hiddenRepField.disabled = false;
+                }
+                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
+                if (noAttorneyYetWrapper) {
+                    noAttorneyYetWrapper.classList.remove('hidden');
                 }
                 // Always show attorney fields for companies
                 if (attorneyFields) {
                     attorneyFields.classList.remove('hidden');
                 }
+                toggleAttorneyOption(index);
             } else {
                 individualFields.classList.add('hidden');
                 companyFields.classList.add('hidden');
+                // Disable all fields when nothing selected
+                individualFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
+                companyFields.querySelectorAll('input').forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
                 if (individualRep) {
                     individualRep.classList.add('hidden');
                     companyRep.classList.add('hidden');
                 }
                 if (attorneyFields) {
                     attorneyFields.classList.add('hidden');
+                }
+                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
+                if (noAttorneyYetWrapper) {
+                    noAttorneyYetWrapper.classList.add('hidden');
                 }
             }
         }
@@ -846,6 +993,22 @@
 
             if (attorneyFields) {
                 attorneyFields.classList.toggle('hidden', !attorneySelected);
+                
+                // Make attorney fields required when attorney representation is selected
+                if (attorneySelected) {
+                    const newAttorneyOption = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]:checked`);
+                    if (newAttorneyOption) {
+                        const newAttorneyDiv = document.getElementById(`new-attorney-${index}`);
+                        if (newAttorneyDiv) {
+                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_name]"], input[name*="[attorney_email]"]').forEach(input => {
+                                if (!input.disabled) input.required = true;
+                            });
+                        }
+                    }
+                } else {
+                    // Remove required from attorney fields when not selected
+                    attorneyFields.querySelectorAll('input').forEach(input => input.required = false);
+                }
             }
         }
 
@@ -854,18 +1017,46 @@
             const existingSelect = document.querySelector(`select[name="parties[${index}][attorney_id]"]`);
             const newFields = document.getElementById(`new-attorney-${index}`);
             const newInputs = newFields?.querySelectorAll('input');
+            const typeSelect = document.querySelector(`select[name="parties[${index}][type]"]`);
+            const attorneyRadioSelected = !!document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
+            const needsAttorneyDetails = (typeSelect?.value === 'company') || attorneyRadioSelected;
 
             if (option === 'existing') {
-                if (existingSelect) existingSelect.disabled = false;
+                if (existingSelect) {
+                    existingSelect.disabled = false;
+                    existingSelect.required = true;
+                }
                 if (newFields) newFields.classList.add('opacity-50');
-                if (newInputs) newInputs.forEach(input => input.disabled = true);
+                if (newInputs) newInputs.forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
             } else if (option === 'new') {
                 if (existingSelect) {
                     existingSelect.disabled = true;
                     existingSelect.value = '';
+                    existingSelect.required = false;
                 }
                 if (newFields) newFields.classList.remove('opacity-50');
-                if (newInputs) newInputs.forEach(input => input.disabled = false);
+                if (newInputs) newInputs.forEach(input => {
+                    input.disabled = false;
+                    // Make attorney name and email required for new attorney
+                    if (input.name.includes('[attorney_name]') || input.name.includes('[attorney_email]')) {
+                        input.required = needsAttorneyDetails;
+                    }
+                });
+            } else if (option === 'no_attorney_yet') {
+                if (existingSelect) {
+                    existingSelect.disabled = true;
+                    existingSelect.value = '';
+                    existingSelect.required = false;
+                }
+                if (newFields) newFields.classList.add('opacity-50');
+                if (newInputs) newInputs.forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                    input.value = '';
+                });
             }
         }
 

@@ -127,11 +127,12 @@ class CaseController extends Controller
         $rules = [
             'case_type' => 'required|in:aggrieved,protested,compliance',
             'caption' => 'required|string|max:1000',
+            'wrd_office' => 'required|in:albuquerque,santa_fe',
             'parties' => 'required|array|min:1',
             'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.representation' => 'nullable|in:self,attorney',
-            'parties.*.attorney_option' => 'nullable|in:existing,new',
+            'parties.*.attorney_option' => 'nullable|in:existing,new,no_attorney_yet',
             'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
@@ -199,8 +200,71 @@ class CaseController extends Controller
 
         $validated = $request->validate($rules);
 
+        // Log raw request data for debugging
+        \Log::info('Raw request parties:', ['parties' => $request->input('parties')]);
+        \Log::info('Party validation data:', ['parties' => $validated['parties']]);
+
+        // Additional validation for individuals and attorney representation
+        foreach ($validated['parties'] as $index => $party) {
+            // Require first_name and last_name for individuals only
+            if ($party['type'] === 'individual') {
+                if (empty($party['first_name']) || empty($party['last_name'])) {
+                    \Log::warning('Individual missing name', ['index' => $index, 'party' => $party]);
+                    return back()->withInput()->withErrors(["parties.{$index}.first_name" => 'First name and last name are required for individuals.']);
+                }
+            }
+            
+            // Require attorney information when representation is attorney
+            if (isset($party['representation']) && $party['representation'] === 'attorney') {
+                $hasExistingAttorney = !empty($party['attorney_id']);
+                $hasNewAttorney = !empty($party['attorney_name']) && !empty($party['attorney_email']);
+                $hasNoAttorneyYet = ($party['type'] ?? null) === 'company' && ($party['attorney_option'] ?? null) === 'no_attorney_yet';
+
+                if (($party['type'] ?? null) !== 'company' && ($party['attorney_option'] ?? null) === 'no_attorney_yet') {
+                    return back()->withInput()->withErrors(["parties.{$index}.attorney_option" => 'No Attorney Yet is only allowed for entities (non-person).']);
+                }
+
+                if (!$hasExistingAttorney && !$hasNewAttorney && !$hasNoAttorneyYet) {
+                    return back()->withInput()->withErrors(["parties.{$index}.attorney_name" => 'Please select an existing attorney or provide new attorney name and email.']);
+                }
+            }
+        }
+
         try {
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
+
+            // Create Water Rights Division party
+            $wrdOfficeData = $this->getWrdOfficeData($validated['wrd_office']);
+            
+            $wrdPerson = \App\Models\Person::firstOrCreate(
+                [
+                    'type' => 'company',
+                    'organization' => 'WATER RIGHTS DIVISION',
+                    'email' => 'hu.admin@ose.nm.gov',
+                    'address_line1' => $wrdOfficeData['address'],
+                    'city' => $wrdOfficeData['city'],
+                    'state' => $wrdOfficeData['state'],
+                    'zip' => $wrdOfficeData['zip']
+                ],
+                [
+                    'phone_office' => $wrdOfficeData['phone'],
+                ]
+            );
+
+            \App\Models\CaseParty::create([
+                'case_id' => $case->id,
+                'person_id' => $wrdPerson->id,
+                'role' => 'respondent',
+                'service_enabled' => true
+            ]);
+
+            \App\Models\ServiceList::firstOrCreate([
+                'case_id' => $case->id,
+                'person_id' => $wrdPerson->id,
+                'email' => $wrdPerson->email,
+                'service_method' => 'email',
+                'is_primary' => false
+            ]);
 
             // Handle ALU attorney assignments
             if (isset($validated['assigned_attorneys']) && !empty($validated['assigned_attorneys'])) {
@@ -1333,6 +1397,28 @@ class CaseController extends Controller
         return $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $docType));
     }
 
+    private function getWrdOfficeData($office)
+    {
+        $offices = [
+            'albuquerque' => [
+                'address' => '5550 San Antonio Dr NE',
+                'city' => 'Albuquerque',
+                'state' => 'NM',
+                'zip' => '87109',
+                'phone' => '(505) 469-9662'
+            ],
+            'santa_fe' => [
+                'address' => '407 Galisteo St STE 102',
+                'city' => 'Santa Fe',
+                'state' => 'NM',
+                'zip' => '87501',
+                'phone' => '(505) 827-6120'
+            ]
+        ];
+
+        return $offices[$office] ?? $offices['santa_fe'];
+    }
+
     public function destroyDocument(CaseModel $case, $documentId)
     {
         $document = $case->documents()->findOrFail($documentId);
@@ -1543,6 +1629,26 @@ class CaseController extends Controller
         $paralegalParty->delete();
 
         return response()->json(['success' => true, 'message' => 'Paralegal removed successfully.']);
+    }
+
+    public function destroy(CaseModel $case)
+    {
+        if (!Auth::user()->canCreateCase() || $case->status !== 'draft') {
+            abort(403, 'Only draft cases can be deleted.');
+        }
+
+        // Delete all documents and files
+        foreach ($case->documents as $document) {
+            if (\Storage::disk('public')->exists($document->storage_uri)) {
+                \Storage::disk('public')->delete($document->storage_uri);
+            }
+            $document->delete();
+        }
+
+        // Delete case (cascading will handle related records)
+        $case->delete();
+
+        return redirect()->route('cases.index')->with('success', 'Draft case deleted successfully.');
     }
 }
 
