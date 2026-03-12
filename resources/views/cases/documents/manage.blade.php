@@ -322,7 +322,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
                                 <input type="file" name="document[]" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple
                                        class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
-                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB each)</p>
+                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
                             </div>
 
                             <div>
@@ -428,11 +428,11 @@
 
         function validateFiles(input) {
             const files = Array.from(input.files);
-            const maxSize = 10 * 1024 * 1024; // 10MB
+            const maxSize = 200 * 1024 * 1024; // 200MB
 
             for (let file of files) {
                 if (file.size > maxSize) {
-                    alert(`File "${file.name}" is too large. Each file must be less than 10MB.`);
+                    alert(`File "${file.name}" is too large. Each file must be less than 200MB.`);
                     input.value = '';
                     return;
                 }

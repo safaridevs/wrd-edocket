@@ -1172,7 +1172,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">File *</label>
                                 <input type="file" name="documents[other][0][file]" required accept=".pdf,.doc,.docx"
                                        class="block w-full border-gray-300 rounded-md">
-                                <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX (Max: 10MB)</p>
+                                <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX (Max: 200MB)</p>
                                 <p class="text-xs text-blue-600 mt-1">File naming convention: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf</p>
                             </div>
                         </div>

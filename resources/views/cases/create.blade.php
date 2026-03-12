@@ -1165,7 +1165,7 @@
         });
 
         // File size validation
-        function validateFileSize(input, maxSizeMB = 10) {
+        function validateFileSize(input, maxSizeMB = 200) {
             const files = input.files;
             for (let file of files) {
                 if (file.size > maxSizeMB * 1024 * 1024) {
