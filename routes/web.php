@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/{case}', [CaseController::class, 'show'])->middleware('permission:read_case')->name('cases.show');
     Route::get('cases/{case}/edit', [CaseController::class, 'edit'])->middleware('permission:create_case')->name('cases.edit');
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
+    Route::delete('cases/{case}', [CaseController::class, 'destroy'])->middleware('permission:create_case')->name('cases.destroy');
 
     Route::get('cases/{case}/file-document', [DocumentController::class, 'fileForm'])->name('documents.file');
     Route::post('cases/{case}/file-document', [DocumentController::class, 'store'])->name('documents.file.store');
@@ -154,6 +155,10 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/document-types', [AdminController::class, 'documentTypes'])->name('admin.document-types');
     Route::post('admin/document-types', [AdminController::class, 'storeDocumentType'])->name('admin.document-types.store');
     Route::post('admin/document-types/{documentType}/roles', [AdminController::class, 'updateDocumentTypeRoles'])->name('admin.document-types.roles');
+    Route::get('admin/attorneys', [\App\Http\Controllers\AttorneyController::class, 'index'])->name('admin.attorneys');
+    Route::get('admin/attorneys/{attorney}/edit', [\App\Http\Controllers\AttorneyController::class, 'edit'])->name('admin.attorneys.edit');
+    Route::put('admin/attorneys/{attorney}', [\App\Http\Controllers\AttorneyController::class, 'update'])->name('admin.attorneys.update');
+    Route::delete('admin/attorneys/{attorney}', [\App\Http\Controllers\AttorneyController::class, 'destroy'])->name('admin.attorneys.destroy');
     
     // User role routes
     Route::get('users/roles', [UserController::class, 'getUsersWithRoles'])->name('users.roles');

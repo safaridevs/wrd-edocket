@@ -68,7 +68,11 @@ class WorkflowService
             return false;
         }
 
-        $case->update(['status' => 'active']);
+        $updates = ['status' => 'active'];
+        if (empty($case->accepted_at)) {
+            $updates['accepted_at'] = now();
+        }
+        $case->update($updates);
 
         // Notify all served parties
         $this->notifyServedParties($case, 'case_activated', 'Case Activated', 'Case has been activated and is now accepting filings.');

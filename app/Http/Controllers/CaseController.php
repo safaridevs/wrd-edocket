@@ -401,7 +401,11 @@ class CaseController extends Controller
                     return back()->withInput()->withErrors(['submission' => implode(' ', $validationErrors)]);
                 }
 
-                $case->update(['status' => 'submitted_to_hu']);
+                $updates = ['status' => 'submitted_to_hu'];
+                if (empty($case->submitted_at)) {
+                    $updates['submitted_at'] = now();
+                }
+                $case->update($updates);
 
                 // Send notifications to selected recipients
                 $recipients = $validated['notify_recipients'] ?? [];

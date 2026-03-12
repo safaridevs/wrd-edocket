@@ -95,4 +95,56 @@ class AttorneyController extends Controller
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
+
+    public function index()
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $attorneys = Attorney::orderBy('name')->paginate(50);
+        return view('admin.attorneys', compact('attorneys'));
+    }
+
+    public function edit(Attorney $attorney)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        return response()->json($attorney);
+    }
+
+    public function update(Request $request, Attorney $attorney)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:attorneys,email,' . $attorney->id,
+            'phone' => 'nullable|string|max:20',
+            'bar_number' => 'nullable|string|max:50',
+            'address_line1' => 'nullable|string|max:500',
+            'address_line2' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:50',
+            'zip' => 'nullable|string|max:10'
+        ]);
+
+        $attorney->update($validated);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function destroy(Attorney $attorney)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $attorney->delete();
+        return back()->with('success', 'Attorney deleted successfully.');
+    }
 }

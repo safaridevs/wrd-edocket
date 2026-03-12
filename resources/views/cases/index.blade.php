@@ -125,6 +125,14 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                 <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-900">View</a>
 
+                                @if($case->status === 'draft' && auth()->user()->canCreateCase())
+                                <form action="{{ route('cases.destroy', $case) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this draft case?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
+                                </form>
+                                @endif
+
                                 {{-- @if($case->status === 'submitted_to_hu' && auth()->user()->canAcceptFilings())
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
                                 @endif --}}
