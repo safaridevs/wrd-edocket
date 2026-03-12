@@ -118,11 +118,13 @@ class CaseService
     
     private function createOrFindPerson(array $data): Person
     {
+        \Log::info('createOrFindPerson called with data:', $data);
+        
         // Try to find existing person by email
         $person = Person::where('email', $data['email'])->first();
         
         if (!$person) {
-            $person = Person::create([
+            $personData = [
                 'type' => $data['type'] ?? 'individual',
                 'prefix' => $data['prefix'] ?? null,
                 'first_name' => $data['first_name'] ?? null,
@@ -133,13 +135,17 @@ class CaseService
                 'title' => $data['title'] ?? null,
                 'email' => $data['email'],
                 'phone_mobile' => $data['phone_mobile'] ?? $data['phone'] ?? null,
-                'phone_office' => $data['phone_office'] ?? null,
-                'address_line1' => $data['address_line1'] ?? $data['address'] ?? null,
+                'phone_office' => $data['phone_office'] ?? $data['phone'] ?? null,
+                'address_line1' => $data['address_line1'] ?? null,
                 'address_line2' => $data['address_line2'] ?? null,
                 'city' => $data['city'] ?? null,
                 'state' => $data['state'] ?? null,
                 'zip' => $data['zip'] ?? null
-            ]);
+            ];
+            
+            \Log::info('Creating person with data:', $personData);
+            $person = Person::create($personData);
+            \Log::info('Person created:', ['id' => $person->id, 'first_name' => $person->first_name, 'last_name' => $person->last_name]);
         }
         
         return $person;
@@ -830,22 +836,6 @@ class CaseService
 
         AuditLog::log('close_case', $user, $case, ['reason' => $reason]);
 
-        // Notify all parties
-        $partyRecipients = $case->parties
-            ->map(fn($party) => $party->person)
-            ->filter()
-            ->values()
-            ->all();
-        if (!empty($partyRecipients)) {
-            $this->notificationService->notifyMultiple(
-                $partyRecipients,
-                'case_closed',
-                'Case Closed',
-                "Case {$case->case_no} has been closed. Reason: {$reason}",
-                $case
-            );
-        }
-
         return true;
     }
 
@@ -867,21 +857,6 @@ class CaseService
         ]);
 
         AuditLog::log('reopen_case', $user, $case, ['reason' => $reason]);
-
-        $partyRecipients = $case->parties
-            ->map(fn($party) => $party->person)
-            ->filter()
-            ->values()
-            ->all();
-        if (!empty($partyRecipients)) {
-            $this->notificationService->notifyMultiple(
-                $partyRecipients,
-                'case_reopened',
-                'Case Reopened',
-                "Case {$case->case_no} has been reopened. Reason: {$reason}",
-                $case
-            );
-        }
 
         return true;
     }
