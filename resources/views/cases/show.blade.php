@@ -239,6 +239,15 @@
                                                 @if($party->person->city || $party->person->state || $party->person->zip)
                                                     <div>{{ $party->person->city }}{{ $party->person->city && ($party->person->state || $party->person->zip) ? ', ' : '' }}{{ $party->person->state }} {{ $party->person->zip }}</div>
                                                 @endif
+
+                                                @if(strtoupper(trim($party->person->organization ?? '')) === 'WATER RIGHTS DIVISION' && $case->aluAttorneys->count() > 0)
+                                                    <div class="mt-2">
+                                                        <span class="text-xs font-semibold text-gray-700">Counsel:</span>
+                                                        @foreach($case->aluAttorneys as $aluAttorney)
+                                                            <div class="text-xs text-gray-600">{{ $aluAttorney->getDisplayName() }} ({{ $aluAttorney->email }})</div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
                                     @endif
@@ -328,11 +337,50 @@
                     </div>
                     <div>
                         <h4 class="font-medium mb-2">Service List</h4>
+                        @php
+                            $renderedServiceEmails = $case->serviceList
+                                ->pluck('email')
+                                ->filter()
+                                ->map(fn($email) => strtolower(trim($email)));
+                        @endphp
                         @foreach($case->serviceList as $service)
                         <div class="py-2 border-b">
                             <div class="font-medium">{{ $service->person->full_name }}</div>
                             <div class="text-sm text-gray-600">{{ $service->email }} • {{ ucfirst($service->service_method) }}</div>
                         </div>
+                        @endforeach
+
+                        @foreach($case->aluClerks as $clerk)
+                            @php $email = strtolower(trim($clerk->email ?? '')); @endphp
+                            @if($email !== '' && !$renderedServiceEmails->contains($email))
+                                <div class="py-2 border-b">
+                                    <div class="font-medium">{{ $clerk->getDisplayName() }}</div>
+                                    <div class="text-sm text-gray-600">{{ $clerk->email }} • ALU Clerk</div>
+                                </div>
+                                @php $renderedServiceEmails->push($email); @endphp
+                            @endif
+                        @endforeach
+
+                        @foreach($case->aluAttorneys as $attorney)
+                            @php $email = strtolower(trim($attorney->email ?? '')); @endphp
+                            @if($email !== '' && !$renderedServiceEmails->contains($email))
+                                <div class="py-2 border-b">
+                                    <div class="font-medium">{{ $attorney->getDisplayName() }}</div>
+                                    <div class="text-sm text-gray-600">{{ $attorney->email }} • ALU Attorney</div>
+                                </div>
+                                @php $renderedServiceEmails->push($email); @endphp
+                            @endif
+                        @endforeach
+
+                        @foreach($case->wrds as $wrd)
+                            @php $email = strtolower(trim($wrd->email ?? '')); @endphp
+                            @if($email !== '' && !$renderedServiceEmails->contains($email))
+                                <div class="py-2 border-b">
+                                    <div class="font-medium">{{ $wrd->getDisplayName() }}</div>
+                                    <div class="text-sm text-gray-600">{{ $wrd->email }} • WRD Expert</div>
+                                </div>
+                                @php $renderedServiceEmails->push($email); @endphp
+                            @endif
                         @endforeach
                     </div>
                 </div>
@@ -425,9 +473,6 @@
                         <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
                         @if(auth()->user()->role === 'hu_admin')
                         <button onclick="showReopenModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Reopen Case</button>
-                        @endif
-                        @if(in_array(auth()->user()->role, ['hu_admin', 'admin']))
-                        <button onclick="archiveCase()" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm hover:bg-gray-600">Archive Case</button>
                         @endif
                         @elseif($case->status === 'archived')
                         <span class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm font-medium">📦 Case Archived</span>
@@ -746,30 +791,6 @@
             document.getElementById('closeModal').classList.add('hidden');
         }
 
-        function archiveCase() {
-            if (confirm('Are you sure you want to archive this case? This action cannot be undone.')) {
-                fetch('{{ route('cases.archive', $case) }}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Failed to archive case');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to archive case');
-                });
-            }
-        }
-
         function showSubmitModal() {
             document.getElementById('submitModal').classList.remove('hidden');
         }
@@ -982,7 +1003,7 @@
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Close Case {{ $case->case_no }}</h3>
-                    <p class="text-sm text-gray-600 mb-4">This will close the case and notify all parties. Closed cases can be archived later.</p>
+                    <p class="text-sm text-gray-600 mb-4">This will close the case and notify all parties.</p>
                     <div class="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
                         Please upload the closing letter before closing this case.
                     </div>

@@ -633,7 +633,7 @@
                 if (applicantOption) applicantOption.style.display = 'none';
 
                 // Auto-select first compliance role if no role selected
-                if (partyRoleSelect && !partyRoleSelect.value) {
+                if (partyRoleSelect && (!partyRoleSelect.value || partyRoleSelect.value === 'applicant')) {
                     partyRoleSelect.value = 'respondent';
                 }
             } else {
@@ -649,8 +649,8 @@
                 const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
                 if (applicantOption) applicantOption.style.display = 'block';
 
-                // Auto-select applicant if no role selected
-                if (partyRoleSelect && !partyRoleSelect.value) {
+                // Auto-select applicant for regular case types
+                if (partyRoleSelect && (!partyRoleSelect.value || partyRoleSelect.value === 'respondent')) {
                     partyRoleSelect.value = 'applicant';
                 }
             }

@@ -53,7 +53,7 @@
                     <div class="flex space-x-2">
                         @if($case->status !== 'closed')
                             <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
-                                + File Document
+                                + {{ auth()->user()->role === 'hu_admin' ? 'File Order' : 'File Document' }}
                             </button>
                         @endif
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
@@ -251,13 +251,6 @@
                     <h3 id="confirmTitle" class="text-lg font-medium mb-4">Confirm Action</h3>
                     <p id="confirmMessage" class="text-gray-600 mb-4">Are you sure you want to proceed?</p>
 
-                    <div class="mb-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="documentViewedCheckbox" class="mr-2">
-                            <span class="text-sm">I confirm that I have viewed this document</span>
-                        </label>
-                    </div>
-
                     <div id="rejectReasonSection" class="mb-4 hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Reason for rejection:</label>
                         <textarea id="rejectReasonInput" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Please provide a reason for rejection..."></textarea>
@@ -267,7 +260,7 @@
                         <button type="button" onclick="hideConfirmModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                             Cancel
                         </button>
-                        <button type="button" id="confirmActionBtn" onclick="executeAction()" disabled class="px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed">
+                        <button type="button" id="confirmActionBtn" onclick="executeAction()" class="px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer">
                             Confirm
                         </button>
                     </div>
@@ -337,7 +330,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                File Document
+                                {{ auth()->user()->role === 'hu_admin' ? 'File Order' : 'File Document' }}
                             </button>
                         </div>
                     </form>
@@ -463,19 +456,20 @@
         function showConfirmModal(title, message, action, documentId, isReject = false) {
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
-            document.getElementById('documentViewedCheckbox').checked = false;
 
             const confirmBtn = document.getElementById('confirmActionBtn');
-            confirmBtn.disabled = true;
-            confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
-
-            document.getElementById('rejectReasonInput').value = '';
+            const rejectReasonInput = document.getElementById('rejectReasonInput');
+            rejectReasonInput.value = '';
 
             const rejectSection = document.getElementById('rejectReasonSection');
             if (isReject) {
                 rejectSection.classList.remove('hidden');
+                confirmBtn.disabled = true;
+                confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
             } else {
                 rejectSection.classList.add('hidden');
+                confirmBtn.disabled = false;
+                confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
             }
 
             currentAction = action;
@@ -552,29 +546,27 @@
             );
         }
 
-        // Enable/disable confirm button based on checkbox and reject reason
+        // Enable/disable confirm button based on reject reason for reject actions
         document.addEventListener('DOMContentLoaded', function() {
-            const checkbox = document.getElementById('documentViewedCheckbox');
             const confirmBtn = document.getElementById('confirmActionBtn');
             const rejectReasonInput = document.getElementById('rejectReasonInput');
-            const rejectReasonSection = document.getElementById('rejectReasonSection');
 
             function updateButtonState() {
-                const isRejectAction = !rejectReasonSection.classList.contains('hidden');
-                const checkboxChecked = checkbox.checked;
+                if (currentAction !== 'reject') {
+                    confirmBtn.disabled = false;
+                    confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
+                    return;
+                }
+
                 const hasRejectReason = rejectReasonInput.value.trim().length > 0;
-
-                const shouldEnable = isRejectAction ? (checkboxChecked && hasRejectReason) : checkboxChecked;
-
-                confirmBtn.disabled = !shouldEnable;
-                if (shouldEnable) {
+                confirmBtn.disabled = !hasRejectReason;
+                if (hasRejectReason) {
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-blue-500 text-white hover:bg-blue-600 cursor-pointer';
                 } else {
                     confirmBtn.className = 'px-4 py-2 rounded-md transition-colors duration-200 bg-gray-300 text-gray-500 cursor-not-allowed';
                 }
             }
 
-            checkbox.addEventListener('change', updateButtonState);
             rejectReasonInput.addEventListener('input', updateButtonState);
         });
 

@@ -67,7 +67,14 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($cases as $case)
-                        <tr class="hover:bg-gray-50">
+                        <tr
+                            class="hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            tabindex="0"
+                            role="link"
+                            aria-label="Open case {{ $case->case_no }}"
+                            onclick="if (!event.target.closest('a,button,form,input,select,textarea,label')) { window.location='{{ route('cases.show', $case) }}'; }"
+                            onkeydown="if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('a,button,form,input,select,textarea,label')) { event.preventDefault(); window.location='{{ route('cases.show', $case) }}'; }"
+                        >
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">{{ $case->case_no }}</div>
@@ -122,7 +129,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ $case->submitted_at?->format('M j, Y') ?? 'Not submitted' }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onclick="event.stopPropagation()">
                                 <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-900">View</a>
 
                                 @if($case->status === 'draft' && auth()->user()->canCreateCase())

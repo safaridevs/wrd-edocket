@@ -121,15 +121,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function updateEditRoleOptions() {
     const caseType = '{{ $case->case_type }}';
+    const roleSelect = document.querySelector('select[name="role"]');
     const complianceRoles = document.querySelectorAll('.compliance-role');
     const regularRoles = document.querySelectorAll('.regular-role');
 
     if (caseType === 'compliance') {
         complianceRoles.forEach(option => option.style.display = 'block');
         regularRoles.forEach(option => option.style.display = 'none');
+        if (roleSelect && (roleSelect.value === 'applicant' || !roleSelect.value)) {
+            roleSelect.value = 'respondent';
+        }
     } else {
         complianceRoles.forEach(option => option.style.display = 'none');
         regularRoles.forEach(option => option.style.display = 'block');
+        if (roleSelect && (roleSelect.value === 'respondent' || !roleSelect.value)) {
+            roleSelect.value = 'applicant';
+        }
     }
 }
 

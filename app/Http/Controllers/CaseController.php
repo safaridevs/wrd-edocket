@@ -206,6 +206,10 @@ class CaseController extends Controller
 
         // Additional validation for individuals and attorney representation
         foreach ($validated['parties'] as $index => $party) {
+            if ($caseType !== 'compliance' && ($party['role'] ?? null) === 'respondent') {
+                return back()->withInput()->withErrors(["parties.{$index}.role" => 'Respondent role is only allowed for compliance action cases.']);
+            }
+
             // Require first_name and last_name for individuals only
             if ($party['type'] === 'individual') {
                 if (empty($party['first_name']) || empty($party['last_name'])) {
@@ -896,6 +900,10 @@ class CaseController extends Controller
             'attorney_zip' => 'nullable|string|max:10',
         ]);
 
+        if ($case->case_type !== 'compliance' && $validated['role'] === 'respondent') {
+            return back()->withInput()->withErrors(['role' => 'Respondent role is only allowed for compliance action cases.']);
+        }
+
         try {
             // Create or find person
             $person = \App\Models\Person::where('email', $validated['email'])->first();
@@ -1053,6 +1061,13 @@ class CaseController extends Controller
             'attorney_phone' => 'nullable|string|max:20',
             'bar_number' => 'nullable|string|max:50',
         ]);
+
+        if ($case->case_type !== 'compliance' && $validated['role'] === 'respondent') {
+            return response()->json([
+                'success' => false,
+                'error' => 'Respondent role is only allowed for compliance action cases.'
+            ], 422);
+        }
 
         try {
             // Update person

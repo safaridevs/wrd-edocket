@@ -54,11 +54,16 @@
                                 <div class="flex-1">
                                     <div class="flex items-center space-x-3 mb-2">
                                         <h4 class="font-medium">{{ $party->person->full_name }}</h4>
-                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst($party->role) }}</span>
                                         @php
                                             $hasAttorney = $party->attorneys->count() > 0;
+                                            $isWrdDivision = strtoupper(trim($party->person->organization ?? '')) === 'WATER RIGHTS DIVISION';
                                         @endphp
-                                        @if($hasAttorney)
+                                        @if(!$isWrdDivision)
+                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst($party->role) }}</span>
+                                        @endif
+                                        @if($isWrdDivision)
+                                            <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Agency</span>
+                                        @elseif($hasAttorney)
                                             <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Represented by Attorney</span>
                                         @else
                                             <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Self-Represented</span>
@@ -76,7 +81,21 @@
                                     </div>
 
                                     {{-- Show Attorney Information --}}
-                                    @if($hasAttorney)
+                                    @if($isWrdDivision)
+                                        <div class="mt-3 pl-4 border-l-2 border-blue-200">
+                                            <div class="text-sm font-medium text-blue-800 mb-1">Counsel:</div>
+                                            @if($case->aluAttorneys->count() > 0)
+                                                @foreach($case->aluAttorneys as $aluAttorney)
+                                                    <div class="text-sm text-gray-700">
+                                                        <div class="font-medium">{{ $aluAttorney->getDisplayName() }}</div>
+                                                        <div class="text-gray-600">{{ $aluAttorney->email }}</div>
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <div class="text-sm text-gray-500">No ALU attorney assigned.</div>
+                                            @endif
+                                        </div>
+                                    @elseif($hasAttorney)
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
                                             <div class="flex justify-between items-start mb-1">
                                                 <div class="text-sm font-medium text-green-800">Attorney:</div>
@@ -112,7 +131,7 @@
                                         @endif
                                     @endif
                                 </div>
-                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
+                                @if(!$isWrdDivision && !in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
@@ -200,10 +219,10 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Role *</label>
-                                    <select name="role" required class="mt-1 block w-full border-gray-300 rounded-md">
-                                        <option value="applicant">Applicant</option>
+                                    <select name="role" id="add-party-role" required class="mt-1 block w-full border-gray-300 rounded-md">
+                                        <option value="applicant" class="regular-role">Applicant</option>
                                         <option value="protestant">Protestant</option>
-                                        <option value="respondent">Respondent</option>
+                                        <option value="respondent" class="compliance-role">Respondent</option>
                                     </select>
                                 </div>
                                 <div>
@@ -346,14 +365,43 @@
 
     <script>
         function showAddPartyModal() {
+            updateAddPartyRoleOptions();
             document.getElementById('addPartyModal').classList.remove('hidden');
         }
 
         function hideAddPartyModal() {
             document.getElementById('addPartyModal').classList.add('hidden');
             document.getElementById('addPartyForm').reset();
+            updateAddPartyRoleOptions();
             togglePartyType(document.querySelector('select[name="type"]'));
         }
+
+        function updateAddPartyRoleOptions() {
+            const caseType = '{{ $case->case_type }}';
+            const roleSelect = document.getElementById('add-party-role');
+            if (!roleSelect) {
+                return;
+            }
+
+            const respondentOption = roleSelect.querySelector('option[value="respondent"]');
+            const applicantOption = roleSelect.querySelector('option[value="applicant"]');
+
+            if (caseType === 'compliance') {
+                if (respondentOption) respondentOption.style.display = 'block';
+                if (applicantOption) applicantOption.style.display = 'none';
+                roleSelect.value = 'respondent';
+            } else {
+                if (respondentOption) respondentOption.style.display = 'none';
+                if (applicantOption) applicantOption.style.display = 'block';
+                if (roleSelect.value === 'respondent' || !roleSelect.value) {
+                    roleSelect.value = 'applicant';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAddPartyRoleOptions();
+        });
 
         function togglePartyType(select) {
             const individualFields = document.getElementById('individualFields');
