@@ -38,6 +38,41 @@ class CaseModel extends Model
         $this->attributes['metadata'] = is_array($value) ? json_encode($value) : $value;
     }
 
+    public function getWrdOfficeAttribute(): ?string
+    {
+        return $this->metadata['wrd_office'] ?? null;
+    }
+
+    public function getWrdOfficeLabelAttribute(): ?string
+    {
+        return match ($this->wrd_office) {
+            'albuquerque' => 'Albuquerque Office',
+            'santa_fe' => 'Santa Fe Office',
+            default => null,
+        };
+    }
+
+    public function getWrdOfficeDetailsAttribute(): array
+    {
+        return match ($this->wrd_office) {
+            'albuquerque' => [
+                'address' => '5550 San Antonio Dr NE',
+                'city' => 'Albuquerque',
+                'state' => 'NM',
+                'zip' => '87109',
+                'phone' => '(505) 469-9662',
+            ],
+            'santa_fe' => [
+                'address' => '407 Galisteo St STE 102',
+                'city' => 'Santa Fe',
+                'state' => 'NM',
+                'zip' => '87501',
+                'phone' => '(505) 827-6120',
+            ],
+            default => [],
+        };
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

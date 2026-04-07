@@ -30,14 +30,14 @@ class DocumentService
             throw new \InvalidArgumentException('Invalid file provided');
         }
 
-        $filename = $this->generateFilename($file);
+        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
+        $filename = $this->generateFilename($file, $storageFolder);
         if (!$filename) {
             throw new \InvalidArgumentException('Could not generate filename');
         }
 
         $namingCompliant = $this->validationService->validateNaming($file->getClientOriginalName(), $case->case_number);
 
-        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
         $path = $file->storeAs($storageFolder, $filename, 'public');
 
         $document = Document::create([
@@ -61,13 +61,32 @@ class DocumentService
         return $document;
     }
 
-    private function generateFilename(UploadedFile $file): string
+    private function generateFilename(UploadedFile $file, string $storageFolder): string
     {
         $originalName = $file->getClientOriginalName();
         if (!$originalName) {
-            $originalName = 'document_' . time() . '.pdf';
+            $originalName = 'document.pdf';
         }
-        return time() . '_' . str_replace(' ', '_', $originalName);
+
+        $extension = strtolower($file->getClientOriginalExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION) ?: 'pdf');
+        $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+        $baseName = preg_replace('/ - [A-Za-z0-9]+-\d+(?: et al\.)?(?=( \(\d+\))?$)/', '', $baseName);
+        $baseName = preg_replace('/[\\\\\\/:*?"<>|]/', '-', (string) $baseName);
+        $baseName = trim(preg_replace('/\s+/', ' ', $baseName) ?: 'document');
+        if ($baseName === '') {
+            $baseName = 'document';
+        }
+
+        $storageFolder = trim($storageFolder, '/');
+
+        // Keep disk filenames readable while appending a unique timestamp to avoid collisions.
+        do {
+            $timestamp = now()->format('Ymd_His_u');
+            $candidate = "{$baseName} - {$timestamp}.{$extension}";
+            $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
+        } while (Storage::disk('public')->exists($path));
+
+        return $candidate;
     }
 
 

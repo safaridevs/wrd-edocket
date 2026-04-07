@@ -21,8 +21,11 @@
 
             <!-- Current Parties -->
             <div class="bg-white shadow rounded-lg p-6">
+                @php
+                    $displayParties = $case->parties->reject(fn($party) => $party->isWrdAgencyParty());
+                @endphp
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium">Current Parties ({{ $case->parties->count() }})</h3>
+                    <h3 class="text-lg font-medium">Current Parties ({{ $displayParties->count() }})</h3>
                     <div class="flex space-x-2">
                         @if($case->status === 'approved' && auth()->user()->isHearingUnit())
                         <button onclick="showNotifyModal()" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
@@ -37,11 +40,11 @@
                     </div>
                 </div>
 
-                @if($case->parties->count() > 0)
+                @if($displayParties->count() > 0)
                     <div class="space-y-4">
                         @php
                             // Only show client parties (not counsel or paralegal) and sort them
-                            $clientParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
+                            $clientParties = $displayParties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
                                 $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
                                 return $order[$party->role] ?? 99;
                             });
@@ -56,14 +59,9 @@
                                         <h4 class="font-medium">{{ $party->person->full_name }}</h4>
                                         @php
                                             $hasAttorney = $party->attorneys->count() > 0;
-                                            $isWrdDivision = strtoupper(trim($party->person->organization ?? '')) === 'WATER RIGHTS DIVISION';
                                         @endphp
-                                        @if(!$isWrdDivision)
-                                            <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst($party->role) }}</span>
-                                        @endif
-                                        @if($isWrdDivision)
-                                            <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Agency</span>
-                                        @elseif($hasAttorney)
+                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ ucfirst($party->role) }}</span>
+                                        @if($hasAttorney)
                                             <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Represented by Attorney</span>
                                         @else
                                             <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded">Self-Represented</span>
@@ -81,43 +79,38 @@
                                     </div>
 
                                     {{-- Show Attorney Information --}}
-                                    @if($isWrdDivision)
-                                        <div class="mt-3 pl-4 border-l-2 border-blue-200">
-                                            <div class="text-sm font-medium text-blue-800 mb-1">Counsel:</div>
-                                            @if($case->aluAttorneys->count() > 0)
-                                                @foreach($case->aluAttorneys as $aluAttorney)
-                                                    <div class="text-sm text-gray-700">
-                                                        <div class="font-medium">{{ $aluAttorney->getDisplayName() }}</div>
-                                                        <div class="text-gray-600">{{ $aluAttorney->email }}</div>
-                                                    </div>
-                                                @endforeach
-                                            @else
-                                                <div class="text-sm text-gray-500">No ALU attorney assigned.</div>
-                                            @endif
-                                        </div>
-                                    @elseif($hasAttorney)
+                                    @if($hasAttorney)
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
                                             <div class="flex justify-between items-start mb-1">
                                                 <div class="text-sm font-medium text-green-800">Attorney:</div>
                                                 @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
-                                                <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
-                                                    Edit Attorney
-                                                </button>
+                                                <div class="flex items-center space-x-3">
+                                                    <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
+                                                        Manage Attorney(s)
+                                                    </button>
+                                                    <button onclick="manageAttorney({{ $party->id }})" class="text-green-600 hover:text-green-800 text-xs">
+                                                        + Add Attorney
+                                                    </button>
+                                                </div>
                                                 @endif
                                             </div>
                                             @foreach($party->attorneys as $attorneyParty)
                                                 @php
                                                     $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
                                                 @endphp
-                                                <div class="text-sm text-gray-700">
-                                                    <div class="font-medium">{{ $attorneyParty->person->full_name }}</div>
-                                                    <div class="text-gray-600">{{ $attorneyParty->person->email }}</div>
-                                                    @if($attorney && $attorney->bar_number)
-                                                        <div class="text-gray-600">Bar #: {{ $attorney->bar_number }}</div>
-                                                    @endif
-                                                    @if($attorneyParty->person->phone_office)
-                                                        <div class="text-gray-600">Phone: {{ $attorneyParty->person->phone_office }}</div>
-                                                    @endif
+                                                <div class="mb-3 last:mb-0 rounded-md bg-white/70 p-3 text-sm text-gray-700">
+                                                    <div class="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <div class="font-medium">{{ $attorneyParty->person->full_name }}</div>
+                                                            <div class="text-gray-600">{{ $attorneyParty->person->email }}</div>
+                                                            @if($attorney && $attorney->bar_number)
+                                                                <div class="text-gray-600">Bar #: {{ $attorney->bar_number }}</div>
+                                                            @endif
+                                                            @if($attorneyParty->person->phone_office)
+                                                                <div class="text-gray-600">Phone: {{ $attorneyParty->person->phone_office }}</div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             @endforeach
                                         </div>
@@ -131,7 +124,7 @@
                                         @endif
                                     @endif
                                 </div>
-                                @if(!$isWrdDivision && !in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
+                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || (auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))))
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
@@ -180,18 +173,61 @@
                             </div>
                         </div>
                         @endforeach
+                        @if(false)
+                        <div class="flex justify-between items-center py-2 border-b">
+                            <div>
+                                <div class="font-medium">{{ $attorney->getDisplayName() }}</div>
+                                <div class="text-sm text-gray-600">{{ $attorney->email }} • ALU Attorney</div>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 @else
                     <p class="text-gray-500 text-center py-8">No parties added to this case yet.</p>
                 @endif
             </div>
 
+            <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium mb-4">Administrative Litigation Unit</h3>
+                @if($case->wrd_office_label)
+                    <div class="text-sm">
+                        <div class="font-medium">{{ $case->wrd_office_label }}</div>
+                        @if(!empty($case->wrd_office_details))
+                            <div class="text-gray-600">{{ $case->wrd_office_details['address'] }}</div>
+                            <div class="text-gray-600">{{ $case->wrd_office_details['city'] }}, {{ $case->wrd_office_details['state'] }} {{ $case->wrd_office_details['zip'] }}</div>
+                            <div class="text-gray-600">{{ $case->wrd_office_details['phone'] }}</div>
+                        @endif
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="text-sm font-medium text-gray-900 mb-2">Representing Attorneys</div>
+                        @if($case->aluAttorneys->count() > 0)
+                            <div class="space-y-2">
+                                @foreach($case->aluAttorneys as $attorney)
+                                <div class="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                                    <div class="font-medium text-gray-900">{{ $attorney->getDisplayName() }}</div>
+                                    <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
+                                </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-gray-500">No ALU attorneys are assigned to represent the Administrative Litigation Unit on this case.</p>
+                        @endif
+                    </div>
+                @else
+                    <p class="text-gray-500 text-sm">WRD office not set on this case.</p>
+                @endif
+            </div>
+
             <!-- Service List -->
             <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-medium mb-4">Service List ({{ $case->serviceList->count() }})</h3>
-                @if($case->serviceList->count() > 0)
+                @php
+                    $serviceEntries = $case->serviceList->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION');
+                @endphp
+                <h3 class="text-lg font-medium mb-4">Service List ({{ $serviceEntries->count() }})</h3>
+                @if($serviceEntries->count() > 0)
                     <div class="space-y-2">
-                        @foreach($case->serviceList as $service)
+                        @foreach($serviceEntries as $service)
                         <div class="flex justify-between items-center py-2 border-b">
                             <div>
                                 <div class="font-medium">{{ $service->person->full_name }}</div>
@@ -201,7 +237,7 @@
                         @endforeach
                     </div>
                 @else
-                    <p class="text-gray-500 text-center py-4">Service list is automatically generated from case parties.</p>
+                    <p class="text-gray-500 text-center py-4">Service list is generated from case parties.</p>
                 @endif
             </div>
         </div>
@@ -596,14 +632,19 @@
             assignAttorney(partyId, formData);
         }
 
-        function removeAttorney(partyId) {
-            if (confirm('Are you sure you want to remove attorney representation for this party?')) {
+        function removeAttorney(partyId, counselPartyId = null) {
+            const message = counselPartyId
+                ? 'Are you sure you want to remove this attorney from the party?'
+                : 'Are you sure you want to remove attorney representation for this party?';
+
+            if (confirm(message)) {
                 fetch(`/cases/{{ $case->id }}/parties/${partyId}/attorney`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify(counselPartyId ? { counsel_party_id: counselPartyId } : {})
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -645,7 +686,7 @@
                             <div>
                                 <h4 class="font-medium text-sm mb-3">Case Parties:</h4>
                                 <div class="space-y-2 max-h-40 overflow-y-auto">
-                                    @foreach($case->parties as $party)
+                                    @foreach($displayParties as $party)
                                     <label class="flex items-center p-2 hover:bg-gray-50 rounded">
                                         <input type="checkbox" name="notify_recipients[]" value="party_{{ $party->id }}" class="mr-3">
                                         <div class="flex-1">

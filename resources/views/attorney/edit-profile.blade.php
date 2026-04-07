@@ -53,6 +53,51 @@
                                        class="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm">
                                 <p class="mt-1 text-sm text-gray-500">Email cannot be changed</p>
                             </div>
+
+                            <div class="md:col-span-2">
+                                <label for="address_line1" class="block text-sm font-medium text-gray-700">Address Line 1</label>
+                                <input type="text" name="address_line1" id="address_line1" value="{{ old('address_line1', $attorney->address_line1) }}"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('address_line1')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label for="address_line2" class="block text-sm font-medium text-gray-700">Address Line 2</label>
+                                <input type="text" name="address_line2" id="address_line2" value="{{ old('address_line2', $attorney->address_line2) }}"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('address_line2')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="city" class="block text-sm font-medium text-gray-700">City</label>
+                                <input type="text" name="city" id="city" value="{{ old('city', $attorney->city) }}"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('city')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="state" class="block text-sm font-medium text-gray-700">State</label>
+                                <input type="text" name="state" id="state" value="{{ old('state', $attorney->state) }}"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('state')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label for="zip" class="block text-sm font-medium text-gray-700">ZIP</label>
+                                <input type="text" name="zip" id="zip" value="{{ old('zip', $attorney->zip) }}"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('zip')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
 
                         <div class="mt-6 flex justify-end space-x-3">

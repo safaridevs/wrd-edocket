@@ -8,14 +8,14 @@
         @endphp
         @if($hasAttorney)
             <div class="mt-3 p-3 bg-blue-50 rounded border">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <p class="font-medium text-blue-900">Currently Represented By:</p>
-                        @foreach($party->attorneys as $attorneyParty)
-                            @php
-                                $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                            @endphp
-                            <div class="mb-2 last:mb-0">
+                <p class="font-medium text-blue-900 mb-2">Currently Represented By:</p>
+                <div class="space-y-2">
+                    @foreach($party->attorneys as $attorneyParty)
+                        @php
+                            $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
+                        @endphp
+                        <div class="flex items-start justify-between gap-3 rounded bg-white/70 p-3">
+                            <div>
                                 <p class="text-sm">{{ $attorneyParty->person->full_name }}</p>
                                 <p class="text-xs text-gray-600">{{ $attorneyParty->person->email }}</p>
                                 @if($attorneyParty->person->phone_office)
@@ -25,13 +25,11 @@
                                     <p class="text-xs text-gray-600">Bar: {{ $attorney->bar_number }}</p>
                                 @endif
                             </div>
-                        @endforeach
-                    </div>
-                    @if($party->person->type === 'individual')
-                        <button onclick="removeAttorney({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">
-                            Remove
-                        </button>
-                    @endif
+                            <button onclick="removeAttorney({{ $party->id }}, {{ $attorneyParty->id }})" type="button" class="shrink-0 text-red-600 hover:text-red-800 text-sm">
+                                Remove
+                            </button>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         @else
@@ -50,7 +48,7 @@
     <form onsubmit="handleAttorneyForm(event, {{ $party->id }})" class="space-y-4">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
-                {{ $hasAttorney ? 'Change Attorney' : 'Assign Attorney' }}
+                {{ $hasAttorney ? 'Add Another Attorney' : 'Assign Attorney' }}
             </label>
             
             <div class="space-y-3">
@@ -60,13 +58,17 @@
                         Select Existing Attorney
                     </label>
                     <select name="attorney_id" class="mt-1 block w-full border-gray-300 rounded-md text-sm">
-                        <option value="">Choose an attorney...</option>
-                        @foreach($attorneys as $attorney)
-                            <option value="{{ $attorney->id }}">
-                                {{ $attorney->name }} - {{ $attorney->email }}
-                                @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
-                            </option>
-                        @endforeach
+                        @if($attorneys->count() > 0)
+                            <option value="">Choose an attorney...</option>
+                            @foreach($attorneys as $attorney)
+                                <option value="{{ $attorney->id }}">
+                                    {{ $attorney->name }} - {{ $attorney->email }}
+                                    @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                </option>
+                            @endforeach
+                        @else
+                            <option value="">No unassigned attorneys available</option>
+                        @endif
                     </select>
                 </div>
                 
@@ -103,7 +105,7 @@
                 Cancel
             </button>
             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                {{ $hasAttorney ? 'Update Attorney' : 'Assign Attorney' }}
+                {{ $hasAttorney ? 'Add Attorney' : 'Assign Attorney' }}
             </button>
         </div>
     </form>

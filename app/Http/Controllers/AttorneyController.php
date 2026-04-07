@@ -88,10 +88,33 @@ class AttorneyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50'
+            'bar_number' => 'nullable|string|max:50',
+            'address_line1' => 'nullable|string|max:500',
+            'address_line2' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:50',
+            'zip' => 'nullable|string|max:10',
         ]);
 
         $attorney->update($validated);
+
+        $person = Person::where('email', $attorney->email)->first();
+        if ($person) {
+            $nameParts = preg_split('/\s+/', trim((string) $validated['name'])) ?: [];
+            $firstName = $nameParts[0] ?? $person->first_name;
+            $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : ($person->last_name ?? '');
+
+            $person->update([
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'phone_office' => $validated['phone'] ?? null,
+                'address_line1' => $validated['address_line1'] ?? null,
+                'address_line2' => $validated['address_line2'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? null,
+                'zip' => $validated['zip'] ?? null,
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }

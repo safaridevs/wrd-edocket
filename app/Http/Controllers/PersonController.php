@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
 use App\Models\Person;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PersonController extends Controller
 {
@@ -52,7 +54,17 @@ class PersonController extends Controller
             'zip' => 'nullable|string|max:10'
         ]);
 
-        $person->update($validated);
+        DB::transaction(function () use ($person, $validated, $user) {
+            $person->update($validated);
+
+            if ($person->email === $user->email) {
+                $displayName = User::getDisplayNameFromPersonAttributes($validated);
+
+                if ($displayName !== null) {
+                    $user->update(['name' => $displayName]);
+                }
+            }
+        });
 
         return redirect()->route('cases.show', $case)->with('success', 'Person updated successfully.');
     }

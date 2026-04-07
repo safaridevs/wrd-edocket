@@ -105,6 +105,23 @@ class User extends Authenticatable
         return $this->title ? "{$this->name}, {$this->title}" : $this->name;
     }
 
+    public static function getDisplayNameFromPersonAttributes(array $attributes): ?string
+    {
+        $type = $attributes['type'] ?? 'individual';
+
+        if ($type === 'company') {
+            $organization = trim((string) ($attributes['organization'] ?? ''));
+            return $organization !== '' ? $organization : null;
+        }
+
+        $name = trim(implode(' ', array_filter([
+            $attributes['first_name'] ?? null,
+            $attributes['last_name'] ?? null,
+        ])));
+
+        return $name !== '' ? $name : null;
+    }
+
     // Role checks
     public function isWRDExpert(): bool { return $this->getCurrentRole() === 'wrd'; }
     public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_dir'; }

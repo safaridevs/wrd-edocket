@@ -217,7 +217,7 @@ class CaseController extends Controller
                     return back()->withInput()->withErrors(["parties.{$index}.first_name" => 'First name and last name are required for individuals.']);
                 }
             }
-            
+
             // Require attorney information when representation is attorney
             if (isset($party['representation']) && $party['representation'] === 'attorney') {
                 $hasExistingAttorney = !empty($party['attorney_id']);
@@ -236,39 +236,6 @@ class CaseController extends Controller
 
         try {
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
-
-            // Create Water Rights Division party
-            $wrdOfficeData = $this->getWrdOfficeData($validated['wrd_office']);
-            
-            $wrdPerson = \App\Models\Person::firstOrCreate(
-                [
-                    'type' => 'company',
-                    'organization' => 'WATER RIGHTS DIVISION',
-                    'email' => 'hu.admin@ose.nm.gov',
-                    'address_line1' => $wrdOfficeData['address'],
-                    'city' => $wrdOfficeData['city'],
-                    'state' => $wrdOfficeData['state'],
-                    'zip' => $wrdOfficeData['zip']
-                ],
-                [
-                    'phone_office' => $wrdOfficeData['phone'],
-                ]
-            );
-
-            \App\Models\CaseParty::create([
-                'case_id' => $case->id,
-                'person_id' => $wrdPerson->id,
-                'role' => 'respondent',
-                'service_enabled' => true
-            ]);
-
-            \App\Models\ServiceList::firstOrCreate([
-                'case_id' => $case->id,
-                'person_id' => $wrdPerson->id,
-                'email' => $wrdPerson->email,
-                'service_method' => 'email',
-                'is_primary' => false
-            ]);
 
             // Handle ALU attorney assignments
             if (isset($validated['assigned_attorneys']) && !empty($validated['assigned_attorneys'])) {
@@ -730,8 +697,15 @@ class CaseController extends Controller
 
     public function showAttorneyManagement(CaseModel $case, $partyId)
     {
-        $party = $case->parties()->with(['person'])->findOrFail($partyId);
-        $attorneys = \App\Models\Attorney::orderBy('name')->get();
+        $party = $case->parties()->with(['person', 'attorneys.person'])->findOrFail($partyId);
+        $selectedEmails = $party->attorneys
+            ->map(fn($attorneyParty) => strtolower(trim((string) $attorneyParty->person?->email)))
+            ->filter()
+            ->values();
+        $attorneys = \App\Models\Attorney::orderBy('name')
+            ->get()
+            ->reject(fn($attorney) => $selectedEmails->contains(strtolower(trim((string) $attorney->email))))
+            ->values();
 
         return view('cases.attorney-management', compact('case', 'party', 'attorneys'))->render();
     }
@@ -759,34 +733,23 @@ class CaseController extends Controller
         ]);
 
         try {
-            // Remove existing counsel for this client (single attorney expected)
-            $existingCounsel = $case->parties()
-                ->where('role', 'counsel')
-                ->where('client_party_id', $party->id)
-                ->get();
-
-            foreach ($existingCounsel as $counselParty) {
-                \App\Models\ServiceList::where('case_id', $case->id)
-                    ->where('person_id', $counselParty->person_id)
-                    ->delete();
-                $counselParty->delete();
-            }
-
             $attorney = null;
             if (!empty($validated['attorney_id'])) {
                 $attorney = \App\Models\Attorney::find($validated['attorney_id']);
             } elseif (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
-                $attorney = \App\Models\Attorney::create([
-                    'name' => $validated['attorney_name'],
-                    'email' => $validated['attorney_email'],
-                    'phone' => $validated['attorney_phone'],
-                    'bar_number' => $validated['bar_number'],
-                    'address_line1' => $validated['address_line1'],
-                    'address_line2' => $validated['address_line2'],
-                    'city' => $validated['city'],
-                    'state' => $validated['state'],
-                    'zip' => $validated['zip']
-                ]);
+                $attorney = \App\Models\Attorney::firstOrCreate(
+                    ['email' => $validated['attorney_email']],
+                    [
+                        'name' => $validated['attorney_name'],
+                        'phone' => $validated['attorney_phone'],
+                        'bar_number' => $validated['bar_number'],
+                        'address_line1' => $validated['address_line1'],
+                        'address_line2' => $validated['address_line2'],
+                        'city' => $validated['city'],
+                        'state' => $validated['state'],
+                        'zip' => $validated['zip']
+                    ]
+                );
             }
 
             if (!$attorney) {
@@ -803,11 +766,12 @@ class CaseController extends Controller
                 ]
             );
 
-            \App\Models\CaseParty::create([
+            \App\Models\CaseParty::firstOrCreate([
                 'case_id' => $case->id,
                 'person_id' => $attorneyPerson->id,
                 'role' => 'counsel',
                 'client_party_id' => $party->id,
+            ], [
                 'service_enabled' => true
             ]);
 
@@ -825,28 +789,51 @@ class CaseController extends Controller
         }
     }
 
-    public function removeAttorney(CaseModel $case, $partyId)
+    public function removeAttorney(Request $request, CaseModel $case, $partyId)
     {
         if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
         $party = $case->parties()->findOrFail($partyId);
-
-        if ($party->person->type === 'company') {
-            return response()->json(['success' => false, 'error' => 'Companies must have attorney representation']);
-        }
+        $validated = $request->validate([
+            'counsel_party_id' => 'nullable|integer',
+        ]);
 
         $counselParties = $case->parties()
             ->where('role', 'counsel')
             ->where('client_party_id', $party->id)
             ->get();
 
+        if (!empty($validated['counsel_party_id'])) {
+            $counselParties = $counselParties->where('id', (int) $validated['counsel_party_id']);
+        }
+
+        if ($counselParties->isEmpty()) {
+            return response()->json(['success' => false, 'error' => 'Attorney not found for this party.']);
+        }
+
+        $remainingCounselCount = $case->parties()
+            ->where('role', 'counsel')
+            ->where('client_party_id', $party->id)
+            ->count() - $counselParties->count();
+
+        if ($party->person->type === 'company' && $remainingCounselCount < 1) {
+            return response()->json(['success' => false, 'error' => 'Companies must have at least one attorney representation']);
+        }
+
         foreach ($counselParties as $counselParty) {
-            \App\Models\ServiceList::where('case_id', $case->id)
-                ->where('person_id', $counselParty->person_id)
-                ->delete();
             $counselParty->delete();
+
+            $personStillUsed = $case->parties()
+                ->where('person_id', $counselParty->person_id)
+                ->exists();
+
+            if (!$personStillUsed) {
+                \App\Models\ServiceList::where('case_id', $case->id)
+                    ->where('person_id', $counselParty->person_id)
+                    ->delete();
+            }
         }
 
         return response()->json(['success' => true]);
@@ -1199,17 +1186,13 @@ class CaseController extends Controller
                 if ($file && $file->isValid()) {
                     $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
 
-                    $timestamp = now()->format('Y-m-d_His');
-                    $uniqueId = substr(md5(uniqid()), 0, 6);
-                    $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
-                    $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-
-                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                     if ($index > 0) {
                         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
                     }
+
+                    $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
 
                     $documentData = [
                         'case_id' => $case->id,
@@ -1416,28 +1399,6 @@ class CaseController extends Controller
         return $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $docType));
     }
 
-    private function getWrdOfficeData($office)
-    {
-        $offices = [
-            'albuquerque' => [
-                'address' => '5550 San Antonio Dr NE',
-                'city' => 'Albuquerque',
-                'state' => 'NM',
-                'zip' => '87109',
-                'phone' => '(505) 469-9662'
-            ],
-            'santa_fe' => [
-                'address' => '407 Galisteo St STE 102',
-                'city' => 'Santa Fe',
-                'state' => 'NM',
-                'zip' => '87501',
-                'phone' => '(505) 827-6120'
-            ]
-        ];
-
-        return $offices[$office] ?? $offices['santa_fe'];
-    }
-
     public function destroyDocument(CaseModel $case, $documentId)
     {
         $document = $case->documents()->findOrFail($documentId);
@@ -1466,9 +1427,8 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'reason' => 'required|string|in:Applicant\'s failure to submit hearing fee,Applicant\'s failure to participate,Withdrawal of Application,Final Decision,Other',
+            'reason' => 'required|string|in:Applicant\'s failure to submit hearing fee,Applicant\'s failure to participate,Mediated Settlement,Withdrawal of Protest(s),Withdrawal of Application,Final Decision,Other',
             'other_reason' => 'nullable|string|max:500',
-            'closing_letter_confirmed' => 'required|accepted'
         ]);
 
         if ($validated['reason'] === 'Other' && empty($validated['other_reason'])) {
@@ -1669,7 +1629,26 @@ class CaseController extends Controller
 
         return redirect()->route('cases.index')->with('success', 'Draft case deleted successfully.');
     }
+
+    private function generateReadableStoredFilename(string $displayFilename, string $storageFolder): string
+    {
+        $baseName = pathinfo($displayFilename, PATHINFO_FILENAME);
+        $extension = strtolower(pathinfo($displayFilename, PATHINFO_EXTENSION) ?: 'pdf');
+        $baseName = preg_replace('/ - [A-Za-z0-9]+-\d+(?: et al\.)?(?=( \(\d+\))?$)/', '', $baseName);
+        $baseName = preg_replace('/[\\\\\\/:*?"<>|]/', '-', (string) $baseName);
+        $baseName = trim(preg_replace('/\s+/', ' ', $baseName) ?: 'document');
+        if ($baseName === '') {
+            $baseName = 'document';
+        }
+
+        $storageFolder = trim($storageFolder, '/');
+
+        do {
+            $timestamp = now()->format('Ymd_His_u');
+            $candidate = "{$baseName} - {$timestamp}.{$extension}";
+            $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
+        } while (\Storage::disk('public')->exists($path));
+
+        return $candidate;
+    }
 }
-
-
-

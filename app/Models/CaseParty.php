@@ -40,5 +40,11 @@ class CaseParty extends Model
         return $this->hasMany(CaseParty::class, 'client_party_id')->where('role', 'counsel');
     }
 
+    public function isWrdAgencyParty(): bool
+    {
+        $organization = strtoupper(trim((string) ($this->person->organization ?? '')));
+
+        return $this->person?->type === 'company' && $organization === 'WATER RIGHTS DIVISION';
+    }
 
 }

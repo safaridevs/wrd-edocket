@@ -53,7 +53,7 @@
                     <div class="flex space-x-2">
                         @if($case->status !== 'closed')
                             <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
-                                + {{ auth()->user()->role === 'hu_admin' ? 'File Order' : 'File Document' }}
+                                + {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         @endif
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
@@ -274,7 +274,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">File Document</h3>
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
@@ -330,7 +330,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->role === 'hu_admin' ? 'File Order' : 'File Document' }}
+                                {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         </div>
                     </form>

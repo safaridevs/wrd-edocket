@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Person;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PartyContactController extends Controller
 {
@@ -26,6 +28,7 @@ class PartyContactController extends Controller
         }
 
         $validated = $request->validate([
+            'type' => 'required|in:individual,company',
             'first_name' => 'required_if:type,individual|string|max:255',
             'last_name' => 'required_if:type,individual|string|max:255',
             'organization' => 'required_if:type,company|string|max:255',
@@ -38,7 +41,18 @@ class PartyContactController extends Controller
             'zip' => 'nullable|string|max:10'
         ]);
 
-        $person->update($validated);
+        DB::transaction(function () use ($person, $validated) {
+            $person->update($validated);
+
+            $user = Auth::user();
+            if ($person->email === $user->email) {
+                $displayName = User::getDisplayNameFromPersonAttributes($validated);
+
+                if ($displayName !== null) {
+                    $user->update(['name' => $displayName]);
+                }
+            }
+        });
 
         return redirect()->back()->with('success', 'Contact information updated successfully.');
     }

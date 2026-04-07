@@ -55,7 +55,6 @@
                 <!-- OSE File Numbers -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">OSE File Numbers</label>
-                    <p class="text-sm text-amber-600 mb-3">⚠️ Changing OSE file numbers will affect the naming convention of uploaded documents.</p>
                     <div id="ose-numbers" class="space-y-2">
                         @forelse($case->oseFileNumbers as $index => $oseNumber)
                             @php

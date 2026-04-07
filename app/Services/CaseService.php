@@ -30,6 +30,9 @@ class CaseService
                 'case_type' => $data['case_type'],
                 'created_by_user_id' => $creator->id,
                 'assigned_attorney_id' => $data['assigned_attorney_id'] ?? null,
+                'metadata' => [
+                    'wrd_office' => $data['wrd_office'] ?? null,
+                ],
                 'status' => $data['action'] === 'submit' ? 'submitted_to_hu' : 'draft',
                 'submitted_at' => $data['action'] === 'submit' ? now() : null
             ]);
@@ -267,17 +270,13 @@ class CaseService
             foreach ($request->file('documents.pleading') as $index => $file) {
                 if ($file && $file->isValid()) {
                     $displayType = $this->getDisplayType($pleadingType);
-                    $timestamp = now()->format('Y-m-d_His');
-                    $uniqueId = substr(md5(uniqid()), 0, 6);
-                    $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
-                    $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-                    
-                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-                    
                     $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
                     if ($index > 0) {
                         $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
                     }
+                    
+                    $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                     
                     $documentData = [
                         'case_id' => $case->id,
@@ -339,17 +338,13 @@ class CaseService
                             $displayType = $this->getDisplayType($optionalDoc['type']);
                             $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
                             
-                            $timestamp = now()->format('Y-m-d_His');
-                            $uniqueId = substr(md5(uniqid()), 0, 6);
-                            $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
-                            $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-                            
-                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-                            
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
                                 $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
                             }
+                            
+                            $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                             
                             $documentData = [
                                 'case_id' => $case->id,
@@ -386,17 +381,13 @@ class CaseService
                         if ($file && $file->isValid()) {
                             $displayType = $this->getDisplayType($otherDoc['type']);
                             
-                            $timestamp = now()->format('Y-m-d_His');
-                            $uniqueId = substr(md5(uniqid()), 0, 6);
-                            $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $displayType);
-                            $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-                            
-                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-                            
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . '.pdf';
                             if ($fileIndex > 0) {
                                 $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
                             }
+                            
+                            $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
                             
                             $documentData = [
                                 'case_id' => $case->id,
@@ -961,6 +952,10 @@ class CaseService
         
         // Add all parties
         foreach ($case->parties as $party) {
+            if ($party->isWrdAgencyParty()) {
+                continue;
+            }
+
             $recipients[] = ($party->role === 'counsel' ? 'attorney_' : 'party_') . $party->id;
         }
         
@@ -995,18 +990,14 @@ class CaseService
         $displayType = $this->getDisplayType($docType);
         $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
         
-        $timestamp = now()->format('Y-m-d_His');
-        $uniqueId = substr(md5(uniqid()), 0, 6);
-        $sanitizedTitle = preg_replace('/[^A-Za-z0-9_-]/', '_', $titleOrType);
-        $storedFilename = "{$timestamp}_{$sanitizedTitle}_{$uniqueId}.pdf";
-        
-        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
-        
         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
         if ($index > 0) {
             $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
         }
+        
+        $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
         
         $documentData = [
             'case_id' => $case->id,
@@ -1027,5 +1018,27 @@ class CaseService
         }
         
         Document::create($documentData);
+    }
+
+    private function generateReadableStoredFilename(string $displayFilename, string $storageFolder): string
+    {
+        $baseName = pathinfo($displayFilename, PATHINFO_FILENAME);
+        $extension = strtolower(pathinfo($displayFilename, PATHINFO_EXTENSION) ?: 'pdf');
+        $baseName = preg_replace('/ - [A-Za-z0-9]+-\d+(?: et al\.)?(?=( \(\d+\))?$)/', '', $baseName);
+        $baseName = preg_replace('/[\\\\\\/:*?"<>|]/', '-', (string) $baseName);
+        $baseName = trim(preg_replace('/\s+/', ' ', $baseName) ?: 'document');
+        if ($baseName === '') {
+            $baseName = 'document';
+        }
+
+        $storageFolder = trim($storageFolder, '/');
+
+        do {
+            $timestamp = now()->format('Ymd_His_u');
+            $candidate = "{$baseName} - {$timestamp}.{$extension}";
+            $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
+        } while (Storage::disk('public')->exists($path));
+
+        return $candidate;
     }
 }

@@ -56,7 +56,20 @@
                         </div>
                     </div>
                     <div>
-                        <strong>Assigned ALU Attorneys:</strong>
+                        <strong>WRD Office:</strong>
+                        <div class="text-sm mt-1">
+                            @if($case->wrd_office_label)
+                                <div>{{ $case->wrd_office_label }}</div>
+                                @if(!empty($case->wrd_office_details))
+                                    <div class="text-gray-600">{{ $case->wrd_office_details['address'] }}</div>
+                                    <div class="text-gray-600">{{ $case->wrd_office_details['city'] }}, {{ $case->wrd_office_details['state'] }} {{ $case->wrd_office_details['zip'] }}</div>
+                                @endif
+                            @else
+                                <span class="text-gray-500">Not set</span>
+                            @endif
+                        </div>
+
+                        <strong class="mt-3 block">Assigned ALU Attorneys:</strong>
                         <div class="text-sm mt-1">
                             @if($case->aluAttorneys->count() > 0)
                                 @foreach($case->aluAttorneys as $attorney)
@@ -165,10 +178,13 @@
                     <div>
                         <h4 class="font-medium mb-2">Case Parties</h4>
                         @php
-                            $sortedParties = $case->parties->whereNotIn('role', ['counsel', 'paralegal'])->sortBy(function($party) {
-                                $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
-                                return $order[$party->role] ?? 99;
-                            });
+                            $sortedParties = $case->parties
+                                ->reject(fn($party) => $party->isWrdAgencyParty())
+                                ->whereNotIn('role', ['counsel', 'paralegal'])
+                                ->sortBy(function($party) {
+                                    $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
+                                    return $order[$party->role] ?? 99;
+                                });
                         @endphp
                         @foreach($sortedParties as $index => $party)
                         <div class="border rounded-lg mb-3 bg-gray-50">
@@ -240,14 +256,6 @@
                                                     <div>{{ $party->person->city }}{{ $party->person->city && ($party->person->state || $party->person->zip) ? ', ' : '' }}{{ $party->person->state }} {{ $party->person->zip }}</div>
                                                 @endif
 
-                                                @if(strtoupper(trim($party->person->organization ?? '')) === 'WATER RIGHTS DIVISION' && $case->aluAttorneys->count() > 0)
-                                                    <div class="mt-2">
-                                                        <span class="text-xs font-semibold text-gray-700">Counsel:</span>
-                                                        @foreach($case->aluAttorneys as $aluAttorney)
-                                                            <div class="text-xs text-gray-600">{{ $aluAttorney->getDisplayName() }} ({{ $aluAttorney->email }})</div>
-                                                        @endforeach
-                                                    </div>
-                                                @endif
                                             </div>
                                         </div>
                                     @endif
@@ -339,11 +347,12 @@
                         <h4 class="font-medium mb-2">Service List</h4>
                         @php
                             $renderedServiceEmails = $case->serviceList
+                                ->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION')
                                 ->pluck('email')
                                 ->filter()
                                 ->map(fn($email) => strtolower(trim($email)));
                         @endphp
-                        @foreach($case->serviceList as $service)
+                        @foreach($case->serviceList->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION') as $service)
                         <div class="py-2 border-b">
                             <div class="font-medium">{{ $service->person->full_name }}</div>
                             <div class="text-sm text-gray-600">{{ $service->email }} • {{ ucfirst($service->service_method) }}</div>
@@ -614,7 +623,6 @@
     </div>
 
 
-
     <!-- Attorney Management Modal -->
     <div id="attorneyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -643,9 +651,6 @@
                 chevron.classList.remove('rotate-180');
             }
         }
-
-
-
         // Document filtering and pagination
         let currentPage = 1;
         let itemsPerPage = 25;
@@ -825,14 +830,19 @@
             document.getElementById('attorneyModal').classList.add('hidden');
         }
 
-        function removeAttorney(partyId) {
-            if (confirm('Remove attorney representation for this party?')) {
+        function removeAttorney(partyId, counselPartyId = null) {
+            const message = counselPartyId
+                ? 'Remove this attorney from the party?'
+                : 'Remove attorney representation for this party?';
+
+            if (confirm(message)) {
                 fetch(`/cases/{{ $case->id }}/parties/${partyId}/attorney`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    body: JSON.stringify(counselPartyId ? { counsel_party_id: counselPartyId } : {})
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -925,7 +935,7 @@
 
                     <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
                         <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
-                        @foreach($case->parties as $party)
+                        @foreach($case->parties->reject(fn($party) => $party->isWrdAgencyParty()) as $party)
                         <div class="text-sm py-1">
                             • {{ $party->person->full_name }} ({{ ucfirst($party->role) }}) - {{ $party->person->email }}
                         </div>
@@ -1004,9 +1014,7 @@
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Close Case {{ $case->case_no }}</h3>
                     <p class="text-sm text-gray-600 mb-4">This will close the case and notify all parties.</p>
-                    <div class="mb-4 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
-                        Please upload the closing letter before closing this case.
-                    </div>
+
 
                     <form action="{{ route('cases.close', $case) }}" method="POST">
                         @csrf
@@ -1014,19 +1022,21 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Closure *</label>
                             <select id="closure-reason" name="reason" required class="block w-full border-gray-300 rounded-md" onchange="toggleOtherClosureReason()">
                                 <option value="">Select a reason</option>
-                                <option value="Final Decision">Final Decision</option>
                                 <option value="Applicant's failure to participate">Applicant's failure to participate</option>
                                 <option value="Applicant's failure to submit hearing fee">Applicant's failure to submit hearing fee</option>
+                                <option value="Final Decision">Final Decision</option>
+                                <option value="Mediated Settlement">Mediated Settlement</option>
                                 <option value="Withdrawal of Application">Withdrawal of Application</option>
+                                <option value="Withdrawal of Protest(s)">Withdrawal of Protest(s)</option>
                                 <option value="Other">Other</option>
                             </select>
                             <textarea id="closure-reason-other" name="other_reason" rows="4" class="mt-3 block w-full border-gray-300 rounded-md hidden" placeholder="Please provide the reason for closing this case..."></textarea>
                         </div>
                         <div class="mb-4">
-                            <label class="flex items-start">
+                            {{-- <label class="flex items-start">
                                 <input type="checkbox" name="closing_letter_confirmed" value="1" required class="mt-1 mr-2">
                                 <span class="text-sm text-gray-700">I confirm that the closing letter has been uploaded for this case.</span>
-                            </label>
+                            </label> --}}
                         </div>
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideCloseModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
@@ -1107,7 +1117,7 @@
                             </div>
 
                             <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
-                            @foreach($case->parties->where('role', '!=', 'counsel') as $party)
+                            @foreach($case->parties->reject(fn($party) => $party->isWrdAgencyParty())->where('role', '!=', 'counsel') as $party)
                             <div class="text-sm py-1">
                                 <label class="flex items-center">
                                     <input type="checkbox" name="notify_recipients[]" value="party_{{ $party->id }}" class="mr-2 notify-checkbox" checked>

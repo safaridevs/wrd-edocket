@@ -61,7 +61,7 @@
 
                 <!-- Water Rights Division Office Selection -->
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-3">Water Rights Division Office *</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Administrative Litigation Unit *</label>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label class="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
                             <input type="radio" name="wrd_office" value="albuquerque" {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'checked' : '' }} required class="mt-1 mr-3">
@@ -464,7 +464,6 @@
                         </div>
                 </div>
                 @endif
-
                 <!-- Optional Documents -->
                     @if($optionalDocs->count() > 0)
                     <div class="mb-6">
@@ -747,7 +746,7 @@
 
                     <div id="company-fields-${partyCount}" class="hidden">
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
+                            <label class="block text-sm font-medium text-gray-700">Entity Name *</label>
                             <input type="text" name="parties[${partyCount}][organization]" class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -993,7 +992,7 @@
 
             if (attorneyFields) {
                 attorneyFields.classList.toggle('hidden', !attorneySelected);
-                
+
                 // Make attorney fields required when attorney representation is selected
                 if (attorneySelected) {
                     const newAttorneyOption = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]:checked`);
