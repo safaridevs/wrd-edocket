@@ -115,7 +115,7 @@ class DemoDataSeeder extends Seeder
                 'case_no' => 'WR-2024-001',
                 'case_type' => 'aggrieved',
                 'caption' => 'In the Matter of Application for Permit to Appropriate Water by John Smith for Domestic and Irrigation Use from the Rio Grande',
-                'status' => 'approved',
+                'status' => 'active',
                 'created_by_user_id' => User::where('role', 'alu_clerk')->first()->id,
                 'assigned_attorney_id' => User::where('role', 'alu_atty')->first()->id,
                 'assigned_hydrology_expert_id' => User::where('role', 'hydrology_expert')->first()->id,

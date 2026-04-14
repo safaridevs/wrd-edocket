@@ -146,6 +146,14 @@ class CaseModel extends Model
             ->withTimestamps();
     }
 
+    public function aluParalegals()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', 'alu_paralegal')
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(CaseAssignment::class, 'case_id');
@@ -246,7 +254,7 @@ class CaseModel extends Model
         }
 
         // Parties, attorneys, and paralegals can upload if case allows it
-        if ($user->role === 'party' && in_array($this->status, ['active', 'approved'])) {
+        if ($user->role === 'party' && $this->status === 'active') {
             // Check if user is a party, counsel, or paralegal on this case
             $isPartyMember = $this->parties()->whereHas('person', function($query) use ($user) {
                 $query->where('email', $user->email);
@@ -256,7 +264,7 @@ class CaseModel extends Model
         }
 
         // Attorneys can upload for their clients
-        if (in_array($this->status, ['active', 'approved'])) {
+        if ($this->status === 'active') {
             return $this->parties()
                 ->whereIn('role', ['counsel'])
                 ->whereHas('person', function($query) use ($user) {

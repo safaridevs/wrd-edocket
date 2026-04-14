@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\CaseModel;
 use App\Models\CaseAssignment;
 use App\Models\OseFileNumber;
+use App\Models\User;
 use App\Services\CaseService;
 use App\Services\CaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class CaseController extends Controller
 {
@@ -20,23 +24,46 @@ class CaseController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        $assignedTypesByRole = [
+            'alu_atty' => ['alu_atty', 'alu_attorney'],
+            'wrd' => ['wrd'],
+            'hydrology_expert' => ['hydrology_expert'],
+            'alu_clerk' => ['alu_clerk'],
+        ];
+        $currentRole = $user->getCurrentRole();
 
         if ($user->isHearingUnit()) {
             // HU users see only submitted cases (not drafts)
             $query = CaseModel::whereNotIn('status', ['draft']);
-            $allowedStatuses = ['submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
+            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         } elseif ($user->canAssignAttorneys()) {
             // ALU Manager sees all cases
             $query = CaseModel::query();
-            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
+            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         } elseif ($user->role === 'party') {
-            // Party users (including attorneys) see all active and approved cases
-            $query = CaseModel::whereIn('status', ['active', 'approved']);
-            $allowedStatuses = ['active', 'approved'];
+            // Parties, counsel, and paralegals only see cases they are actually on.
+            $query = CaseModel::whereNotIn('status', ['draft'])
+                ->where(function ($caseQuery) use ($user) {
+                    $caseQuery->whereHas('parties', function ($partyQuery) use ($user) {
+                        $partyQuery->whereHas('person', function ($personQuery) use ($user) {
+                            $personQuery->where('email', $user->email);
+                        });
+                    })->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
+                        $assignmentQuery->where('assignment_type', 'alu_paralegal')
+                            ->where('user_id', $user->id);
+                    });
+                });
+            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        } elseif (isset($assignedTypesByRole[$currentRole])) {
+            $query = CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
+                $assignmentQuery->where('user_id', $user->id)
+                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+            })->whereNotIn('status', ['draft']);
+            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         } else {
             // Other users see only their created cases
             $query = $user->createdCases();
-            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'approved', 'closed', 'archived', 'rejected'];
+            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
         if ($request->filled('status')) {
@@ -286,8 +313,82 @@ class CaseController extends Controller
             abort(403, 'Draft cases are not accessible to parties and attorneys.');
         }
 
-        $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'assignedAluClerk', 'assignedWrd', 'aluAttorneys', 'hydrologyExperts', 'aluClerks', 'wrds', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
+        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+            abort(403, 'You can only access cases you are associated with.');
+        }
+
+        $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'assignedAluClerk', 'assignedWrd', 'aluAttorneys', 'aluParalegals', 'hydrologyExperts', 'aluClerks', 'wrds', 'assignments.user', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
         return view('cases.show', compact('case'));
+    }
+
+    public function downloadServiceList(CaseModel $case)
+    {
+        if (!Auth::user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        if ($case->status === 'draft') {
+            abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
+        }
+
+        $case->load(['parties.person', 'serviceList.person']);
+
+        $serviceEntries = $case->serviceList
+            ->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION')
+            ->sortBy(fn($service) => strtolower((string) ($service->person->full_name ?? $service->email)))
+            ->values();
+
+        $filename = sprintf('case-%s-service-list.csv', str_replace(['\\', '/'], '-', $case->case_no));
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        return response()->streamDownload(function () use ($serviceEntries, $case) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Case Number',
+                'Name',
+                'Organization',
+                'Address Line 1',
+                'Address Line 2',
+                'City',
+                'State',
+                'ZIP',
+                'Email',
+                'Role',
+                'Service Method',
+            ]);
+
+            foreach ($serviceEntries as $service) {
+                $person = $service->person;
+                $roles = $case->parties
+                    ->where('person_id', $service->person_id)
+                    ->pluck('role')
+                    ->filter()
+                    ->unique()
+                    ->map(fn($role) => ucfirst(str_replace('_', ' ', $role)))
+                    ->implode(', ');
+
+                fputcsv($handle, [
+                    $case->case_no,
+                    $person?->full_name ?? '',
+                    $person?->organization ?? '',
+                    $person?->address_line1 ?? '',
+                    $person?->address_line2 ?? '',
+                    $person?->city ?? '',
+                    $person?->state ?? '',
+                    $person?->zip ?? '',
+                    $service->email ?? '',
+                    $roles,
+                    $service->service_method ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, $headers);
     }
 
     public function edit(CaseModel $case)
@@ -419,19 +520,6 @@ class CaseController extends Controller
         }
 
         return back()->with('error', 'Unable to reject case.');
-    }
-
-    public function approve(CaseModel $case)
-    {
-        if (!in_array(Auth::user()->role, ['hu_admin', 'hu_clerk'])) {
-            abort(403, 'Only HU Admin and HU Clerk can approve cases.');
-        }
-
-        if ($this->caseService->approveCase($case, Auth::user())) {
-            return back()->with('success', 'Case accepted and all parties notified.');
-        }
-
-        return back()->with('error', 'Unable to accept case.');
     }
 
     public function assignAttorneyForm(CaseModel $case)
@@ -604,8 +692,8 @@ class CaseController extends Controller
             if (!Auth::user()->canAccessCase($case)) {
                 abort(403, 'You can only upload documents to cases you are associated with.');
             }
-            if (!in_array($case->status, ['active', 'approved'])) {
-                abort(403, 'You can only upload documents to active or approved cases.');
+            if ($case->status !== 'active') {
+                abort(403, 'You can only upload documents to active cases.');
             }
         }
 
@@ -636,8 +724,8 @@ class CaseController extends Controller
             if (!Auth::user()->canAccessCase($case)) {
                 abort(403, 'You can only upload documents to cases you are associated with.');
             }
-            if (!in_array($case->status, ['active', 'approved'])) {
-                abort(403, 'You can only upload documents to active or approved cases.');
+            if ($case->status !== 'active') {
+                abort(403, 'You can only upload documents to active cases.');
             }
         }
 
@@ -1135,10 +1223,9 @@ class CaseController extends Controller
 
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
-            'custom_title' => 'nullable|string|max:255',
+            'custom_title' => 'required|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
-            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800',
-            'description' => 'nullable|string|max:500'
+            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800'
         ]);
 
         try {
@@ -1220,7 +1307,9 @@ class CaseController extends Controller
                 }
             }
 
-            $message = $uploadedCount === 1 ? 'Document uploaded successfully.' : "{$uploadedCount} documents uploaded successfully.";
+            $message = $uploadedCount === 1
+                ? 'Document uploaded successfully and is pending HU acceptance.'
+                : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.";
             return redirect()->route('cases.documents.manage', $case)->with('success', $message);
 
         } catch (\Exception $e) {
@@ -1236,9 +1325,9 @@ class CaseController extends Controller
 
         $document = $case->documents()->findOrFail($documentId);
 
-        // Check case status - allow submitted_to_hu, active, and approved
-        if (!in_array($case->status, ['submitted_to_hu', 'active', 'approved'])) {
-            return response()->json(['success' => false, 'error' => 'Documents can only be accepted in submitted, active or accepted cases']);
+        // Check case status - allow submitted_to_hu and active
+        if (!in_array($case->status, ['submitted_to_hu', 'active'])) {
+            return response()->json(['success' => false, 'error' => 'Documents can only be accepted in submitted or active cases']);
         }
 
         $document->update([
@@ -1331,9 +1420,13 @@ class CaseController extends Controller
 
         $document = $case->documents()->findOrFail($documentId);
 
-        // Only stamp accepted pleading documents
-        if (!$document->approved || !in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])) {
-            return response()->json(['success' => false, 'error' => 'Only accepted pleading documents can be stamped']);
+        $isAcceptedPleading = in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']);
+        $canStamp = $document->approved && ($case->status === 'active' || $isAcceptedPleading);
+
+        // In active cases, any accepted document can be stamped.
+        // Before a case is active, stamping remains limited to accepted pleading documents.
+        if (!$canStamp) {
+            return response()->json(['success' => false, 'error' => 'Only accepted documents in active cases, or accepted pleading documents, can be stamped']);
         }
 
         if ($document->stamped) {
@@ -1346,7 +1439,7 @@ class CaseController extends Controller
 
             if (!$result) {
                 \Log::error('Stamping service returned false for document: ' . $documentId);
-                return response()->json(['success' => false, 'error' => 'Failed to stamp document. Check logs for details.']);
+                return response()->json(['success' => false, 'error' => 'Unable to e-stamp this PDF. Check the document format and try again.']);
             }
 
             return response()->json(['success' => true]);
@@ -1511,70 +1604,182 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
-        // Only attorneys (party role) can add paralegals to cases they represent
-        if ($user->role !== 'party') {
+        $isOutsideCounsel = $user->isAttorney();
+        $isAssignedAluAttorney = $user->isALUAttorney() && $case->assignments()
+            ->where('assignment_type', 'alu_atty')
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$isOutsideCounsel && !$isAssignedAluAttorney) {
             abort(403, 'Only attorneys can add paralegals.');
         }
 
-        // Check if user is counsel on this case
-        $isCounsel = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
-            $q->where('email', $user->email);
-        })->exists();
+        if ($isOutsideCounsel) {
+            $isCounsel = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+                $q->where('email', $user->email);
+            })->exists();
+        } else {
+            $isCounsel = $isAssignedAluAttorney;
+        }
 
         if (!$isCounsel) {
             abort(403, 'You can only add paralegals to cases you are representing.');
         }
 
         $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
+            'existing_person_id' => 'nullable|exists:persons,id',
+            'type' => 'nullable|in:individual',
+            'prefix' => 'nullable|string|max:255',
+            'first_name' => 'nullable|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'suffix' => 'nullable|string|max:255',
+            'organization' => 'nullable|string|max:255',
+            'title' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
             'phone_office' => 'nullable|string|max:20',
-            'phone_mobile' => 'nullable|string|max:20'
+            'phone_mobile' => 'nullable|string|max:20',
+            'address_line1' => 'nullable|string|max:500',
+            'address_line2' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:50',
+            'zip' => 'nullable|string|max:10',
+            'notes' => 'nullable|string'
         ]);
 
-        // Find or create person
-        $person = \App\Models\Person::where('email', $validated['email'])->first();
+        $usingExistingParalegal = !empty($validated['existing_person_id']);
 
-        if (!$person) {
-            $person = \App\Models\Person::create([
-                'type' => 'individual',
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'email' => $validated['email'],
-                'phone_office' => $validated['phone_office'] ?? null,
-                'phone_mobile' => $validated['phone_mobile'] ?? null
+        if ($usingExistingParalegal) {
+            $person = \App\Models\Person::findOrFail($validated['existing_person_id']);
+
+            if (blank($person->email)) {
+                return back()->withErrors(['existing_person_id' => 'The selected paralegal does not have an email address on file.']);
+            }
+        } else {
+            if (empty($validated['first_name']) || empty($validated['last_name']) || empty($validated['email'])) {
+                return back()->withErrors([
+                    'first_name' => 'First name, last name, and email are required when creating a new paralegal.'
+                ])->withInput();
+            }
+
+            // Find or create person
+            $person = \App\Models\Person::where('email', $validated['email'])->first();
+
+            if (!$person) {
+                $person = \App\Models\Person::create([
+                    'type' => $validated['type'] ?? 'individual',
+                    'prefix' => $validated['prefix'] ?? null,
+                    'first_name' => $validated['first_name'],
+                    'middle_name' => $validated['middle_name'] ?? null,
+                    'last_name' => $validated['last_name'],
+                    'suffix' => $validated['suffix'] ?? null,
+                    'organization' => $validated['organization'] ?? null,
+                    'title' => $validated['title'] ?? null,
+                    'email' => $validated['email'],
+                    'phone_office' => $validated['phone_office'] ?? null,
+                    'phone_mobile' => $validated['phone_mobile'] ?? null,
+                    'address_line1' => $validated['address_line1'] ?? null,
+                    'address_line2' => $validated['address_line2'] ?? null,
+                    'city' => $validated['city'] ?? null,
+                    'state' => $validated['state'] ?? null,
+                    'zip' => $validated['zip'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+            } else {
+                $person->update([
+                    'type' => $validated['type'] ?? 'individual',
+                    'prefix' => $validated['prefix'] ?? null,
+                    'first_name' => $validated['first_name'],
+                    'middle_name' => $validated['middle_name'] ?? null,
+                    'last_name' => $validated['last_name'],
+                    'suffix' => $validated['suffix'] ?? null,
+                    'organization' => $validated['organization'] ?? null,
+                    'title' => $validated['title'] ?? null,
+                    'phone_office' => $validated['phone_office'] ?? null,
+                    'phone_mobile' => $validated['phone_mobile'] ?? null,
+                    'address_line1' => $validated['address_line1'] ?? null,
+                    'address_line2' => $validated['address_line2'] ?? null,
+                    'city' => $validated['city'] ?? null,
+                    'state' => $validated['state'] ?? null,
+                    'zip' => $validated['zip'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                ]);
+            }
+        }
+
+        // Ensure the paralegal has a login-capable user account.
+        $paralegalUser = User::firstOrCreate(
+            ['email' => $person->email],
+            [
+                'name' => $person->full_name ?: trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? '')),
+                'password' => Hash::make(Str::random(32)),
+                'role' => 'party',
+                'is_active' => true,
+            ]
+        );
+
+        if (!$paralegalUser->is_active) {
+            $paralegalUser->update(['is_active' => true]);
+        }
+
+        if (blank($paralegalUser->name)) {
+            $paralegalUser->update([
+                'name' => $person->full_name ?: trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? '')),
             ]);
         }
 
-        // Check if already a party
-        $exists = $case->parties()->where('person_id', $person->id)->exists();
-        if ($exists) {
-            return back()->withErrors(['error' => 'This person is already associated with this case.']);
+        if ($isOutsideCounsel) {
+            $exists = $case->parties()->where('person_id', $person->id)->exists();
+            if ($exists) {
+                return back()->withErrors(['error' => 'This person is already associated with this case.']);
+            }
+
+            $counselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+                $q->where('email', $user->email);
+            })->first();
+
+            \App\Models\CaseParty::create([
+                'case_id' => $case->id,
+                'person_id' => $person->id,
+                'role' => 'paralegal',
+                'client_party_id' => $counselParty->client_party_id,
+                'service_enabled' => true
+            ]);
+
+            \App\Models\ServiceList::firstOrCreate([
+                'case_id' => $case->id,
+                'person_id' => $person->id,
+            ], [
+                'email' => $person->email,
+                'service_method' => 'email',
+                'is_primary' => false
+            ]);
+        } else {
+            $assignmentExists = $case->assignments()
+                ->where('assignment_type', 'alu_paralegal')
+                ->where('user_id', $paralegalUser->id)
+                ->exists();
+
+            if ($assignmentExists) {
+                return back()->withErrors(['error' => 'This paralegal is already assigned to this case.']);
+            }
+
+            $case->assignments()->create([
+                'user_id' => $paralegalUser->id,
+                'assignment_type' => 'alu_paralegal',
+                'assigned_by' => $user->id,
+            ]);
         }
 
-        // Get the counsel party record for the attorney
-        $counselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
-            $q->where('email', $user->email);
-        })->first();
+        Password::sendResetLink(['email' => $paralegalUser->email]);
 
-        // Add paralegal linked to the attorney's counsel record
-        \App\Models\CaseParty::create([
-            'case_id' => $case->id,
-            'person_id' => $person->id,
-            'role' => 'paralegal',
-            'client_party_id' => $counselParty->client_party_id, // Link to same client as attorney
-            'service_enabled' => true
-        ]);
-
-        // Add to service list
-        \App\Models\ServiceList::create([
-            'case_id' => $case->id,
-            'person_id' => $person->id,
-            'email' => $person->email,
-            'service_method' => 'email',
-            'is_primary' => false
-        ]);
+        app(\App\Services\NotificationService::class)->notify(
+            $person,
+            'paralegal_added',
+            'Paralegal Access Added',
+            "You have been added as a paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents for the represented party. If you have not signed in before, use Forgot Password with this email address to set your password.",
+            $case
+        );
 
         return back()->with('success', 'Paralegal added successfully.');
     }
@@ -1583,29 +1788,43 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role !== 'party') {
+        $isAssignedAluAttorney = $user->isALUAttorney() && $case->assignments()
+            ->where('assignment_type', 'alu_atty')
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (!$user->isAttorney() && !$isAssignedAluAttorney) {
             abort(403);
         }
 
-        $paralegalParty = $case->parties()->where('id', $partyId)->where('role', 'paralegal')->firstOrFail();
+        $paralegalParty = $case->parties()->where('id', $partyId)->where('role', 'paralegal')->first();
 
-        // Check if user is the attorney for this paralegal's client
-        $isCounsel = $case->parties()
-            ->where('role', 'counsel')
-            ->where('client_party_id', $paralegalParty->client_party_id)
-            ->whereHas('person', function($q) use ($user) {
-                $q->where('email', $user->email);
-            })->exists();
+        if ($paralegalParty) {
+            $isCounsel = $case->parties()
+                ->where('role', 'counsel')
+                ->where('client_party_id', $paralegalParty->client_party_id)
+                ->whereHas('person', function($q) use ($user) {
+                    $q->where('email', $user->email);
+                })->exists();
 
-        if (!$isCounsel) {
-            abort(403, 'You can only remove your own paralegals.');
+            if (!$isCounsel) {
+                abort(403, 'You can only remove your own paralegals.');
+            }
+
+            $case->serviceList()->where('person_id', $paralegalParty->person_id)->delete();
+            $paralegalParty->delete();
+        } else {
+            $assignment = $case->assignments()
+                ->where('id', $partyId)
+                ->where('assignment_type', 'alu_paralegal')
+                ->firstOrFail();
+
+            if (!$isAssignedAluAttorney || (int) $assignment->assigned_by !== (int) $user->id) {
+                abort(403, 'You can only remove your own paralegals.');
+            }
+
+            $assignment->delete();
         }
-
-        // Remove from service list
-        $case->serviceList()->where('person_id', $paralegalParty->person_id)->delete();
-
-        // Remove party
-        $paralegalParty->delete();
 
         return response()->json(['success' => true, 'message' => 'Paralegal removed successfully.']);
     }

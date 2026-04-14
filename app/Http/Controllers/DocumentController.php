@@ -51,7 +51,7 @@ class DocumentController extends Controller
                 'none' // Party documents are not pleading documents
             );
 
-            return redirect()->route('cases.show', $case)->with('success', 'Document uploaded successfully and submitted for review.');
+            return redirect()->route('cases.show', $case)->with('success', 'Document uploaded successfully and is pending HU acceptance.');
         } catch (\Exception $e) {
             return back()->withErrors(['document' => 'Upload failed: ' . $e->getMessage()])->withInput();
         }

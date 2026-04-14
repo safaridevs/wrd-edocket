@@ -123,7 +123,7 @@
                                     {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
                                        ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' :
                                         ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800')) }}">
-                                    {{ $case->status === 'approved' ? 'Accepted' : ucfirst(str_replace('_', ' ', $case->status)) }}
+                                    {{ ucfirst(str_replace('_', ' ', $case->status)) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -144,7 +144,7 @@
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
                                 @endif --}}
 
-                                @if(($case->status === 'active' || $case->status === 'approved') && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
+                                @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
                                 <a href="{{ route('cases.documents.upload', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
                                 @endif
                             </td>

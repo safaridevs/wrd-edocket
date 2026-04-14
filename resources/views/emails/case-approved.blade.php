@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Case Approved - OSE E-Docket</title>
+    <title>Case Accepted - OSE E-Docket</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 0 auto; background: #ffffff; }
@@ -28,18 +28,18 @@
 
         <!-- Content -->
         <div class="content">
-            <h2 style="color: #1e40af; margin-bottom: 10px;">Water Rights Case Approved</h2>
+            <h2 style="color: #1e40af; margin-bottom: 10px;">Water Rights Case Accepted</h2>
             
             <p>Dear {{ $recipientName ?? 'Case Participant' }},</p>
             
-            <p>We are pleased to inform you that the following water rights case has been <strong>approved</strong> and is now ready for hearing proceedings.</p>
+            <p>We are pleased to inform you that the following water rights case has been <strong>accepted</strong> and is now ready for hearing proceedings.</p>
 
             <!-- Case Information -->
             <div class="case-info">
                 <h3 style="margin-top: 0; color: #1e40af;">Case Details</h3>
                 <p><strong>Case Number:</strong> {{ $case->case_no }}</p>
                 <p><strong>Case Type:</strong> {{ ucfirst($case->case_type) }}</p>
-                <p><strong>Status:</strong> <span class="status-badge">APPROVED</span></p>
+                <p><strong>Status:</strong> <span class="status-badge">ACCEPTED</span></p>
                 <p><strong>Caption:</strong> {{ $case->caption }}</p>
                 @if($case->oseFileNumbers->count() > 0)
                 <p><strong>OSE File Numbers:</strong> 
@@ -53,13 +53,13 @@
             <!-- Important Notice -->
             <div class="important">
                 <h4 style="margin-top: 0; color: #92400e;">📋 Important Notice</h4>
-                <p style="margin-bottom: 0;">This case is now approved and ready for hearing. You may continue to file additional documents through the E-Docket system as needed for the proceedings.</p>
+                <p style="margin-bottom: 0;">This case is now accepted and ready for hearing. You may continue to file additional documents through the E-Docket system as needed for the proceedings.</p>
             </div>
 
             <!-- Next Steps -->
             <h3 style="color: #1e40af;">Next Steps</h3>
             <ul>
-                <li>Review the approved case details in the E-Docket system</li>
+                <li>Review the accepted case details in the E-Docket system</li>
                 <li>Submit any additional required documents</li>
                 <li>Await further hearing scheduling information</li>
                 <li>Contact the Hearing Unit with any questions</li>

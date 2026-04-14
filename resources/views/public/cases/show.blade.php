@@ -26,8 +26,8 @@
             </div>
             <div class="text-right text-sm text-gray-600">
                 <div><strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}</div>
-                @if($case->approved_at)
-                <div><strong>Accepted:</strong> {{ $case->approved_at->format('M j, Y') }}</div>
+                @if($case->accepted_at)
+                <div><strong>Accepted:</strong> {{ $case->accepted_at->format('M j, Y') }}</div>
                 @endif
             </div>
         </div>

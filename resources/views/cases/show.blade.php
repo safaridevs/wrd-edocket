@@ -168,11 +168,18 @@
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Parties & Service List</h3>
-                    @if(auth()->user()->canCreateCase() || auth()->user()->isHearingUnit())
-                        <a href="{{ route('cases.parties.manage', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
-                            {{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Parties' : 'Manage Parties' }}
-                        </a>
-                    @endif
+                    <div class="flex items-center gap-2">
+                        @if(auth()->user()->isHearingUnit())
+                            <a href="{{ route('cases.service-list.download', $case) }}" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-200">
+                                Download Service List
+                            </a>
+                        @endif
+                        @if(auth()->user()->canCreateCase() || auth()->user()->isHearingUnit())
+                            <a href="{{ route('cases.parties.manage', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
+                                {{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Parties' : 'Manage Parties' }}
+                            </a>
+                        @endif
+                    </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -264,10 +271,12 @@
                                         <div class="md:col-span-2 mt-3 pt-3 border-t">
                                             <strong class="text-blue-700">Attorney Information:</strong>
                                             <div class="mt-2 bg-blue-50 p-3 rounded">
+                                                @php
+                                                    $attorneyParalegals = $case->parties->where('role', 'paralegal')->where('client_party_id', $party->id);
+                                                @endphp
                                                 @foreach($party->attorneys as $attorneyParty)
                                                     @php
                                                         $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                                                        $attorneyParalegals = $case->parties->where('role', 'paralegal')->where('client_party_id', $party->id);
                                                     @endphp
                                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3 last:mb-0">
                                                         <div><strong>Name:</strong> {{ $attorneyParty->person->full_name }}</div>
@@ -279,23 +288,23 @@
                                                             <div><strong>Bar Number:</strong> {{ $attorney->bar_number }}</div>
                                                         @endif
                                                     </div>
-                                                    @if($attorneyParalegals->isNotEmpty())
-                                                        <div class="mt-3 pt-3 border-t border-blue-200">
-                                                            <strong class="text-purple-700 text-sm">Paralegals:</strong>
-                                                            <div class="mt-2 space-y-2">
-                                                                @foreach($attorneyParalegals as $paralegal)
-                                                                <div class="bg-purple-50 p-2 rounded text-sm">
-                                                                    <div class="font-medium">{{ $paralegal->person->full_name }}</div>
-                                                                    <div class="text-xs text-gray-600">{{ $paralegal->person->email }}</div>
-                                                                    @if($paralegal->person->phone_office)
-                                                                        <div class="text-xs text-gray-600">Phone: {{ $paralegal->person->phone_office }}</div>
-                                                                    @endif
-                                                                </div>
-                                                                @endforeach
-                                                            </div>
-                                                        </div>
-                                                    @endif
                                                 @endforeach
+                                                @if($attorneyParalegals->isNotEmpty())
+                                                    <div class="mt-3 pt-3 border-t border-blue-200">
+                                                        <strong class="text-purple-700 text-sm">Paralegals:</strong>
+                                                        <div class="mt-2 space-y-2">
+                                                            @foreach($attorneyParalegals as $paralegal)
+                                                            <div class="bg-purple-50 p-2 rounded text-sm">
+                                                                <div class="font-medium">{{ $paralegal->person->full_name }}</div>
+                                                                <div class="text-xs text-gray-600">{{ $paralegal->person->email }}</div>
+                                                                @if($paralegal->person->phone_office)
+                                                                    <div class="text-xs text-gray-600">Phone: {{ $paralegal->person->phone_office }}</div>
+                                                                @endif
+                                                            </div>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
                                     @endif
@@ -303,25 +312,83 @@
                             </div>
                         </div>
                         @endforeach
+                        @php
+                            $aluPartyIndex = $sortedParties->count();
+                        @endphp
+                        <div class="border rounded-lg mb-3 bg-gray-50">
+                            <div class="p-3 cursor-pointer" onclick="togglePartyDetails({{ $aluPartyIndex }})">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <div class="font-medium">Water Right Division</div>
+                                        <div class="text-sm text-gray-600">Administrative Litigation Unit</div>
+                                        @if($case->wrd_office_label)
+                                            <div class="text-xs text-gray-500">{{ $case->wrd_office_label }}</div>
+                                        @endif
+                                    </div>
+                                    <svg class="w-4 h-4 text-gray-400 transform transition-transform party-chevron-{{ $aluPartyIndex }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="party-details-{{ $aluPartyIndex }}" class="hidden px-3 pb-3 border-t bg-white">
+                                <div class="mt-3 text-sm">
+                                    @if($case->wrd_office_label)
+                                        <div class="font-medium text-gray-900">{{ $case->wrd_office_label }}</div>
+                                        @if(!empty($case->wrd_office_details))
+                                            <div class="mt-1 text-gray-600">{{ $case->wrd_office_details['address'] }}</div>
+                                            <div class="text-gray-600">{{ $case->wrd_office_details['city'] }}, {{ $case->wrd_office_details['state'] }} {{ $case->wrd_office_details['zip'] }}</div>
+                                            <div class="text-gray-600">{{ $case->wrd_office_details['phone'] }}</div>
+                                        @endif
+                                    @else
+                                        <div class="text-gray-500">WRD office not set on this case.</div>
+                                    @endif
+
+                                    <div class="mt-4">
+                                        <div class="text-sm font-medium text-gray-900 mb-2">Representing Attorneys</div>
+                                        @if($case->aluAttorneys->count() > 0)
+                                            <div class="space-y-2">
+                                                @foreach($case->aluAttorneys as $attorney)
+                                                <div class="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                                                    <div class="font-medium text-gray-900">{{ $attorney->getDisplayName() }}</div>
+                                                    <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
+                                                </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <p class="text-sm text-gray-500">No ALU attorneys are assigned to represent Water Right Division on this case.</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         @if($case->parties->isEmpty())
                             <p class="text-gray-500 text-sm">No parties assigned</p>
                         @endif
 
                         @php
-                            $userIsCounsel = auth()->user()->role === 'party' && $case->parties->where('role', 'counsel')->filter(function($party) {
+                            $userIsCounsel = auth()->user()->isAttorney() && $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;
                             })->isNotEmpty();
+                            $userIsAssignedAluAttorney = auth()->user()->isALUAttorney() && $case->aluAttorneys->contains('id', auth()->id());
 
                             $counselParty = $userIsCounsel ? $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;
                             })->first() : null;
 
-                            $userParalegals = $counselParty ? $case->parties->where('role', 'paralegal')->filter(function($p) use ($counselParty) {
-                                return $p->client_party_id === $counselParty->client_party_id;
-                            }) : collect();
+                            if ($counselParty) {
+                                $userParalegals = $case->parties->where('role', 'paralegal')->filter(function($p) use ($counselParty) {
+                                    return $p->client_party_id === $counselParty->client_party_id;
+                                });
+                            } elseif ($userIsAssignedAluAttorney) {
+                                $userParalegals = $case->assignments
+                                    ->where('assignment_type', 'alu_paralegal')
+                                    ->where('assigned_by', auth()->id());
+                            } else {
+                                $userParalegals = collect();
+                            }
                         @endphp
 
-                        @if($userIsCounsel)
+                        @if($userIsCounsel || $userIsAssignedAluAttorney)
                         <div class="mt-4 border-t pt-4">
                             <div class="flex justify-between items-center mb-2">
                                 <h5 class="font-medium text-sm">My Paralegals</h5>
@@ -333,8 +400,8 @@
                                 @foreach($userParalegals as $paralegal)
                                 <div class="flex justify-between items-center py-2 border-b text-sm">
                                     <div>
-                                        <div class="font-medium">{{ $paralegal->person->full_name }}</div>
-                                        <div class="text-xs text-gray-600">{{ $paralegal->person->email }}</div>
+                                        <div class="font-medium">{{ $userIsAssignedAluAttorney ? $paralegal->user?->name : $paralegal->person->full_name }}</div>
+                                        <div class="text-xs text-gray-600">{{ $userIsAssignedAluAttorney ? $paralegal->user?->email : $paralegal->person->email }}</div>
                                     </div>
                                     <button onclick="removeParalegal({{ $paralegal->id }})" class="text-xs text-red-600 hover:text-red-800">Remove</button>
                                 </div>
@@ -462,21 +529,16 @@
                         <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Documents' : 'Manage Documents' }}</a>
                         @endif
                         @if(!in_array($case->status, ['closed', 'archived']))
-                            @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
-                            <a href="{{ route('documents.file', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm">File Document</a>
-                            @endif
-                            @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || (in_array($case->status, ['active', 'approved']) && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
-                            <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">File Documents</button>
+                            @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || ($case->status === 'active' && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
+                            <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">{{ auth()->user()->isHearingUnit() ? '+ Issue Order or Notice' : 'File Documents' }}</button>
                             @endif
                         @endif
                         @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
-                        <button onclick="showApproveModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
+                        <button onclick="showAcceptanceModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
                         <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
-                        @elseif($case->status === 'approved')
-                        <span class="bg-green-100 text-green-800 px-4 py-2 rounded-md text-sm font-medium">✓ Case Accepted</span>
                         @endif
 
-                        @if(in_array($case->status, ['active', 'approved']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                        @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
                         <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
                         @elseif($case->status === 'closed')
                         <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
@@ -772,12 +834,12 @@
             }
         }
 
-        function showApproveModal() {
-            document.getElementById('approveModal').classList.remove('hidden');
+        function showAcceptanceModal() {
+            document.getElementById('acceptanceModal').classList.remove('hidden');
         }
 
-        function hideApproveModal() {
-            document.getElementById('approveModal').classList.add('hidden');
+        function hideAcceptanceModal() {
+            document.getElementById('acceptanceModal').classList.add('hidden');
         }
 
         function showRejectModal() {
@@ -888,6 +950,82 @@
         function hideUploadModal() {
             document.getElementById('uploadModal').classList.add('hidden');
             document.getElementById('uploadForm').reset();
+            const pleadingSection = document.getElementById('pleadingTypeSection');
+            const previewDiv = document.getElementById('filenamePreview');
+            if (pleadingSection) {
+                pleadingSection.classList.add('hidden');
+            }
+            if (previewDiv) {
+                previewDiv.classList.add('hidden');
+            }
+        }
+
+        function updateFilenamePreview() {
+            const docTypeSelect = document.querySelector('#uploadModal select[name="doc_type"]');
+            const customTitleInput = document.getElementById('customTitleInput');
+            const previewDiv = document.getElementById('filenamePreview');
+            const previewText = document.getElementById('previewText');
+
+            if (!docTypeSelect || !customTitleInput || !previewDiv || !previewText) {
+                return;
+            }
+
+            const docType = docTypeSelect.options[docTypeSelect.selectedIndex]?.text || '';
+            const customTitle = customTitleInput.value.trim();
+            const titleOrType = customTitle || docType;
+
+            if (titleOrType && docType) {
+                const today = new Date().toISOString().split('T')[0];
+                previewText.textContent = `${today} - ${titleOrType}.pdf`;
+                previewDiv.classList.remove('hidden');
+            } else {
+                previewDiv.classList.add('hidden');
+            }
+        }
+
+        function togglePleadingType() {
+            const select = document.querySelector('#uploadModal select[name="doc_type"]');
+            const pleadingSection = document.getElementById('pleadingTypeSection');
+
+            if (!select || !pleadingSection) {
+                return;
+            }
+
+            const selectedOption = select.options[select.selectedIndex];
+
+            if (selectedOption && selectedOption.dataset.isPleading === 'true') {
+                pleadingSection.classList.remove('hidden');
+            } else {
+                pleadingSection.classList.add('hidden');
+            }
+
+            updateFilenamePreview();
+        }
+
+        function validateFiles(input) {
+            const files = Array.from(input.files);
+            const maxSize = 200 * 1024 * 1024;
+
+            for (const file of files) {
+                if (file.size > maxSize) {
+                    alert(`File "${file.name}" is too large. Each file must be less than 200MB.`);
+                    input.value = '';
+                    return;
+                }
+            }
+        }
+
+        function confirmUpload(event) {
+            const customTitleInput = document.getElementById('customTitleInput');
+            const customTitle = customTitleInput ? customTitleInput.value.trim() : '';
+            if (customTitle) {
+                const message = `You have entered a custom title:\n\n"${customTitle}"\n\nIs this correct?`;
+                if (!confirm(message)) {
+                    event.preventDefault();
+                    return false;
+                }
+            }
+            return true;
         }
 
         function showReopenModal() {
@@ -924,9 +1062,9 @@
         };
     </script>
 
-    <!-- Approve Case Modal -->
+    <!-- Acceptance Notice Modal -->
     @if(in_array($case->status, ['submitted_to_hu', 'active']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
-    <div id="approveModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div id="acceptanceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
                 <div class="p-6">
@@ -956,10 +1094,10 @@
                         @endif
                     </div>
 
-                    <form action="{{ route('cases.approve', $case) }}" method="POST">
+                    <form action="{{ route('cases.accept', $case) }}" method="POST">
                         @csrf
                         <div class="flex justify-end space-x-3">
-                            <button type="button" onclick="hideApproveModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="button" onclick="hideAcceptanceModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
                             <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Accept & Notify All</button>
                         </div>
                     </form>
@@ -1007,7 +1145,7 @@
     @endif
 
     <!-- Close Case Modal -->
-    @if(in_array($case->status, ['active', 'approved']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+    @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
     <div id="closeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -1178,34 +1316,58 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">File Document</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.upload', $case) }}" method="POST" enctype="multipart/form-data">
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
+                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
-                                <select name="documents[other][0][type]" required class="block w-full border-gray-300 rounded-md">
+                                <select name="doc_type" required class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
                                     <option value="">Select document type...</option>
                                     @php
                                         $documentTypes = \App\Models\DocumentType::where('is_active', true)
                                             ->when(auth()->user()->role === 'party', function($query) {
                                                 return $query->where('category', 'party_upload');
                                             })
-                                            ->orderBy('sort_order')->get();
+                                            ->orderBy('name')
+                                            ->get();
                                     @endphp
                                     @foreach($documentTypes as $docType)
-                                    <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
+                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                     @endforeach
                                 </select>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">File *</label>
-                                <input type="file" name="documents[other][0][file]" required accept=".pdf,.doc,.docx"
-                                       class="block w-full border-gray-300 rounded-md">
-                                <p class="text-xs text-gray-500 mt-1">Supported formats: PDF, DOC, DOCX (Max: 200MB)</p>
-                                <p class="text-xs text-blue-600 mt-1">File naming convention: YYYY-MM-DD - [Document Type] - [OSE File Numbers].pdf</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title *</label>
+                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
+                                       required
+                                       class="block w-full border-gray-300 rounded-md"
+                                       placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
+                                       oninput="updateFilenamePreview()">
                             </div>
+
+                            <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <p class="text-xs font-medium text-blue-800 mb-1">Filename Preview:</p>
+                                <p id="previewText" class="text-sm text-blue-900 font-mono"></p>
+                            </div>
+
+                            <div id="pleadingTypeSection" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type</label>
+                                <select name="pleading_type" class="block w-full border-gray-300 rounded-md">
+                                    <option value="none">None</option>
+                                    <option value="request_to_docket">Request to Docket</option>
+                                    <option value="request_pre_hearing">Request for Pre-Hearing</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
+                                <input type="file" name="document[]" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple
+                                       class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
+                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
+                            </div>
+
                         </div>
 
                         <div class="flex justify-end space-x-3 mt-6">
@@ -1213,7 +1375,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                File Document
+                                {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         </div>
                     </form>
@@ -1226,31 +1388,135 @@
     <!-- Add Paralegal Modal -->
     <div id="addParalegalModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-lg max-w-md w-full">
+            <div class="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Add Paralegal</h3>
                     <form action="{{ route('cases.paralegals.add', $case) }}" method="POST">
                         @csrf
+                        <input type="hidden" name="type" value="individual">
                         <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1">First Name *</label>
-                                <input type="text" name="first_name" required class="w-full border-gray-300 rounded-md">
+                            @php
+                                $existingAluParalegalEmails = \App\Models\User::whereIn('id', \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')->pluck('user_id'))
+                                    ->pluck('email')
+                                    ->filter()
+                                    ->values();
+                                $existingParalegals = \App\Models\Person::whereHas('caseParties', function ($query) {
+                                    $query->where('role', 'paralegal');
+                                })->orWhereIn('email', $existingAluParalegalEmails)
+                                ->orderBy('last_name')
+                                ->orderBy('first_name')
+                                ->get();
+                            @endphp
+
+                            <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
+                                <div class="flex flex-col md:flex-row md:items-center gap-3">
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="paralegal_mode" value="existing" class="mr-2" onchange="toggleParalegalMode()" {{ $existingParalegals->isNotEmpty() ? 'checked' : '' }}>
+                                        <span class="text-sm font-medium">Use Existing Paralegal</span>
+                                    </label>
+                                    <label class="inline-flex items-center">
+                                        <input type="radio" name="paralegal_mode" value="new" class="mr-2" onchange="toggleParalegalMode()" {{ $existingParalegals->isEmpty() ? 'checked' : '' }}>
+                                        <span class="text-sm font-medium">Create New Paralegal</span>
+                                    </label>
+                                </div>
+
+                                <div id="existingParalegalSection" class="mt-4 {{ $existingParalegals->isEmpty() ? 'hidden' : '' }}">
+                                    <label class="block text-sm font-medium mb-1">Existing Paralegal</label>
+                                    <select name="existing_person_id" id="existingParalegalSelect" class="w-full border-gray-300 rounded-md" onchange="toggleParalegalMode()">
+                                        <option value="">Select existing paralegal...</option>
+                                        @foreach($existingParalegals as $paralegalPerson)
+                                        <option value="{{ $paralegalPerson->id }}">
+                                            {{ $paralegalPerson->full_name }}{{ $paralegalPerson->email ? ' - ' . $paralegalPerson->email : '' }}
+                                        </option>
+                                        @endforeach
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">Select an existing paralegal to reuse their saved person record.</p>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Last Name *</label>
-                                <input type="text" name="last_name" required class="w-full border-gray-300 rounded-md">
+
+                            <div id="newParalegalFields" class="{{ $existingParalegals->isNotEmpty() ? 'hidden' : '' }}">
+                                <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Prefix</label>
+                                    <input type="text" name="prefix" class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">First Name *</label>
+                                    <input type="text" name="first_name" required class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Middle Name</label>
+                                    <input type="text" name="middle_name" class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Last Name *</label>
+                                    <input type="text" name="last_name" required class="w-full border-gray-300 rounded-md">
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Email *</label>
-                                <input type="email" name="email" required class="w-full border-gray-300 rounded-md">
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Suffix</label>
+                                    <input type="text" name="suffix" class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Title</label>
+                                    <input type="text" name="title" class="w-full border-gray-300 rounded-md">
+                                </div>
                             </div>
+
                             <div>
-                                <label class="block text-sm font-medium mb-1">Office Phone</label>
-                                <input type="text" name="phone_office" class="w-full border-gray-300 rounded-md">
+                                <label class="block text-sm font-medium mb-1">Organization</label>
+                                <input type="text" name="organization" class="w-full border-gray-300 rounded-md">
                             </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium mb-1">Email *</label>
+                                    <input type="email" name="email" required class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Office Phone</label>
+                                    <input type="text" name="phone_office" class="w-full border-gray-300 rounded-md">
+                                </div>
+                            </div>
+
                             <div>
                                 <label class="block text-sm font-medium mb-1">Mobile Phone</label>
                                 <input type="text" name="phone_mobile" class="w-full border-gray-300 rounded-md">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Address Line 1</label>
+                                <input type="text" name="address_line1" class="w-full border-gray-300 rounded-md">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Address Line 2</label>
+                                <input type="text" name="address_line2" class="w-full border-gray-300 rounded-md">
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">City</label>
+                                    <input type="text" name="city" class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">State</label>
+                                    <input type="text" name="state" class="w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">ZIP</label>
+                                    <input type="text" name="zip" class="w-full border-gray-300 rounded-md">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Notes</label>
+                                <textarea name="notes" rows="3" class="w-full border-gray-300 rounded-md"></textarea>
+                            </div>
+                                </div>
                             </div>
                         </div>
                         <div class="flex justify-end space-x-3 mt-6">
@@ -1266,9 +1532,45 @@
     <script>
         function showAddParalegalModal() {
             document.getElementById('addParalegalModal').classList.remove('hidden');
+            toggleParalegalMode();
         }
         function hideAddParalegalModal() {
             document.getElementById('addParalegalModal').classList.add('hidden');
+        }
+        function toggleParalegalMode() {
+            const existingRadio = document.querySelector('input[name="paralegal_mode"][value="existing"]');
+            const newRadio = document.querySelector('input[name="paralegal_mode"][value="new"]');
+            const existingSection = document.getElementById('existingParalegalSection');
+            const existingSelect = document.getElementById('existingParalegalSelect');
+            const newFields = document.getElementById('newParalegalFields');
+            const newFieldInputs = newFields ? newFields.querySelectorAll('input, textarea, select') : [];
+
+            const useExisting = existingRadio && existingRadio.checked && existingSection && !existingSection.classList.contains('hidden');
+
+            if (existingSection) {
+                existingSection.classList.toggle('hidden', !useExisting);
+            }
+
+            if (newFields) {
+                newFields.classList.toggle('hidden', useExisting);
+            }
+
+            if (existingSelect) {
+                existingSelect.required = !!useExisting;
+                if (!useExisting) {
+                    existingSelect.value = '';
+                }
+            }
+
+            newFieldInputs.forEach((input) => {
+                if (input.name === 'first_name' || input.name === 'last_name' || input.name === 'email') {
+                    input.required = !useExisting;
+                }
+            });
+
+            if (useExisting && existingSelect && !existingSelect.value) {
+                existingSelect.focus();
+            }
         }
         function removeParalegal(partyId) {
             if (confirm('Are you sure you want to remove this paralegal?')) {

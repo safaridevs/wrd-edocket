@@ -71,7 +71,7 @@
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::whereIn('status', ['approved', 'active'])->count() }}</div>
+                        <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::where('status', 'active')->count() }}</div>
                         <div class="text-gray-600 mt-2">Cases</div>
                     </div>
                     <div class="text-center">
@@ -82,8 +82,8 @@
             </div>
         </div>
 
-        <!-- Approved Cases Section -->
-        <div id="approved-cases" class="bg-gray-50 py-16">
+        <!-- Public Cases Section -->
+        <div id="public-cases" class="bg-gray-50 py-16">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-12">
                     <h2 class="text-3xl font-bold text-gray-900 mb-4">Hearing Unit Cases</h2>
@@ -93,16 +93,16 @@
                 </div>
 
                 @php
-                    $approvedCases = \App\Models\CaseModel::whereIn('status', ['approved', 'active'])
+                    $publicCases = \App\Models\CaseModel::where('status', 'active')
                         ->with(['parties.person', 'documents', 'oseFileNumbers'])
                         ->latest()
                         ->take(12)
                         ->get();
                 @endphp
 
-                @if($approvedCases->count() > 0)
+                @if($publicCases->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                        @foreach($approvedCases as $case)
+                        @foreach($publicCases as $case)
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                             <div class="p-6 flex flex-col h-full">
                                 <div class="flex items-start justify-between mb-4">
@@ -148,10 +148,10 @@
                         @endforeach
                     </div>
 
-                    @if(\App\Models\CaseModel::where('status', 'approved')->count() > 12)
+                    @if(\App\Models\CaseModel::where('status', 'active')->count() > 12)
                     <div class="text-center">
                         <a href="{{ route('public.cases.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors">
-                            View All Approved Cases ({{ \App\Models\CaseModel::where('status', 'approved')->count() }} total)
+                            View All Public Cases ({{ \App\Models\CaseModel::where('status', 'active')->count() }} total)
                         </a>
                     </div>
                     @endif
@@ -160,8 +160,8 @@
                         <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Approved Cases Yet</h3>
-                        <p class="text-gray-600">Approved Hearing Unit cases will appear here for public access.</p>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Public Cases Yet</h3>
+                        <p class="text-gray-600">Active Hearing Unit cases will appear here for public access.</p>
                     </div>
                 @endif
             </div>
@@ -198,7 +198,7 @@
                         <ul class="space-y-3 text-gray-600">
                             <li class="flex items-start space-x-2">
                                 <span class="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>
-                                <span>Browse approved cases without logging in</span>
+                                <span>Browse public cases without logging in</span>
                             </li>
                             <li class="flex items-start space-x-2">
                                 <span class="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 flex-shrink-0"></span>

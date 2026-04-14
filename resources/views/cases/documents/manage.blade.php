@@ -201,7 +201,7 @@
                                                     title="View document first to enable this button">
                                                 ✗ Reject
                                             </button>
-                                        @elseif($document->approved && !$document->stamped && in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']))
+                                        @elseif($document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
                                             <button onclick="stampDocument({{ $document->id }})"
                                                     class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
                                                 📋 Stamp
@@ -289,12 +289,12 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title (Optional)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title *</label>
                                 <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
+                                       required
                                        class="block w-full border-gray-300 rounded-md"
                                        placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
                                        oninput="updateFilenamePreview()">
-                                <p class="text-xs text-gray-500 mt-1">Leave blank to use document type as filename</p>
                             </div>
 
                             <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -318,11 +318,6 @@
                                 <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
-                                <textarea name="description" rows="3" class="block w-full border-gray-300 rounded-md"
-                                          placeholder="Brief description of the document..."></textarea>
-                            </div>
                         </div>
 
                         <div class="flex justify-end space-x-3 mt-6">

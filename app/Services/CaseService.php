@@ -449,6 +449,10 @@ class CaseService
             return false;
         }
 
+        if ($case->status !== 'submitted_to_hu') {
+            return false;
+        }
+
         $case->update([
             'status' => 'active',
             'accepted_at' => now()
@@ -463,6 +467,9 @@ class CaseService
             "Your case {$case->case_no} has been accepted and is now active.",
             $case
         );
+
+        $this->sendCaseAcceptanceNotifications($case, $user);
+
         return true;
     }
 
@@ -502,14 +509,9 @@ class CaseService
         return true;
     }
 
-    public function approveCase(CaseModel $case, User $user): bool
+    private function sendCaseAcceptanceNotifications(CaseModel $case, User $user): void
     {
-        if (!in_array($user->role, ['hu_admin', 'hu_clerk'])) {
-            return false;
-        }
-
-        $case->update(['status' => 'approved']);
-        AuditLog::log('approve_case', $user, $case);
+        $case->loadMissing(['parties.person', 'assignedAttorney', 'assignedHydrologyExpert']);
 
         // Notify all parties
         $partyRecipients = $case->parties
@@ -548,8 +550,6 @@ class CaseService
                 $case
             );
         }
-
-        return true;
     }
 
     public function notifySelectedParties(CaseModel $case, array $recipients, ?string $customMessage, User $user): int
@@ -814,7 +814,7 @@ class CaseService
             return false;
         }
 
-        if (!in_array($case->status, ['active', 'approved'])) {
+        if ($case->status !== 'active') {
             return false;
         }
 

@@ -14,7 +14,6 @@ class DocumentService
     public function __construct(
         private NotificationService $notificationService,
         private DocumentValidationService $validationService,
-        private PdfStampingService $pdfStampingService,
         private CaseStorageService $caseStorageService
     ) {}
 
@@ -103,22 +102,17 @@ class DocumentService
             return false;
         }
 
-        // Only approve documents in active or approved cases
-        if (!in_array($document->case->status, ['active', 'approved'])) {
+        // Only accept documents in active cases
+        if ($document->case->status !== 'active') {
             return false;
         }
 
-        // Approve the document
+        // Accept the document
         $document->update([
             'approved' => true,
             'approved_by_user_id' => $user->id,
             'approved_at' => now()
         ]);
-
-        // Stamp pleading documents upon approval
-        if (in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])) {
-            $this->stampApprovedDocument($document, $user);
-        }
 
         AuditLog::log('approve_document', $user, $document->case, [
             'document_id' => $document->id,
@@ -135,54 +129,6 @@ class DocumentService
         );
 
         return true;
-    }
-
-    private function stampApprovedDocument(Document $document, User $user): void
-    {
-        $stampText = $this->generateStampText($document->case, $user);
-
-        // Apply visual stamp to PDF
-        $pdfStamped = false;
-        try {
-            $pdfStamped = $this->pdfStampingService->stampPdf($document, $user);
-            \Log::info('PDF stamping result: ' . ($pdfStamped ? 'success' : 'failed'));
-        } catch (\Exception $e) {
-            \Log::error('PDF stamping exception: ' . $e->getMessage());
-        }
-
-        $document->update([
-            'stamped' => true,
-            'stamp_text' => $stampText,
-            'stamped_at' => now()
-        ]);
-
-        AuditLog::log('stamp_document', $user, $document->case, [
-            'document_id' => $document->id,
-            'document_type' => $document->pleading_type,
-            'stamp_text' => $stampText,
-            'pdf_stamped' => $pdfStamped
-        ]);
-
-        // Notify document uploader about stamping
-        $this->notificationService->notify(
-            $document->uploader,
-            'document_stamped',
-            'Document E-Stamped',
-            "Your pleading document '{$document->original_filename}' has been officially e-stamped.",
-            $document->case
-        );
-    }
-
-    private function generateStampText(CaseModel $case, User $user): string
-    {
-        $stampDate = now()->format('M d, Y');
-        $stampTime = now()->format('g:i A');
-
-        return "FILED\n" .
-               "New Mexico Office of the State Engineer\n" .
-               "Water Rights Hearing Unit\n" .
-               "{$stampDate} at {$stampTime}\n" .
-               "Case No: {$case->case_no}";
     }
 
     private function syncToRepositories(Document $document): void

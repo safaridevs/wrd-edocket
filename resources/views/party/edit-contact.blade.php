@@ -15,9 +15,20 @@
                         </div>
                     @endif
 
+                    @if ($errors->any())
+                        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <ul class="list-disc list-inside text-sm">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <form method="POST" action="{{ route('party.contact.update') }}">
                         @csrf
                         @method('PATCH')
+                        <input type="hidden" name="type" value="{{ old('type', $person->type) }}">
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             @if($person->type === 'individual')
@@ -25,18 +36,27 @@
                                     <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
                                     <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $person->first_name) }}" 
                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                                    @error('first_name')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
                                 </div>
 
                                 <div>
                                     <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
                                     <input type="text" name="last_name" id="last_name" value="{{ old('last_name', $person->last_name) }}" 
                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                                    @error('last_name')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             @else
                                 <div class="md:col-span-2">
                                     <label for="organization" class="block text-sm font-medium text-gray-700">Organization</label>
                                     <input type="text" name="organization" id="organization" value="{{ old('organization', $person->organization) }}" 
                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                                    @error('organization')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             @endif
 
@@ -44,42 +64,63 @@
                                 <label for="phone_mobile" class="block text-sm font-medium text-gray-700">Mobile Phone</label>
                                 <input type="text" name="phone_mobile" id="phone_mobile" value="{{ old('phone_mobile', $person->phone_mobile) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('phone_mobile')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div>
                                 <label for="phone_office" class="block text-sm font-medium text-gray-700">Office Phone</label>
                                 <input type="text" name="phone_office" id="phone_office" value="{{ old('phone_office', $person->phone_office) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('phone_office')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div class="md:col-span-2">
                                 <label for="address_line1" class="block text-sm font-medium text-gray-700">Address Line 1</label>
                                 <input type="text" name="address_line1" id="address_line1" value="{{ old('address_line1', $person->address_line1) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('address_line1')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div class="md:col-span-2">
                                 <label for="address_line2" class="block text-sm font-medium text-gray-700">Address Line 2</label>
                                 <input type="text" name="address_line2" id="address_line2" value="{{ old('address_line2', $person->address_line2) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('address_line2')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div>
                                 <label for="city" class="block text-sm font-medium text-gray-700">City</label>
                                 <input type="text" name="city" id="city" value="{{ old('city', $person->city) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('city')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div>
                                 <label for="state" class="block text-sm font-medium text-gray-700">State</label>
                                 <input type="text" name="state" id="state" value="{{ old('state', $person->state) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" maxlength="2">
+                                @error('state')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div>
                                 <label for="zip" class="block text-sm font-medium text-gray-700">ZIP Code</label>
                                 <input type="text" name="zip" id="zip" value="{{ old('zip', $person->zip) }}" 
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('zip')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <div>

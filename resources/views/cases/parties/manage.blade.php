@@ -27,7 +27,7 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Current Parties ({{ $displayParties->count() }})</h3>
                     <div class="flex space-x-2">
-                        @if($case->status === 'approved' && auth()->user()->isHearingUnit())
+                        @if($case->status === 'active' && auth()->user()->isHearingUnit())
                         <button onclick="showNotifyModal()" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
                             📧 Notify Parties
                         </button>
@@ -663,13 +663,13 @@
     </script>
 
     <!-- Notify Parties Modal -->
-    @if($case->status === 'approved' && auth()->user()->isHearingUnit())
+    @if($case->status === 'active' && auth()->user()->isHearingUnit())
     <div id="notifyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">Notify Parties - Case {{ $case->case_no }} Approved</h3>
-                    <p class="text-sm text-gray-600 mb-4">Select the parties and attorneys to notify about the case approval:</p>
+                    <h3 class="text-lg font-medium mb-4">Notify Parties - Case {{ $case->case_no }} Accepted</h3>
+                    <p class="text-sm text-gray-600 mb-4">Select the parties and attorneys to notify about the case acceptance:</p>
 
                     <form action="{{ route('cases.notify-parties', $case) }}" method="POST">
                         @csrf
@@ -727,7 +727,7 @@
                             <!-- Custom Message -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Additional Message (Optional)</label>
-                                <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information about the case approval..."></textarea>
+                                <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information about the case acceptance..."></textarea>
                             </div>
                         </div>
 

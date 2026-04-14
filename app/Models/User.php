@@ -168,13 +168,13 @@ class User extends Authenticatable
 
     public function canFileToCase(): bool
     {
-        return $this->getCurrentRole() === 'party' || $this->isAttorney();
+        return $this->getCurrentRole() === 'party' || $this->isAttorney() || $this->isALUAttorney();
     }
 
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'party', 'unaffiliated']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party', 'unaffiliated']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -200,6 +200,13 @@ class User extends Authenticatable
         })->exists();
 
         if ($isParty) return true;
+
+        $isAssignedParalegal = $case->assignments()
+            ->where('assignment_type', 'alu_paralegal')
+            ->where('user_id', $this->id)
+            ->exists();
+
+        if ($isAssignedParalegal) return true;
 
         // Check if attorney represents any client in this case
         if ($this->isAttorney()) {
@@ -241,10 +248,18 @@ class User extends Authenticatable
 
     public function isParalegal(): bool
     {
-        return CaseParty::where('role', 'paralegal')
+        $isCasePartyParalegal = CaseParty::where('role', 'paralegal')
             ->whereHas('person', function($query) {
                 $query->where('email', $this->email);
             })->exists();
+
+        if ($isCasePartyParalegal) {
+            return true;
+        }
+
+        return CaseAssignment::where('assignment_type', 'alu_paralegal')
+            ->where('user_id', $this->id)
+            ->exists();
     }
 
     public function canAssignHydrologyExperts(): bool
@@ -254,7 +269,7 @@ class User extends Authenticatable
 
     public function canAssignParalegal(): bool
     {
-        return $this->isAttorney();
+        return $this->isAttorney() || $this->isALUAttorney();
     }
 
     public function canTransmitMaterials(): bool

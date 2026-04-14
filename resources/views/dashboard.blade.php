@@ -45,38 +45,53 @@
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-600">My Cases</p>
                             <p class="text-2xl font-bold text-gray-900">
-                                @if(auth()->user()->role === 'party')
-                                    @php
+                                @php
+                                    $dashboardRole = auth()->user()->getCurrentRole();
+                                    $assignedTypesByRole = [
+                                        'alu_atty' => ['alu_atty', 'alu_attorney'],
+                                        'wrd' => ['wrd'],
+                                        'hydrology_expert' => ['hydrology_expert'],
+                                        'alu_clerk' => ['alu_clerk'],
+                                    ];
+
+                                    if (auth()->user()->role === 'party') {
                                         if (auth()->user()->isParalegal()) {
-                                            // Get cases where user is paralegal
-                                            $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                                $query->where('role', 'paralegal')
-                                                      ->whereHas('person', function($subQuery) {
-                                                          $subQuery->where('email', auth()->user()->email);
-                                                      });
-                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
+                                            $myCases = \App\Models\CaseModel::where(function($caseQuery) {
+                                                $caseQuery->whereHas('parties', function($query) {
+                                                    $query->where('role', 'paralegal')
+                                                          ->whereHas('person', function($subQuery) {
+                                                              $subQuery->where('email', auth()->user()->email);
+                                                          });
+                                                })->orWhereHas('assignments', function($query) {
+                                                    $query->where('assignment_type', 'alu_paralegal')
+                                                          ->where('user_id', auth()->id());
+                                                });
+                                            })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         } elseif (auth()->user()->isAttorney()) {
-                                            // Get cases where user is counsel (attorney)
                                             $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                                 $query->where('role', 'counsel')
                                                       ->whereHas('person', function($subQuery) {
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
-                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
+                                            })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         } else {
-                                            // Regular party - get cases where they are applicant, protestant, etc.
                                             $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                                 $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent'])
                                                       ->whereHas('person', function($subQuery) {
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
-                                            })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])->count();
+                                            })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         }
-                                    @endphp
-                                    {{ $myCases }}
-                                @else
-                                    {{ auth()->user()->createdCases()->count() }}
-                                @endif
+                                    } elseif (isset($assignedTypesByRole[$dashboardRole])) {
+                                        $myCases = \App\Models\CaseModel::whereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
+                                            $query->where('user_id', auth()->id())
+                                                  ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
+                                        })->whereNotIn('status', ['draft'])->count();
+                                    } else {
+                                        $myCases = auth()->user()->createdCases()->count();
+                                    }
+                                @endphp
+                                {{ $myCases }}
                             </p>
                         </div>
                     </div>
@@ -152,41 +167,59 @@
                         </div>
                         <div class="p-6">
                             @php
+                                $dashboardRole = auth()->user()->getCurrentRole();
+                                $assignedTypesByRole = [
+                                    'alu_atty' => ['alu_atty', 'alu_attorney'],
+                                    'wrd' => ['wrd'],
+                                    'hydrology_expert' => ['hydrology_expert'],
+                                    'alu_clerk' => ['alu_clerk'],
+                                ];
+
                                 if (auth()->user()->role === 'party') {
                                     if (auth()->user()->isParalegal()) {
-                                        // Get cases where user is paralegal
-                                        $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                            $query->where('role', 'paralegal')
-                                                  ->whereHas('person', function($subQuery) {
-                                                      $subQuery->where('email', auth()->user()->email);
-                                                  });
-                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                        $recentCases = \App\Models\CaseModel::where(function($caseQuery) {
+                                            $caseQuery->whereHas('parties', function($query) {
+                                                $query->where('role', 'paralegal')
+                                                      ->whereHas('person', function($subQuery) {
+                                                          $subQuery->where('email', auth()->user()->email);
+                                                      });
+                                            })->orWhereHas('assignments', function($query) {
+                                                $query->where('assignment_type', 'alu_paralegal')
+                                                      ->where('user_id', auth()->id());
+                                            });
+                                        })->whereIn('status', ['active', 'submitted_to_hu'])
                                           ->with('parties.person', 'oseFileNumbers')
                                           ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     } elseif (auth()->user()->isAttorney()) {
-                                        // Get cases where user is counsel (attorney)
                                         $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                             $query->where('role', 'counsel')
                                                   ->whereHas('person', function($subQuery) {
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
-                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                        })->whereIn('status', ['active', 'submitted_to_hu'])
                                           ->with('parties.person', 'oseFileNumbers')
                                           ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     } else {
-                                        // Regular party - get their cases
                                         $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
                                             $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent'])
                                                   ->whereHas('person', function($subQuery) {
                                                       $subQuery->where('email', auth()->user()->email);
                                                   });
-                                        })->whereIn('status', ['active', 'approved', 'submitted_to_hu'])
+                                        })->whereIn('status', ['active', 'submitted_to_hu'])
                                           ->with('parties.person', 'oseFileNumbers')
                                           ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     }
+                                } elseif (isset($assignedTypesByRole[$dashboardRole])) {
+                                    $recentCases = \App\Models\CaseModel::whereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
+                                            $query->where('user_id', auth()->id())
+                                                  ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
+                                        })->whereNotIn('status', ['draft'])
+                                          ->with('parties.person', 'oseFileNumbers')
+                                          ->withCount('documents')
+                                          ->latest()->take(5)->get();
                                 } else {
                                     $recentCases = auth()->user()->isHearingUnit()
                                         ? \App\Models\CaseModel::whereNotIn('status', ['draft'])->with('parties.person', 'oseFileNumbers')->withCount('documents')->latest()->take(5)->get()
@@ -225,9 +258,8 @@
                                             </div>
                                             <span class="px-3 py-1 text-xs font-semibold rounded-full
                                                 {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                                                   ($case->status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                                                   ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800')) }}">
-                                                {{ $case->status === 'approved' ? 'Accepted' : ucfirst(str_replace('_', ' ', $case->status)) }}
+                                                   ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800') }}">
+                                                {{ ucfirst(str_replace('_', ' ', $case->status)) }}
                                             </span>
                                         </div>
 
@@ -293,18 +325,31 @@
                                             $query->where('email', auth()->user()->email);
                                         })
                                         ->whereHas('case', function($query) {
-                                            $query->whereIn('status', ['active', 'approved', 'submitted_to_hu']);
+                                            $query->whereIn('status', ['active', 'submitted_to_hu']);
                                         })
                                         ->with('case', 'clientParty.person')
                                         ->get();
 
-                                    $assignedCases = $paralegalParties->count();
+                                    $aluParalegalAssignments = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                                        ->where('user_id', auth()->id())
+                                        ->whereHas('case', function($query) {
+                                            $query->whereIn('status', ['active', 'submitted_to_hu']);
+                                        })
+                                        ->with('case', 'assignedBy')
+                                        ->get();
+
+                                    $assignedCases = $paralegalParties->count() + $aluParalegalAssignments->count();
                                     $attorneys = $paralegalParties->map(function($p) {
                                         return \App\Models\CaseParty::where('role', 'counsel')
                                             ->where('client_party_id', $p->client_party_id)
                                             ->with('person')
                                             ->first();
-                                    })->filter()->unique('person.email');
+                                    })->filter()->unique('person.email')
+                                      ->concat(
+                                          $aluParalegalAssignments->map(function($assignment) {
+                                              return $assignment->assignedBy;
+                                          })->filter()->unique('email')
+                                      );
                                 @endphp
 
                                 <div class="mb-4">
@@ -347,7 +392,7 @@
                                             $query->where('email', auth()->user()->email);
                                         })
                                         ->whereHas('case', function($query) {
-                                            $query->whereIn('status', ['active', 'approved', 'submitted_to_hu']);
+                                            $query->whereIn('status', ['active', 'submitted_to_hu']);
                                         })
                                         ->with('clientParty.person', 'case')
                                         ->get();

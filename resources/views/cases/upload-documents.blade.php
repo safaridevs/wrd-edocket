@@ -61,7 +61,7 @@
                             <div class="border rounded-lg p-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Request to Docket (PDF) - Pleading Document</label>
                                 <input type="file" name="documents[request_to_docket][]" accept=".pdf" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                <p class="text-xs text-blue-600 mt-1">⚡ These documents will be automatically stamped when the case is approved</p>
+                                <p class="text-xs text-blue-600 mt-1">HU must accept this pleading first. The stamp option appears after acceptance.</p>
                                 @error('documents.request_to_docket')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
@@ -74,7 +74,7 @@
                             <div class="border rounded-lg p-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Request for Pre-Hearing (PDF) - Pleading Document</label>
                                 <input type="file" name="documents[request_for_pre_hearing][]" accept=".pdf" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                <p class="text-xs text-blue-600 mt-1">⚡ These documents will be automatically stamped when the case is approved</p>
+                                <p class="text-xs text-blue-600 mt-1">HU must accept this pleading first. The stamp option appears after acceptance.</p>
                                 @error('documents.request_for_pre_hearing')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror

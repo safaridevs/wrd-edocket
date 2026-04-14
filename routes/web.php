@@ -35,6 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/create', [CaseController::class, 'create'])->middleware('permission:create_case')->name('cases.create');
     Route::post('cases', [CaseController::class, 'store'])->middleware('permission:create_case')->name('cases.store');
     Route::get('cases/{case}', [CaseController::class, 'show'])->middleware('permission:read_case')->name('cases.show');
+    Route::get('cases/{case}/service-list/download', [CaseController::class, 'downloadServiceList'])->middleware('permission:read_case')->name('cases.service-list.download');
     Route::get('cases/{case}/edit', [CaseController::class, 'edit'])->middleware('permission:create_case')->name('cases.edit');
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
     Route::delete('cases/{case}', [CaseController::class, 'destroy'])->middleware('permission:create_case')->name('cases.destroy');
@@ -105,7 +106,6 @@ Route::middleware('auth')->group(function () {
     // Additional authenticated routes if needed
     Route::post('cases/{case}/accept', [CaseController::class, 'accept'])->middleware('permission:accept_filings')->name('cases.accept');
     Route::post('cases/{case}/reject', [CaseController::class, 'reject'])->middleware('permission:reject_filings')->name('cases.reject');
-    Route::post('cases/{case}/approve', [CaseController::class, 'approve'])->name('cases.approve');
     Route::post('cases/{case}/close', [CaseController::class, 'close'])->name('cases.close');
     Route::post('cases/{case}/reopen', [CaseController::class, 'reopen'])->name('cases.reopen');
     Route::post('cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');

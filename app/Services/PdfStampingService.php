@@ -34,7 +34,7 @@ class PdfStampingService
     {
         if ($document->mime !== 'application/pdf') {
             \Log::error('Document is not PDF: ' . $document->mime);
-            return false;
+            throw new \RuntimeException('Only PDF documents can be e-stamped.');
         }
 
         try {
@@ -52,7 +52,15 @@ class PdfStampingService
         } catch (\Exception $e) {
             \Log::error('PDF stamping failed: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
-            return false;
+
+            if (str_contains($e->getMessage(), 'compression technique which is not supported by the free parser')) {
+                throw new \RuntimeException(
+                    'This PDF cannot be e-stamped because it uses an unsupported PDF compression format. Re-save or print the document to PDF and upload the new file, then try stamping again.',
+                    previous: $e
+                );
+            }
+
+            throw new \RuntimeException('Unable to e-stamp this PDF. Check the document format and try again.', previous: $e);
         }
     }
 

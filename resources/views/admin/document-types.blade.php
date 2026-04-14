@@ -20,11 +20,25 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Name</label>
-                    <input type="text" name="name" value="{{ old('name') }}" required class="mt-1 w-full rounded border-gray-300">
+                    <input
+                        type="text"
+                        name="name"
+                        id="documentTypeName"
+                        value="{{ old('name') }}"
+                        required
+                        class="mt-1 w-full rounded border-gray-300"
+                    >
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Code</label>
-                    <input type="text" name="code" value="{{ old('code') }}" required class="mt-1 w-full rounded border-gray-300">
+                    <input
+                        type="text"
+                        name="code"
+                        id="documentTypeCode"
+                        value="{{ old('code') }}"
+                        required
+                        class="mt-1 w-full rounded border-gray-300"
+                    >
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">Category</label>
@@ -65,7 +79,7 @@
                     @foreach($roles as $role)
                         <label class="flex items-center p-2 rounded border border-gray-200">
                             <input type="checkbox" name="role_ids[]" value="{{ $role->id }}" class="mr-2">
-                            <span class="text-sm text-gray-700">{{ $role->display_name }}</span>
+                            <span class="text-sm text-gray-700">{{ $role->display_name}}</span>
                         </label>
                     @endforeach
                 </div>
@@ -134,7 +148,7 @@
             <h3 class="text-lg font-medium text-gray-900">Edit Allowed Roles</h3>
             <p class="text-sm text-gray-500 mt-1" id="modalDocTypeName"></p>
         </div>
-        
+
         <form id="rolesForm" onsubmit="saveRoles(event)">
             <input type="hidden" id="docTypeId">
             <div class="space-y-2 mb-4">
@@ -148,7 +162,7 @@
                 </label>
                 @endforeach
             </div>
-            
+
             <div class="flex gap-2 justify-end">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                     Cancel
@@ -162,22 +176,56 @@
 </div>
 
 <script>
-const documentTypes = @json($documentTypes);
+  const documentTypes = @json($documentTypes);
+  const documentTypeNameInput = document.getElementById('documentTypeName');
+  const documentTypeCodeInput = document.getElementById('documentTypeCode');
+  let hasManualCodeOverride = Boolean(documentTypeCodeInput.value.trim());
 
-function editRoles(docTypeId) {
-    const docType = documentTypes.find(dt => dt.id === docTypeId);
-    document.getElementById('docTypeId').value = docTypeId;
+  function generateDocumentTypeCode(value) {
+      return value
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .replace(/_+/g, '_');
+  }
+
+  if (documentTypeNameInput && documentTypeCodeInput) {
+      documentTypeNameInput.addEventListener('input', () => {
+          if (hasManualCodeOverride) {
+              return;
+          }
+
+          documentTypeCodeInput.value = generateDocumentTypeCode(documentTypeNameInput.value);
+      });
+
+      documentTypeCodeInput.addEventListener('input', () => {
+          const generatedCode = generateDocumentTypeCode(documentTypeNameInput.value);
+          hasManualCodeOverride = documentTypeCodeInput.value.trim() !== '' && documentTypeCodeInput.value !== generatedCode;
+      });
+
+      documentTypeCodeInput.addEventListener('blur', () => {
+          if (documentTypeCodeInput.value.trim() === '') {
+              hasManualCodeOverride = false;
+              documentTypeCodeInput.value = generateDocumentTypeCode(documentTypeNameInput.value);
+          }
+      });
+  }
+
+  function editRoles(docTypeId) {
+      const docType = documentTypes.find(dt => dt.id === docTypeId);
+      document.getElementById('docTypeId').value = docTypeId;
     document.getElementById('modalDocTypeName').textContent = docType.name;
-    
+
     // Uncheck all checkboxes first
     document.querySelectorAll('#rolesForm input[name="role_ids[]"]').forEach(cb => cb.checked = false);
-    
+
     // Check the roles assigned to this document type
     docType.roles.forEach(role => {
         const checkbox = document.querySelector(`#rolesForm input[name="role_ids[]"][value="${role.id}"]`);
         if (checkbox) checkbox.checked = true;
     });
-    
+
     document.getElementById('editModal').classList.remove('hidden');
 }
 
@@ -187,11 +235,11 @@ function closeModal() {
 
 async function saveRoles(event) {
     event.preventDefault();
-    
+
     const docTypeId = document.getElementById('docTypeId').value;
     const formData = new FormData(event.target);
     const roleIds = formData.getAll('role_ids[]');
-    
+
     try {
         const response = await fetch(`/admin/document-types/${docTypeId}/roles`, {
             method: 'POST',
@@ -201,7 +249,7 @@ async function saveRoles(event) {
             },
             body: JSON.stringify({ role_ids: roleIds })
         });
-        
+
         if (response.ok) {
             window.location.reload();
         } else {

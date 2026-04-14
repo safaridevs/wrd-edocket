@@ -143,9 +143,9 @@
                 <h3 class="text-lg font-medium text-gray-900 mb-2">No cases found</h3>
                 <p class="text-gray-600">
                     @if(request('search'))
-                        No approved cases match your search criteria. Try different keywords or browse all cases.
+                        No public cases match your search criteria. Try different keywords or browse all cases.
                     @else
-                        No approved cases are currently available for public viewing.
+                        No public cases are currently available for public viewing.
                     @endif
                 </p>
             </div>

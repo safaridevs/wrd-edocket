@@ -45,7 +45,7 @@ class SetupDemo extends Command
         $this->table(
             ['Case No', 'Status', 'Type'],
             [
-                ['WR-2024-001', 'Approved (Public)', 'Aggrieved'],
+                ['WR-2024-001', 'Active (Public)', 'Aggrieved'],
                 ['WR-2024-002', 'Active (Hearing)', 'Protested'],
                 ['WR-2024-003', 'Submitted to HU', 'Compliance'],
                 ['WR-2024-004', 'Draft', 'Aggrieved'],
