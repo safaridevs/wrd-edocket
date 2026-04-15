@@ -295,7 +295,10 @@
                                                 ✗ Reject
                                             </button>
                                             <button onclick="requestFix({{ $document->id }})"
-                                                    class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
+                                                    id="request-fix-btn-{{ $document->id }}"
+                                                    disabled
+                                                    class="text-gray-400 text-sm bg-gray-100 px-3 py-1 rounded whitespace-nowrap cursor-not-allowed"
+                                                    title="View document first to enable this button">
                                                 Request Fix
                                             </button>
                                         @elseif($document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
@@ -526,17 +529,21 @@
         function enableDocumentButtons(documentId) {
             const approveBtn = document.getElementById(`approve-btn-${documentId}`);
             const rejectBtn = document.getElementById(`reject-btn-${documentId}`);
-
+            const requestFixBtn = document.getElementById(`request-fix-btn-${documentId}`);
             if (approveBtn) {
                 approveBtn.disabled = false;
                 approveBtn.className = 'text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
                 approveBtn.title = '';
             }
-
             if (rejectBtn) {
                 rejectBtn.disabled = false;
                 rejectBtn.className = 'text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
                 rejectBtn.title = '';
+            }
+            if (requestFixBtn) {
+                requestFixBtn.disabled = false;
+                requestFixBtn.className = 'text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap cursor-pointer';
+                requestFixBtn.title = '';
             }
         }
 
@@ -852,10 +859,6 @@
             );
         }
 
-        function rejectDocument(documentId) {
-            showDocumentCorrectionModal(documentId, 'reject');
-        }
-
         // Enable/disable confirm button based on reject reason for reject actions
         document.addEventListener('DOMContentLoaded', function() {
             const confirmBtn = document.getElementById('confirmActionBtn');
@@ -902,6 +905,10 @@
                     }
                 });
             }
+        }
+
+        function rejectDocument(documentId) {
+            showDocumentCorrectionModal(documentId, 'reject');
         }
 
         function requestFix(documentId) {
