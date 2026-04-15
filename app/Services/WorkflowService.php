@@ -14,7 +14,7 @@ class WorkflowService
 
     public function transmitToWRAP(array $materials, User $wrdExpert): void
     {
-        $wrapDirector = User::where('role', 'wrap_dir')->first();
+        $wrapDirector = User::whereCurrentRole('wrap_dir')->first();
         
         if ($wrapDirector) {
             $this->notificationService->notify(
@@ -28,7 +28,7 @@ class WorkflowService
 
     public function forwardToALU(array $package, User $wrapDirector): void
     {
-        $aluManager = User::where('role', 'alu_mgr')->first();
+        $aluManager = User::whereCurrentRole('alu_mgr')->first();
         
         if ($aluManager) {
             $this->notificationService->notify(

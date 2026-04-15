@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class Document extends Model
@@ -38,6 +40,24 @@ class Document extends Model
     public function documentType(): BelongsTo
     {
         return $this->belongsTo(DocumentType::class, 'doc_type', 'code');
+    }
+
+    public function correctionCycles(): HasMany
+    {
+        return $this->hasMany(DocumentCorrection::class, 'original_document_id')->latest('requested_at')->latest('id');
+    }
+
+    public function latestOpenCorrection(): HasOne
+    {
+        return $this->hasOne(DocumentCorrection::class, 'original_document_id')
+            ->whereIn('status', ['open', 'resubmitted'])
+            ->latest('requested_at')
+            ->latest('id');
+    }
+
+    public function replacementForCorrection(): HasOne
+    {
+        return $this->hasOne(DocumentCorrection::class, 'replacement_document_id');
     }
 
     public function getDocTypeLabelAttribute(): string

@@ -1,5 +1,48 @@
 @php
     use Illuminate\Support\Facades\Storage;
+
+    $documentCorrectionCategoryLabels = [
+        'missing_document' => 'Missing Document',
+        'caption_issue' => 'Caption Issue',
+        'party_issue' => 'Party Issue',
+        'service_issue' => 'Service Issue',
+        'ose_issue' => 'OSE Issue',
+        'document_issue' => 'Document Issue',
+        'filing_issue' => 'Filing Issue',
+        'other' => 'Other',
+    ];
+
+    $documentCorrectionMap = $case->documents->mapWithKeys(function ($document) {
+        $latestCorrection = $document->correctionCycles->firstWhere('status', 'open')
+            ?? $document->correctionCycles->firstWhere('status', 'resubmitted');
+
+        return [
+            $document->id => $latestCorrection ? [
+                'id' => $latestCorrection->id,
+                'status' => $latestCorrection->status,
+                'summary' => $latestCorrection->summary,
+                'correction_type' => $latestCorrection->correction_type,
+                'items' => $latestCorrection->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'category' => $item->category,
+                    'item_note' => $item->item_note,
+                    'required_action' => $item->required_action,
+                    'resolution_note' => $item->resolution_note,
+                ])->values()->all(),
+            ] : null,
+        ];
+    });
+
+    $documentMetaMap = $case->documents->mapWithKeys(fn ($document) => [
+        $document->id => [
+            'id' => $document->id,
+            'doc_type' => $document->doc_type,
+            'doc_type_label' => $document->doc_type_label,
+            'pleading_type' => $document->pleading_type,
+            'custom_title' => $document->custom_title,
+            'original_filename' => $document->original_filename,
+        ],
+    ]);
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -51,9 +94,9 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
-                        @if($case->status !== 'closed')
+                        @if(auth()->user()->canUploadDocumentsToCase($case))
                             <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
-                                + {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
+                                + {{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         @endif
                         <select id="filterType" onchange="filterDocuments()" class="border-gray-300 rounded-md text-sm">
@@ -69,6 +112,10 @@
                 @if($case->documents->count() > 0)
                     <div class="space-y-4" id="documentList">
                         @foreach($case->documents->sortByDesc('uploaded_at') as $document)
+                        @php
+                            $latestCorrection = $document->correctionCycles->firstWhere('status', 'open')
+                                ?? $document->correctionCycles->firstWhere('status', 'resubmitted');
+                        @endphp
                         <div class="border rounded-lg p-4 bg-gray-50 document-item" data-type="{{ $document->doc_type }}">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
@@ -152,6 +199,52 @@
                                             </div>
                                         @endif
 
+                                        @if($latestCorrection)
+                                            <div class="mt-3 rounded-lg border {{ $latestCorrection->status === 'open' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50' }} p-3">
+                                                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                                    <div>
+                                                        <div class="text-sm font-semibold {{ $latestCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
+                                                            {{ $latestCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                                        </div>
+                                                        <div class="text-sm mt-1 {{ $latestCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">{{ $latestCorrection->summary }}</div>
+                                                        <div class="text-xs mt-1 text-gray-600">
+                                                            Requested {{ $latestCorrection->requested_at?->format('M j, Y g:i A') }}
+                                                            @if($latestCorrection->requestedBy)
+                                                                by {{ $latestCorrection->requestedBy->getDisplayName() }}
+                                                            @endif
+                                                            @if($latestCorrection->resubmitted_at)
+                                                                • Corrected submission received {{ $latestCorrection->resubmitted_at->format('M j, Y g:i A') }}
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                    <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
+                                                        {{ $latestCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                                    </span>
+                                                </div>
+                                                <div class="mt-3 space-y-2">
+                                                    @foreach($latestCorrection->items as $item)
+                                                        <div class="rounded border border-white bg-white/70 px-3 py-2">
+                                                            <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                                                {{ $documentCorrectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                                            </div>
+                                                            <div class="text-sm text-gray-900 mt-1">{{ $item->item_note }}</div>
+                                                            @if($item->required_action)
+                                                                <div class="text-xs text-gray-700 mt-1"><strong>Required:</strong> {{ $item->required_action }}</div>
+                                                            @endif
+                                                            @if($item->resolution_note)
+                                                                <div class="text-xs text-green-700 mt-2"><strong>Resolution:</strong> {{ $item->resolution_note }}</div>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                                @if($latestCorrection->replacementDocument)
+                                                    <div class="mt-3 text-xs text-gray-700">
+                                                        <strong>Corrected Filing:</strong> {{ $latestCorrection->replacementDocument->original_filename }}
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endif
+
                                         @if($document->stamp_text)
                                             <div class="text-purple-600 bg-purple-50 p-2 rounded mt-2">
                                                 <strong>Stamp:</strong> {{ $document->stamp_text }}
@@ -185,7 +278,7 @@
                                         </span>
                                     @endif
 
-                                    @if(in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                                    @if(in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
                                         @if(!$document->approved && !$document->rejected_reason)
                                             <button onclick="approveDocument({{ $document->id }})"
                                                     id="approve-btn-{{ $document->id }}"
@@ -201,12 +294,16 @@
                                                     title="View document first to enable this button">
                                                 ✗ Reject
                                             </button>
+                                            <button onclick="requestFix({{ $document->id }})"
+                                                    class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
+                                                Request Fix
+                                            </button>
                                         @elseif($document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
                                             <button onclick="stampDocument({{ $document->id }})"
                                                     class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
                                                 📋 Stamp
                                             </button>
-                                        @elseif($document->rejected_reason)
+                                        @elseif($document->rejected_reason && !$latestCorrection)
                                             <button onclick="approveDocument({{ $document->id }})"
                                                     class="text-green-600 hover:text-green-800 text-sm bg-green-50 px-3 py-1 rounded whitespace-nowrap">
                                                 ✓ Accept
@@ -216,12 +313,19 @@
                                         @if($hasNamingIssue || $hasFileIssue)
                                             <button onclick="requestFix({{ $document->id }})"
                                                     class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
-                                                🔧 Request Fix
+                                                Request Fix
                                             </button>
                                         @endif
                                     @endif
 
-                                    @if(auth()->user()->role === 'admin' || $document->uploaded_by_user_id === auth()->id())
+                                    @if($latestCorrection && in_array($latestCorrection->status, ['open', 'resubmitted']) && auth()->user()->canUploadDocumentsToCase($case) && !auth()->user()->isHearingUnit() && $document->uploaded_by_user_id === auth()->id())
+                                        <button onclick="showCorrectedUploadModal({{ $document->id }})"
+                                                class="text-indigo-600 hover:text-indigo-800 text-sm bg-indigo-50 px-3 py-1 rounded whitespace-nowrap">
+                                            Submit Corrected Document
+                                        </button>
+                                    @endif
+
+                                    @if(auth()->user()->getCurrentRole() === 'admin' || $document->uploaded_by_user_id === auth()->id())
                                         <button onclick="deleteDocument({{ $document->id }})"
                                                 class="text-red-600 hover:text-red-800 text-sm bg-red-50 px-3 py-1 rounded whitespace-nowrap">
                                             🗑️ Delete
@@ -269,12 +373,77 @@
         </div>
     </div>
 
+    <!-- Document Correction Modal -->
+    <div id="documentCorrectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <h3 id="documentCorrectionTitle" class="text-lg font-medium mb-4">Document Correction</h3>
+                    <form id="documentCorrectionForm" onsubmit="submitDocumentCorrection(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Correction Summary *</label>
+                                <textarea id="documentCorrectionSummary" rows="3" required class="block w-full border-gray-300 rounded-md" placeholder="Summarize why the filing is being rejected or what must be fixed."></textarea>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="block text-sm font-medium text-gray-700">Correction Items</label>
+                                    <button type="button" onclick="addDocumentCorrectionItem()" class="text-sm text-blue-600 hover:text-blue-800">+ Add Item</button>
+                                </div>
+                                <div id="document-correction-items" class="space-y-3"></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideDocumentCorrectionModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Send Correction Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corrected Upload Modal -->
+    <div id="correctedUploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-2">Submit Corrected Document</h3>
+                    <p id="correctedUploadSummary" class="text-sm text-gray-600 mb-4"></p>
+                    <form id="correctedUploadForm" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <p id="correctedUploadDocType" class="text-sm text-blue-900 font-medium"></p>
+                                <p id="correctedUploadOriginalFile" class="text-xs text-blue-700 mt-1"></p>
+                            </div>
+                            <div id="corrected-upload-items" class="space-y-3"></div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
+                                <input type="text" name="custom_title" id="correctedCustomTitle" maxlength="255" required class="block w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Corrected File *</label>
+                                <input type="file" name="document" id="correctedDocumentFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="block w-full border-gray-300 rounded-md">
+                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for HU review.</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideCorrectedUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Submit Corrected Document</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Upload Document Modal -->
     <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
@@ -289,12 +458,13 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
                                 <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
                                        required
                                        class="block w-full border-gray-300 rounded-md"
                                        placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
                                        oninput="updateFilenamePreview()">
+                                <p class="mt-1 text-sm text-amber-700">The title must be the exact same as what is listed as the document title.</p>
                             </div>
 
                             <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -325,7 +495,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
+                                {{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         </div>
                     </form>
@@ -337,6 +507,11 @@
     <script>
         // Track viewed documents in session storage
         const viewedDocuments = new Set(JSON.parse(sessionStorage.getItem('viewedDocuments') || '[]'));
+        const documentCorrectionMap = @json($documentCorrectionMap);
+        const documentMetaMap = @json($documentMetaMap);
+        const correctionCategoryLabels = @json($documentCorrectionCategoryLabels);
+        let currentCorrectionAction = null;
+        let currentCorrectionDocumentId = null;
 
         function markDocumentAsViewed(documentId) {
             viewedDocuments.add(documentId);
@@ -448,6 +623,152 @@
         let currentAction = null;
         let currentDocumentId = null;
 
+        function buildCorrectionItem(index, item = {}) {
+            return `
+                <div class="border rounded-md p-3 bg-gray-50 document-correction-item">
+                    <div class="flex justify-end mb-2">
+                        <button type="button" class="text-xs text-red-600 hover:text-red-800" onclick="this.closest('.document-correction-item').remove()">Remove</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                            <select name="correction_items[${index}][category]" class="block w-full border-gray-300 rounded-md text-sm">
+                                <option value="missing_document" ${item.category === 'missing_document' ? 'selected' : ''}>Missing Document</option>
+                                <option value="caption_issue" ${item.category === 'caption_issue' ? 'selected' : ''}>Caption Issue</option>
+                                <option value="party_issue" ${item.category === 'party_issue' ? 'selected' : ''}>Party Issue</option>
+                                <option value="service_issue" ${item.category === 'service_issue' ? 'selected' : ''}>Service Issue</option>
+                                <option value="ose_issue" ${item.category === 'ose_issue' ? 'selected' : ''}>OSE Issue</option>
+                                <option value="document_issue" ${item.category === 'document_issue' ? 'selected' : ''}>Document Issue</option>
+                                <option value="filing_issue" ${item.category === 'filing_issue' ? 'selected' : ''}>Filing Issue</option>
+                                <option value="other" ${!item.category || item.category === 'other' ? 'selected' : ''}>Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Required Action</label>
+                            <input type="text" name="correction_items[${index}][required_action]" value="${item.required_action ?? ''}" class="block w-full border-gray-300 rounded-md text-sm" placeholder="What must be corrected?">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Issue Detail</label>
+                        <textarea name="correction_items[${index}][item_note]" rows="3" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Describe the specific problem that must be fixed.">${item.item_note ?? ''}</textarea>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addDocumentCorrectionItem(item = {}) {
+            const container = document.getElementById('document-correction-items');
+            const index = container.querySelectorAll('.document-correction-item').length;
+            container.insertAdjacentHTML('beforeend', buildCorrectionItem(index, item));
+        }
+
+        function showDocumentCorrectionModal(documentId, action) {
+            currentCorrectionAction = action;
+            currentCorrectionDocumentId = documentId;
+            const modal = document.getElementById('documentCorrectionModal');
+            const title = document.getElementById('documentCorrectionTitle');
+            const summary = document.getElementById('documentCorrectionSummary');
+            const itemsContainer = document.getElementById('document-correction-items');
+
+            title.textContent = action === 'reject' ? 'Reject Document' : 'Request Document Fix';
+            summary.value = '';
+            itemsContainer.innerHTML = '';
+            addDocumentCorrectionItem();
+            modal.classList.remove('hidden');
+        }
+
+        function hideDocumentCorrectionModal() {
+            document.getElementById('documentCorrectionModal').classList.add('hidden');
+            currentCorrectionAction = null;
+            currentCorrectionDocumentId = null;
+        }
+
+        function submitDocumentCorrection(event) {
+            event.preventDefault();
+
+            if (!currentCorrectionAction || !currentCorrectionDocumentId) {
+                return;
+            }
+
+            const summary = document.getElementById('documentCorrectionSummary').value.trim();
+            if (!summary) {
+                alert('Please provide a correction summary.');
+                return;
+            }
+
+            const items = Array.from(document.querySelectorAll('.document-correction-item')).map((itemEl) => ({
+                category: itemEl.querySelector('select').value,
+                required_action: itemEl.querySelector('input').value.trim(),
+                item_note: itemEl.querySelector('textarea').value.trim(),
+            })).filter(item => item.item_note || item.required_action);
+
+            const endpoint = currentCorrectionAction === 'reject'
+                ? `/cases/{{ $case->id }}/documents/${currentCorrectionDocumentId}/reject`
+                : `/cases/{{ $case->id }}/documents/${currentCorrectionDocumentId}/request-fix`;
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    reason_summary: summary,
+                    correction_items: items
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Failed to save document correction.');
+                }
+            });
+
+            hideDocumentCorrectionModal();
+        }
+
+        function showCorrectedUploadModal(documentId) {
+            const correction = documentCorrectionMap[documentId];
+            const documentMeta = documentMetaMap[documentId];
+            if (!correction || !documentMeta) {
+                alert('No open document correction cycle is available for this filing.');
+                return;
+            }
+
+            document.getElementById('correctedUploadSummary').textContent = correction.summary;
+            document.getElementById('correctedUploadDocType').textContent = `Document Type: ${documentMeta.doc_type_label}`;
+            document.getElementById('correctedUploadOriginalFile').textContent = `Original Filing: ${documentMeta.original_filename}`;
+            document.getElementById('correctedCustomTitle').value = documentMeta.custom_title || '';
+            document.getElementById('correctedDocumentFile').value = '';
+            document.getElementById('correctedUploadForm').action = `/cases/{{ $case->id }}/documents/${documentId}/submit-correction`;
+
+            const itemsContainer = document.getElementById('corrected-upload-items');
+            itemsContainer.innerHTML = '';
+            correction.items.forEach((item) => {
+                itemsContainer.insertAdjacentHTML('beforeend', `
+                    <div class="border rounded-md p-3 bg-gray-50">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                            ${correctionCategoryLabels[item.category] || item.category}
+                        </div>
+                        <div class="text-sm text-gray-900 mt-1">${item.item_note}</div>
+                        ${item.required_action ? `<div class="text-xs text-gray-700 mt-1"><strong>Required:</strong> ${item.required_action}</div>` : ''}
+                        <div class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Resolution Note *</label>
+                            <textarea name="resolution_items[${item.id}][resolution_note]" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Explain exactly how you corrected this issue.">${item.resolution_note ?? ''}</textarea>
+                        </div>
+                    </div>
+                `);
+            });
+
+            document.getElementById('correctedUploadModal').classList.remove('hidden');
+        }
+
+        function hideCorrectedUploadModal() {
+            document.getElementById('correctedUploadModal').classList.add('hidden');
+        }
+
         function showConfirmModal(title, message, action, documentId, isReject = false) {
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
@@ -532,13 +853,7 @@
         }
 
         function rejectDocument(documentId) {
-            showConfirmModal(
-                'Reject Document',
-                'Are you sure you want to reject this document?',
-                'reject',
-                documentId,
-                true
-            );
+            showDocumentCorrectionModal(documentId, 'reject');
         }
 
         // Enable/disable confirm button based on reject reason for reject actions
@@ -590,26 +905,7 @@
         }
 
         function requestFix(documentId) {
-            const reason = prompt('Please specify what needs to be fixed:');
-            if (reason) {
-                fetch(`/cases/{{ $case->id }}/documents/${documentId}/request-fix`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ reason: reason })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Fix request sent successfully');
-                        location.reload();
-                    } else {
-                        alert('Failed to send fix request');
-                    }
-                });
-            }
+            showDocumentCorrectionModal(documentId, 'fix');
         }
 
         function stampDocument(documentId) {

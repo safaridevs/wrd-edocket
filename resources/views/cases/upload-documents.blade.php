@@ -39,7 +39,7 @@
                     
 
 
-                    @if(auth()->user()->role !== 'party')
+                    @if(auth()->user()->getCurrentRole() !== 'party')
                     <!-- Core Documents -->
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-900 mb-3">Core Documents</h4>
@@ -158,7 +158,7 @@
                     @endif
 
                     <!-- Party Document Upload -->
-                    @if(auth()->user()->role === 'party')
+                    @if(auth()->user()->getCurrentRole() === 'party')
                     <div class="mb-6">
                         <h4 class="font-medium text-gray-900 mb-3">Upload Documents</h4>
                         <div class="border rounded-lg p-4">

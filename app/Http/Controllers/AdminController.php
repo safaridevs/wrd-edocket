@@ -12,8 +12,10 @@ class AdminController extends Controller
 {
     public function users()
     {
-        $users = User::orderBy('name')->paginate(50);
-        return view('admin.users', compact('users'));
+        $users = User::with('roleRelation')->orderBy('name')->paginate(50);
+        $roles = Role::where('is_active', true)->orderBy('display_name')->get();
+
+        return view('admin.users', compact('users', 'roles'));
     }
 
     public function documentTypes()
@@ -98,7 +100,7 @@ class AdminController extends Controller
     public function updateUserRole(Request $request, User $user)
     {
         $validated = $request->validate([
-            'role' => 'required|in:admin,hu_admin,hu_clerk,alu_mgr,alu_clerk,alu_atty,wrd,wrap_dir,hydrology_expert,party,unaffiliated'
+            'role' => 'required|exists:roles,name'
         ]);
 
         $user->update(['role' => $validated['role']]);
@@ -119,7 +121,13 @@ class AdminController extends Controller
 
     public function edit(User $user)
     {
-        return response()->json($user);
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'title' => $user->title,
+            'email' => $user->email,
+            'role' => $user->getCurrentRole(),
+        ]);
     }
 
     public function update(Request $request, User $user)
@@ -128,7 +136,7 @@ class AdminController extends Controller
             'name' => 'required|string|max:255',
             'title' => 'nullable|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'role' => 'required|in:admin,hu_admin,hu_clerk,alu_mgr,alu_clerk,alu_atty,wrd,wrap_dir,hydrology_expert,party,unaffiliated'
+            'role' => 'required|exists:roles,name'
         ]);
 
         $user->update($validated);

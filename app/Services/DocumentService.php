@@ -93,7 +93,7 @@ class DocumentService
     public function approveDocument(Document $document, User $user): bool
     {
         // Only HU Admin and HU Clerk can approve documents
-        if (!in_array($user->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array($user->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             return false;
         }
 

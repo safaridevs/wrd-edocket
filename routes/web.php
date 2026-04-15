@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/documents/{document}/approve', [CaseController::class, 'approveDocument'])->name('cases.documents.approve');
     Route::post('cases/{case}/documents/{document}/reject', [CaseController::class, 'rejectDocument'])->name('cases.documents.reject');
     Route::post('cases/{case}/documents/{document}/update-title', [CaseController::class, 'updateDocumentTitle'])->name('cases.documents.update-title');
+    Route::post('cases/{case}/documents/{document}/submit-correction', [CaseController::class, 'submitCorrectedDocument'])->name('cases.documents.submit-correction');
 
 
     Route::post('cases/{case}/documents/{document}/request-fix', [CaseController::class, 'requestDocumentFix'])->name('cases.documents.request-fix');

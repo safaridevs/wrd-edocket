@@ -16,7 +16,7 @@ class DocumentController extends Controller
     public function store(Request $request, CaseModel $case)
     {
         // Check if party user can access this case
-        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+        if (Auth::user()->getCurrentRole() === 'party' && !Auth::user()->canAccessCase($case)) {
             abort(403, 'You can only file documents to cases you are associated with.');
         }
 
@@ -77,7 +77,7 @@ class DocumentController extends Controller
     public function fileForm(CaseModel $case)
     {
         // Check if party user can access this case
-        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+        if (Auth::user()->getCurrentRole() === 'party' && !Auth::user()->canAccessCase($case)) {
             abort(403, 'You can only file documents to cases you are associated with.');
         }
 

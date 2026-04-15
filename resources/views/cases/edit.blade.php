@@ -3,6 +3,20 @@
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Case {{ $case->case_no }}</h2>
     </x-slot>
 
+    @php
+        $openRejection = $case->rejections->firstWhere('status', 'open');
+        $rejectionCategoryLabels = [
+            'missing_document' => 'Missing Document',
+            'caption_issue' => 'Caption Issue',
+            'party_issue' => 'Party Issue',
+            'service_issue' => 'Service Issue',
+            'ose_issue' => 'OSE Issue',
+            'document_issue' => 'Document Issue',
+            'filing_issue' => 'Filing Issue',
+            'other' => 'Other',
+        ];
+    @endphp
+
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
@@ -20,6 +34,27 @@
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
+                </div>
+            @endif
+
+            @if($openRejection)
+                <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-6">
+                    <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-red-900">Open Correction Cycle</h3>
+                            <p class="text-sm text-red-800 mt-1">{{ $openRejection->reason_summary }}</p>
+                            <p class="text-xs text-red-700 mt-2">
+                                Rejected {{ $openRejection->rejected_at?->format('M j, Y g:i A') }}
+                                @if($openRejection->rejectedBy)
+                                    by {{ $openRejection->rejectedBy->getDisplayName() }}
+                                @endif
+                            </p>
+                        </div>
+                        <div class="text-xs font-medium text-red-700">
+                            {{ $openRejection->openItems->count() }} item{{ $openRejection->openItems->count() === 1 ? '' : 's' }} still open
+                        </div>
+                    </div>
+                    <p class="text-sm text-red-700 mt-4">Before you resubmit, document the fix for every item below and mark each one resolved.</p>
                 </div>
             @endif
 
@@ -132,6 +167,61 @@
                         </a>
                     </div>
                 </div>
+
+                @if($openRejection)
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-4">Correction Items</h3>
+                    <div class="space-y-4">
+                        @foreach($openRejection->items as $item)
+                            <div class="border rounded-lg p-4 {{ $item->resolved_at ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
+                                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <div class="text-xs font-semibold uppercase tracking-wide {{ $item->resolved_at ? 'text-green-700' : 'text-red-700' }}">
+                                            {{ $rejectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                        </div>
+                                        <div class="text-sm font-medium text-gray-900 mt-1">{{ $item->item_note }}</div>
+                                        @if($item->required_action)
+                                            <div class="text-sm text-gray-700 mt-2"><strong>Required Action:</strong> {{ $item->required_action }}</div>
+                                        @endif
+                                    </div>
+                                    <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $item->resolved_at ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                        {{ $item->resolved_at ? 'Resolved' : 'Open' }}
+                                    </span>
+                                </div>
+
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Resolution Note *</label>
+                                    <textarea
+                                        name="rejection_items[{{ $item->id }}][resolution_note]"
+                                        rows="3"
+                                        class="block w-full border-gray-300 rounded-md shadow-sm"
+                                        placeholder="Document the exact correction you made for this item."
+                                    >{{ old("rejection_items.{$item->id}.resolution_note", $item->resolution_note) }}</textarea>
+                                    @error("rejection_items.{$item->id}.resolution_note")
+                                        <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="inline-flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            name="rejection_items[{{ $item->id }}][mark_resolved]"
+                                            value="1"
+                                            class="mr-2"
+                                            {{ old("rejection_items.{$item->id}.mark_resolved", $item->resolved_at ? '1' : null) ? 'checked' : '' }}
+                                        >
+                                        <span class="text-sm text-gray-700">This correction item has been fully addressed and is ready for HU review.</span>
+                                    </label>
+                                    @error("rejection_items.{$item->id}.mark_resolved")
+                                        <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
 
 
 

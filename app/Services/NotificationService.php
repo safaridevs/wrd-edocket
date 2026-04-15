@@ -23,6 +23,22 @@ class NotificationService
         } elseif ($recipient instanceof \App\Models\Attorney) {
             $email = $recipient->email;
         }
+
+        if ($this->shouldSuppressRecipient($recipient, $email)) {
+            return Notification::create([
+                'case_id' => $case?->id,
+                'notification_type' => $type,
+                'payload_json' => [
+                    'title' => $title,
+                    'message' => $message,
+                    'email' => $email,
+                    'user_id' => $userId
+                ],
+                'sent_at' => now(),
+                'email_status' => 'suppressed',
+                'bounce_reason' => 'Notifications disabled for interested_party users'
+            ]);
+        }
         
         // Send actual email
         $emailStatus = 'pending';
@@ -76,7 +92,10 @@ class NotificationService
         $emails = [];
 
         foreach ($users as $user) {
-            $emails[] = $this->getRecipientEmail($user);
+            $email = $this->getRecipientEmail($user);
+            if ($email && !$this->shouldSuppressRecipient($user, $email)) {
+                $emails[] = $email;
+            }
             $this->notify($user, $type, $title, $message, $case, false);
         }
 
@@ -101,6 +120,21 @@ class NotificationService
         }
 
         return null;
+    }
+
+    private function shouldSuppressRecipient($recipient, ?string $email): bool
+    {
+        if ($recipient instanceof User) {
+            return $recipient->getCurrentRole() === 'interested_party';
+        }
+
+        if (!$email) {
+            return false;
+        }
+
+        $user = User::with('roleRelation')->where('email', $email)->first();
+
+        return $user?->getCurrentRole() === 'interested_party';
     }
 
     public function getUnreadCount(User $user): int

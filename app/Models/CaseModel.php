@@ -202,6 +202,16 @@ class CaseModel extends Model
         return $this->hasMany(CaseStatusAudit::class, 'case_id');
     }
 
+    public function rejections(): HasMany
+    {
+        return $this->hasMany(CaseRejection::class, 'case_id')->latest('rejected_at')->latest('id');
+    }
+
+    public function openRejection(): HasMany
+    {
+        return $this->rejections()->where('status', 'open');
+    }
+
     public function changeStatus(string $newStatus, User $user, ?string $reason = null): bool
     {
         $validTransitions = [
@@ -248,13 +258,15 @@ class CaseModel extends Model
 
     public function canUserUploadDocuments($user): bool
     {
+        $currentRole = method_exists($user, 'getCurrentRole') ? $user->getCurrentRole() : $user->role;
+
         // ALU and HU staff can always upload
-        if (in_array($user->role, ['alu_clerk', 'alu_managing_attorney', 'hu_admin', 'hu_clerk'])) {
+        if (in_array($currentRole, ['alu_clerk', 'alu_mgr', 'hu_admin', 'hu_clerk'])) {
             return true;
         }
 
         // Parties, attorneys, and paralegals can upload if case allows it
-        if ($user->role === 'party' && $this->status === 'active') {
+        if ($currentRole === 'party' && $this->status === 'active') {
             // Check if user is a party, counsel, or paralegal on this case
             $isPartyMember = $this->parties()->whereHas('person', function($query) use ($user) {
                 $query->where('email', $user->email);

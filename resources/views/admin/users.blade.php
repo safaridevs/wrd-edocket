@@ -26,7 +26,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                        {{ ucwords(str_replace('_', ' ', $user->role)) }}
+                                        {{ ucwords(str_replace('_', ' ', $user->getCurrentRole())) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -105,17 +105,9 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Role</label>
                                 <select name="role" id="editRole" class="mt-1 block w-full border-gray-300 rounded-md" required>
-                                    <option value="admin">Admin</option>
-                                    <option value="hu_admin">HU Admin</option>
-                                    <option value="hu_clerk">HU Clerk</option>
-                                    <option value="alu_mgr">ALU Manager</option>
-                                    <option value="alu_clerk">ALU Clerk</option>
-                                    <option value="alu_atty">ALU Attorney</option>
-                                    <option value="wrd">WRD</option>
-                                    <option value="wrap_dir">WRAP Director</option>
-                                    <option value="hydrology_expert">Hydrology Expert</option>
-                                    <option value="party">Party</option>
-                                    <option value="unaffiliated">Unaffiliated</option>
+                                    @foreach($roles as $role)
+                                        <option value="{{ $role->name }}">{{ $role->display_name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                         </div>

@@ -11,7 +11,7 @@ class ImpersonationController extends Controller
     {
         $roles = [
             'admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_atty',
-            'wrd', 'wrap_dir', 'hydrology_expert', 'party', 'unaffiliated'
+            'wrd', 'wrap_dir', 'hydrology_expert', 'party', 'interested_party'
         ];
         
         $role = $request->input('role');

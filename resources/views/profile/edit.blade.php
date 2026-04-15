@@ -11,7 +11,7 @@
                     <div class="flex items-center space-x-4">
                         <div class="text-right">
                             <p class="text-sm font-medium text-gray-900">{{ auth()->user()->name }}</p>
-                            <p class="text-xs text-gray-500">{{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}</p>
+                            <p class="text-xs text-gray-500">{{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}</p>
                         </div>
                         <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                             <span class="text-blue-600 font-semibold text-sm">{{ substr(auth()->user()->name, 0, 2) }}</span>
@@ -33,7 +33,7 @@
                             <h3 class="text-lg font-semibold text-gray-900">{{ auth()->user()->name }}</h3>
                             <p class="text-sm text-gray-600">{{ auth()->user()->email }}</p>
                             <span class="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                {{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}
+                                {{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}
                             </span>
                         </div>
                         
@@ -137,7 +137,7 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">User Role</label>
-                                    <p class="text-sm text-gray-900">{{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}</p>
+                                    <p class="text-sm text-gray-900">{{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}</p>
                                 </div>
                             </div>
                             

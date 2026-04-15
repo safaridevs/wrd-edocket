@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\CaseModel;
 use App\Models\CaseParty;
+use App\Models\CaseRejection;
 use App\Models\Document;
 use App\Models\OseFileNumber;
 use App\Models\Person;
@@ -425,7 +426,7 @@ class CaseService
 
     public function routeToHearingUnit(CaseModel $case): void
     {
-        $huAdmin = User::where('role', 'hu_admin')->first();
+        $huAdmin = User::whereCurrentRole('hu_admin')->first();
         
         if ($huAdmin) {
             $case->update([
@@ -473,25 +474,70 @@ class CaseService
         return true;
     }
 
-    public function rejectCase(CaseModel $case, User $user, string $reason): bool
+    public function rejectCase(CaseModel $case, User $user, string $reason, array $items = []): bool
     {
         if (!$user->canRejectFilings()) {
             return false;
         }
 
-        $case->update([
-            'status' => 'rejected',
-            'metadata' => array_merge($case->metadata ?? [], ['rejection_reason' => $reason])
-        ]);
+        if ($case->status !== 'submitted_to_hu') {
+            return false;
+        }
 
-        AuditLog::log('reject_request', $user, $case, ['reason' => $reason]);
+        $normalizedItems = collect($items)
+            ->map(function (array $item, int $index) {
+                return [
+                    'category' => $item['category'] ?? 'other',
+                    'item_note' => trim((string) ($item['item_note'] ?? '')),
+                    'required_action' => trim((string) ($item['required_action'] ?? '')),
+                    'sort_order' => $index,
+                ];
+            })
+            ->filter(fn (array $item) => $item['item_note'] !== '' || $item['required_action'] !== '')
+            ->values();
+
+        if ($normalizedItems->isEmpty()) {
+            $normalizedItems = collect([[
+                'category' => 'other',
+                'item_note' => $reason,
+                'required_action' => 'Review the rejection summary, correct the filing, and resubmit the case to the Hearing Unit.',
+                'sort_order' => 0,
+            ]]);
+        }
+
+        $rejection = DB::transaction(function () use ($case, $user, $reason, $normalizedItems) {
+            $case->update([
+                'status' => 'rejected',
+                'metadata' => array_merge($case->metadata ?? [], ['rejection_reason' => $reason])
+            ]);
+
+            $rejection = CaseRejection::create([
+                'case_id' => $case->id,
+                'rejected_by_user_id' => $user->id,
+                'reason_summary' => $reason,
+                'status' => 'open',
+                'rejected_at' => now(),
+            ]);
+
+            foreach ($normalizedItems as $item) {
+                $rejection->items()->create($item);
+            }
+
+            return $rejection;
+        });
+
+        AuditLog::log('reject_request', $user, $case, [
+            'reason' => $reason,
+            'rejection_id' => $rejection->id,
+            'items_count' => $rejection->items()->count(),
+        ]);
 
         // Notify case creator (ALU Clerk)
         $this->notificationService->notify(
             $case->creator,
             'case_rejected',
             'Case Rejected - Action Required',
-            "Case {$case->case_no} has been rejected by HU. Reason: {$reason}. Please make the necessary corrections and resubmit.",
+            "Case {$case->case_no} has been rejected by HU. Summary: {$reason}. Please review the correction items, make the necessary changes, and resubmit.",
             $case
         );
 
@@ -501,7 +547,7 @@ class CaseService
                 $case->assignedAttorney,
                 'case_rejected',
                 'Case Rejected',
-                "Case {$case->case_no} has been rejected by HU. Reason: {$reason}",
+                "Case {$case->case_no} has been rejected by HU. Summary: {$reason}",
                 $case
             );
         }
@@ -810,7 +856,7 @@ class CaseService
 
     public function closeCase(CaseModel $case, User $user, string $reason): bool
     {
-        if (!in_array($user->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array($user->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             return false;
         }
 
@@ -832,7 +878,7 @@ class CaseService
 
     public function reopenCase(CaseModel $case, User $user, string $reason): bool
     {
-        if ($user->role !== 'hu_admin') {
+        if ($user->getCurrentRole() !== 'hu_admin') {
             return false;
         }
 
@@ -854,7 +900,7 @@ class CaseService
 
     public function archiveCase(CaseModel $case, User $user): bool
     {
-        if (!in_array($user->role, ['hu_admin', 'admin'])) {
+        if (!in_array($user->getCurrentRole(), ['hu_admin', 'admin'])) {
             return false;
         }
 

@@ -4,7 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -24,6 +26,7 @@ class User extends Authenticatable
         'sam_account_name',
         'password',
         'role',
+        'role_id',
         'title',
         'initials',
         'phone',
@@ -70,6 +73,22 @@ class User extends Authenticatable
         return $this->hasMany(Document::class, 'uploaded_by_user_id');
     }
 
+    public function scopeWhereCurrentRole(Builder $query, string $role): Builder
+    {
+        $normalized = $this->normalizeRole($role);
+
+        return $query->where(function (Builder $subQuery) use ($normalized) {
+            $subQuery->whereHas('roleRelation', function (Builder $roleQuery) use ($normalized) {
+                $roleQuery->where('name', $normalized);
+            })->orWhere('role', $normalized);
+        });
+    }
+
+    public function roleRelation(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->getCurrentRole() === $role;
@@ -82,7 +101,17 @@ class User extends Authenticatable
 
     public function getCurrentRole(): string
     {
-        return $this->normalizeRole(session('impersonated_role', $this->role));
+        $role = session('impersonated_role');
+
+        if (!$role) {
+            if ($this->relationLoaded('roleRelation') && $this->roleRelation) {
+                $role = $this->roleRelation->name;
+            } elseif ($this->role_id) {
+                $role = Role::whereKey($this->role_id)->value('name');
+            }
+        }
+
+        return $this->normalizeRole($role ?: (string) $this->role);
     }
 
     public function getConsolidatedRole(): string
@@ -131,7 +160,7 @@ class User extends Authenticatable
     public function isHydrologyExpert(): bool { return $this->getCurrentRole() === 'hydrology_expert'; }
     public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
     public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_clerk'; }
-    public function isUnaffiliated(): bool { return $this->getCurrentRole() === 'unaffiliated'; }
+    public function isUnaffiliated(): bool { return $this->getCurrentRole() === 'interested_party'; }
     public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'admin'; }
     public function isHearingUnit(): bool { return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']); }
 
@@ -174,7 +203,7 @@ class User extends Authenticatable
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party', 'unaffiliated']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -182,15 +211,40 @@ class User extends Authenticatable
         return $this->isAttorney();
     }
 
+    public function canUploadDocumentsToCase(CaseModel $case): bool
+    {
+        if (in_array($case->status, ['closed', 'archived'])) {
+            return false;
+        }
+
+        if ($this->isHearingUnit()) {
+            return true;
+        }
+
+        if ($this->getCurrentRole() === 'alu_clerk') {
+            return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu']);
+        }
+
+        if ($this->getCurrentRole() === 'party') {
+            return $case->status === 'active' && $this->canAccessCase($case);
+        }
+
+        if ($this->isAttorney() || $this->isALUAttorney() || $this->isParalegal()) {
+            return $case->status === 'active' && $this->canAccessCase($case);
+        }
+
+        return false;
+    }
+
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'party', 'unaffiliated']) || $this->isAttorney();
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isAttorney();
     }
 
     public function canAccessCase(CaseModel $case): bool
     {
         // Non-party roles (staff) can access all cases
-        if (!in_array($this->getCurrentRole(), ['party', 'unaffiliated'])) {
+        if (!in_array($this->getCurrentRole(), ['party', 'interested_party'])) {
             return true;
         }
 
@@ -284,7 +338,7 @@ class User extends Authenticatable
 
     public function canUpdateOwnContact(): bool
     {
-        return in_array($this->getCurrentRole(), ['party', 'unaffiliated', 'attorney']) || $this->canModifyPersons();
+        return in_array($this->getCurrentRole(), ['party', 'interested_party', 'attorney']) || $this->canModifyPersons();
     }
 
     public function getPermissions(): array
@@ -315,8 +369,32 @@ class User extends Authenticatable
             'hu_law_clerk' => 'hu_clerk',
             'hu_examiner' => 'hu_clerk',
             'system_admin' => 'admin',
+            'unaffiliated' => 'interested_party',
         ];
 
         return $aliases[$role] ?? $role;
+    }
+
+    public function setRoleAttribute($value): void
+    {
+        $normalized = $this->normalizeRole((string) $value);
+        $this->attributes['role'] = $normalized;
+
+        $roleId = Role::where('name', $normalized)->value('id');
+        if ($roleId) {
+            $this->attributes['role_id'] = $roleId;
+        }
+    }
+
+    public function setRoleIdAttribute($value): void
+    {
+        $this->attributes['role_id'] = $value;
+
+        if ($value) {
+            $roleName = Role::whereKey($value)->value('name');
+            if ($roleName) {
+                $this->attributes['role'] = $this->normalizeRole($roleName);
+            }
+        }
     }
 }

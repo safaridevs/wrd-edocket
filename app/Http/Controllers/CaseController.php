@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CaseModel;
 use App\Models\CaseAssignment;
+use App\Models\Document;
+use App\Models\DocumentCorrection;
 use App\Models\OseFileNumber;
 use App\Models\User;
 use App\Services\CaseService;
@@ -12,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CaseController extends Controller
@@ -40,7 +44,7 @@ class CaseController extends Controller
             // ALU Manager sees all cases
             $query = CaseModel::query();
             $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
-        } elseif ($user->role === 'party') {
+        } elseif ($currentRole === 'party') {
             // Parties, counsel, and paralegals only see cases they are actually on.
             $query = CaseModel::whereNotIn('status', ['draft'])
                 ->where(function ($caseQuery) use ($user) {
@@ -309,15 +313,36 @@ class CaseController extends Controller
         }
 
         // Parties and attorneys cannot see draft cases
-        if (Auth::user()->role === 'party' && $case->status === 'draft') {
+        if (Auth::user()->getCurrentRole() === 'party' && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to parties and attorneys.');
         }
 
-        if (Auth::user()->role === 'party' && !Auth::user()->canAccessCase($case)) {
+        if (Auth::user()->getCurrentRole() === 'party' && !Auth::user()->canAccessCase($case)) {
             abort(403, 'You can only access cases you are associated with.');
         }
 
-        $case->load(['creator', 'assignee', 'assignedAttorney', 'assignedHydrologyExpert', 'assignedAluClerk', 'assignedWrd', 'aluAttorneys', 'aluParalegals', 'hydrologyExperts', 'aluClerks', 'wrds', 'assignments.user', 'documents.uploader', 'parties.person', 'serviceList.person', 'oseFileNumbers', 'auditLogs.user']);
+        $case->load([
+            'creator',
+            'assignee',
+            'assignedAttorney',
+            'assignedHydrologyExpert',
+            'assignedAluClerk',
+            'assignedWrd',
+            'aluAttorneys',
+            'aluParalegals',
+            'hydrologyExperts',
+            'aluClerks',
+            'wrds',
+            'assignments.user',
+            'documents.uploader',
+            'parties.person',
+            'serviceList.person',
+            'oseFileNumbers',
+            'auditLogs.user',
+            'rejections.rejectedBy',
+            'rejections.resubmittedBy',
+            'rejections.items.resolvedBy',
+        ]);
         return view('cases.show', compact('case'));
     }
 
@@ -397,7 +422,14 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $case->load(['parties.person', 'serviceList.person', 'oseFileNumbers', 'documents']);
+        $case->load([
+            'parties.person',
+            'serviceList.person',
+            'oseFileNumbers',
+            'documents',
+            'rejections.rejectedBy',
+            'rejections.items.resolvedBy',
+        ]);
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
         return view('cases.edit', compact('case', 'basinCodes'));
     }
@@ -424,10 +456,24 @@ class CaseController extends Controller
             'action' => 'required|in:draft,validate,submit',
             'notify_recipients' => 'nullable|array',
             'notify_recipients.*' => 'string',
-            'custom_message' => 'nullable|string|max:1000'
+            'custom_message' => 'nullable|string|max:1000',
+            'rejection_items' => 'nullable|array',
+            'rejection_items.*.resolution_note' => 'nullable|string|max:2000',
+            'rejection_items.*.mark_resolved' => 'nullable',
         ]);
 
         try {
+            $resolutionErrors = $this->syncOpenRejectionResolutions(
+                $case,
+                $request->input('rejection_items', []),
+                Auth::user(),
+                $validated['action'] === 'submit'
+            );
+
+            if (!empty($resolutionErrors)) {
+                return back()->withInput()->withErrors($resolutionErrors);
+            }
+
             // Update core case information
             $case->update([
                 'case_type' => $validated['case_type'],
@@ -479,6 +525,10 @@ class CaseController extends Controller
                 }
                 $case->update($updates);
 
+                if ($case->status === 'submitted_to_hu') {
+                    $this->markOpenRejectionResubmitted($case, Auth::user());
+                }
+
                 // Send notifications to selected recipients
                 $recipients = $validated['notify_recipients'] ?? [];
                 $customMessage = $validated['custom_message'] ?? null;
@@ -512,10 +562,19 @@ class CaseController extends Controller
     public function reject(Request $request, CaseModel $case)
     {
         $validated = $request->validate([
-            'reason' => 'required|string|max:500'
+            'reason_summary' => 'required|string|max:2000',
+            'rejection_items' => 'nullable|array',
+            'rejection_items.*.category' => 'nullable|in:missing_document,caption_issue,party_issue,service_issue,ose_issue,document_issue,filing_issue,other',
+            'rejection_items.*.item_note' => 'nullable|string|max:2000',
+            'rejection_items.*.required_action' => 'nullable|string|max:2000',
         ]);
 
-        if ($this->caseService->rejectCase($case, Auth::user(), $validated['reason'])) {
+        if ($this->caseService->rejectCase(
+            $case,
+            Auth::user(),
+            $validated['reason_summary'],
+            $validated['rejection_items'] ?? []
+        )) {
             return back()->with('success', 'Case rejected.');
         }
 
@@ -528,7 +587,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $attorneys = \App\Models\User::where('role', 'alu_atty')->get();
+        $attorneys = \App\Models\User::whereCurrentRole('alu_atty')->get();
         return view('cases.assign-attorney', compact('case', 'attorneys'));
     }
 
@@ -563,7 +622,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $experts = \App\Models\User::where('role', 'hydrology_expert')->get();
+        $experts = \App\Models\User::whereCurrentRole('hydrology_expert')->get();
         return view('cases.assign-hydrology-expert', compact('case', 'experts'));
     }
 
@@ -600,7 +659,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $clerks = \App\Models\User::where('role', 'alu_clerk')->get();
+        $clerks = \App\Models\User::whereCurrentRole('alu_clerk')->get();
         return view('cases.assign-alu-clerk', compact('case', 'clerks'));
     }
 
@@ -635,7 +694,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $wrds = \App\Models\User::where('role', 'wrd')->get();
+        $wrds = \App\Models\User::whereCurrentRole('wrd')->get();
         return view('cases.assign-wrd', compact('case', 'wrds'));
     }
 
@@ -683,25 +742,23 @@ class CaseController extends Controller
 
     public function uploadDocuments(CaseModel $case)
     {
-        if (!Auth::user()->canUploadDocuments() && !Auth::user()->isHearingUnit() && !Auth::user()->canCreateCase()) {
-            abort(403);
-        }
+        if (!Auth::user()->canUploadDocumentsToCase($case)) {
+            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
+                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            }
 
-        // Check if party user can access this case and if case allows document uploads
-        if (Auth::user()->role === 'party') {
-            if (!Auth::user()->canAccessCase($case)) {
-                abort(403, 'You can only upload documents to cases you are associated with.');
+            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+                abort(403, 'You can only upload documents to active cases you are associated with.');
             }
-            if ($case->status !== 'active') {
-                abort(403, 'You can only upload documents to active cases.');
-            }
+
+            abort(403);
         }
 
         $case->load(['documents.uploader']);
 
         $userRole = Auth::user()->getCurrentRole();
 
-        if (Auth::user()->role === 'party' || Auth::user()->isAttorney()) {
+        if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney()) {
             $documentTypes = \App\Models\DocumentType::forRole($userRole)
                 ->where('category', 'party_upload')
                 ->orderBy('name')->get();
@@ -715,18 +772,16 @@ class CaseController extends Controller
 
     public function storeDocuments(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canUploadDocuments() && !Auth::user()->isHearingUnit() && !Auth::user()->canCreateCase()) {
-            abort(403);
-        }
+        if (!Auth::user()->canUploadDocumentsToCase($case)) {
+            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
+                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            }
 
-        // Check if party user can access this case and if case allows document uploads
-        if (Auth::user()->role === 'party') {
-            if (!Auth::user()->canAccessCase($case)) {
-                abort(403, 'You can only upload documents to cases you are associated with.');
+            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+                abort(403, 'You can only upload documents to active cases you are associated with.');
             }
-            if ($case->status !== 'active') {
-                abort(403, 'You can only upload documents to active cases.');
-            }
+
+            abort(403);
         }
 
         // Validate the form structure
@@ -1211,7 +1266,14 @@ class CaseController extends Controller
 
     public function manageDocuments(CaseModel $case)
     {
-        $case->load(['documents.uploader']);
+        $case->load([
+            'documents.uploader',
+            'documents.correctionCycles.requestedBy',
+            'documents.correctionCycles.resubmittedBy',
+            'documents.correctionCycles.acceptedBy',
+            'documents.correctionCycles.replacementDocument',
+            'documents.correctionCycles.items.resolvedBy',
+        ]);
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)->orderBy('name')->get();
         return view('cases.documents.manage', compact('case', 'documentTypes'));
@@ -1219,6 +1281,18 @@ class CaseController extends Controller
 
     public function storeDocument(Request $request, CaseModel $case)
     {
+        if (!Auth::user()->canUploadDocumentsToCase($case)) {
+            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
+                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            }
+
+            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+                abort(403, 'You can only upload documents to active cases you are associated with.');
+            }
+
+            abort(403);
+        }
+
         $validDocTypes = \App\Models\DocumentType::where('is_active', true)->pluck('code')->toArray();
 
         $validated = $request->validate([
@@ -1319,7 +1393,7 @@ class CaseController extends Controller
 
     public function approveDocument(CaseModel $case, $documentId)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             abort(403);
         }
 
@@ -1337,26 +1411,53 @@ class CaseController extends Controller
             'rejected_reason' => null
         ]);
 
+        $document->replacementForCorrection()
+            ->where('status', 'resubmitted')
+            ->update([
+                'status' => 'accepted',
+                'accepted_at' => now(),
+                'accepted_by_user_id' => auth()->id(),
+            ]);
+
         return response()->json(['success' => true, 'message' => 'Document accepted successfully']);
     }
 
     public function rejectDocument(Request $request, CaseModel $case, $documentId)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             abort(403);
         }
 
         $validated = $request->validate([
-            'reason' => 'required|string|max:500'
+            'reason' => 'nullable|string|max:500',
+            'reason_summary' => 'nullable|string|max:2000',
+            'correction_items' => 'nullable|array',
+            'correction_items.*.category' => 'nullable|in:missing_document,caption_issue,party_issue,service_issue,ose_issue,document_issue,filing_issue,other',
+            'correction_items.*.item_note' => 'nullable|string|max:2000',
+            'correction_items.*.required_action' => 'nullable|string|max:2000',
         ]);
 
         $document = $case->documents()->findOrFail($documentId);
+        $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
+        if (!$summary) {
+            return response()->json(['success' => false, 'error' => 'A correction summary is required.'], 422);
+        }
+
         $document->update([
             'approved' => false,
-            'rejected_reason' => $validated['reason'],
+            'rejected_reason' => $summary,
             'approved_by_user_id' => null,
             'approved_at' => null
         ]);
+
+        $correction = $this->createDocumentCorrection(
+            $case,
+            $document,
+            auth()->user(),
+            'rejected',
+            $summary,
+            $validated['correction_items'] ?? []
+        );
 
         // Notify document uploader
         if ($document->uploader) {
@@ -1365,12 +1466,12 @@ class CaseController extends Controller
                 $document->uploader,
                 'document_rejected',
                 'Document Rejected - Action Required',
-                "Your document '{$document->original_filename}' in case {$case->case_no} has been rejected.\n\nReason: {$validated['reason']}\n\nPlease review and re-upload a corrected version.",
+                "Your document '{$document->original_filename}' in case {$case->case_no} has been rejected.\n\nSummary: {$summary}\n\nPlease review the correction items, submit a corrected replacement, and wait for HU review.",
                 $case
             );
         }
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'correction_id' => $correction->id]);
     }
 
 
@@ -1379,23 +1480,41 @@ class CaseController extends Controller
 
     public function requestDocumentFix(Request $request, CaseModel $case, $documentId)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             abort(403);
         }
 
         $validated = $request->validate([
-            'reason' => 'required|string|max:500'
+            'reason' => 'nullable|string|max:500',
+            'reason_summary' => 'nullable|string|max:2000',
+            'correction_items' => 'nullable|array',
+            'correction_items.*.category' => 'nullable|in:missing_document,caption_issue,party_issue,service_issue,ose_issue,document_issue,filing_issue,other',
+            'correction_items.*.item_note' => 'nullable|string|max:2000',
+            'correction_items.*.required_action' => 'nullable|string|max:2000',
         ]);
 
         $document = $case->documents()->findOrFail($documentId);
+        $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
+        if (!$summary) {
+            return response()->json(['success' => false, 'error' => 'A correction summary is required.'], 422);
+        }
 
         // Update document with fix request
         $document->update([
             'approved' => false,
-            'rejected_reason' => 'Fix Required: ' . $validated['reason'],
+            'rejected_reason' => 'Fix Required: ' . $summary,
             'approved_by_user_id' => null,
             'approved_at' => null
         ]);
+
+        $correction = $this->createDocumentCorrection(
+            $case,
+            $document,
+            auth()->user(),
+            'fix_required',
+            $summary,
+            $validated['correction_items'] ?? []
+        );
 
         // Notify document uploader about fix request
         if ($document->uploader) {
@@ -1404,17 +1523,119 @@ class CaseController extends Controller
                 $document->uploader,
                 'document_fix_required',
                 'Document Fix Required - Action Needed',
-                "Your document '{$document->original_filename}' in case {$case->case_no} requires corrections.\n\nFix Required: {$validated['reason']}\n\nPlease make the necessary changes and re-upload the document.",
+                "Your document '{$document->original_filename}' in case {$case->case_no} requires corrections.\n\nSummary: {$summary}\n\nPlease make the necessary changes, submit a corrected replacement, and wait for HU review.",
                 $case
             );
         }
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'correction_id' => $correction->id]);
+    }
+
+    public function submitCorrectedDocument(Request $request, CaseModel $case, $documentId)
+    {
+        $user = Auth::user();
+
+        if ($user->isHearingUnit() || !$user->canUploadDocumentsToCase($case)) {
+            abort(403);
+        }
+
+        $document = $case->documents()->findOrFail($documentId);
+
+        if ((int) $document->uploaded_by_user_id !== (int) $user->id) {
+            abort(403, 'Only the original document submitter can submit a corrected replacement.');
+        }
+
+        $correction = $document->correctionCycles()
+            ->with('items')
+            ->whereIn('status', ['open', 'resubmitted'])
+            ->first();
+
+        if (!$correction) {
+            return back()->withErrors(['error' => 'There is no open document correction cycle for this filing.']);
+        }
+
+        $validated = $request->validate([
+            'custom_title' => 'required|string|max:255',
+            'document' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800',
+            'resolution_items' => 'required|array',
+            'resolution_items.*.resolution_note' => 'nullable|string|max:2000',
+        ]);
+
+        $resolutionErrors = [];
+        foreach ($correction->items as $item) {
+            $resolutionNote = trim((string) ($request->input("resolution_items.{$item->id}.resolution_note") ?? ''));
+            if ($resolutionNote === '') {
+                $resolutionErrors["resolution_items.{$item->id}.resolution_note"] = "Add a resolution note for correction item {$item->id}.";
+            }
+        }
+
+        if (!empty($resolutionErrors)) {
+            return back()->withInput()->withErrors($resolutionErrors);
+        }
+
+        $file = $request->file('document');
+        $documentType = \App\Models\DocumentType::where('code', $document->doc_type)->first();
+        $displayType = $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $document->doc_type));
+        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
+        $oldStorageUri = $document->storage_uri;
+
+        $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
+        $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+
+        $document->update([
+            'custom_title' => $validated['custom_title'],
+            'original_filename' => $originalFilename,
+            'stored_filename' => $storedFilename,
+            'mime' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'checksum' => md5_file($file->getRealPath()),
+            'storage_uri' => $path,
+            'uploaded_by_user_id' => $user->id,
+            'uploaded_at' => now(),
+            'pleading_type' => $document->pleading_type ?? 'none',
+            'approved' => false,
+            'stamped' => false,
+            'stamp_text' => null,
+            'stamped_at' => null,
+            'approved_by_user_id' => null,
+            'approved_at' => null,
+            'rejected_reason' => null,
+        ]);
+
+        if ($oldStorageUri && $oldStorageUri !== $path && Storage::disk('public')->exists($oldStorageUri)) {
+            Storage::disk('public')->delete($oldStorageUri);
+        }
+
+        foreach ($correction->items as $item) {
+            $item->update([
+                'resolution_note' => trim((string) $request->input("resolution_items.{$item->id}.resolution_note")),
+                'resolved_at' => now(),
+                'resolved_by_user_id' => $user->id,
+            ]);
+        }
+
+        $correction->update([
+            'status' => 'resubmitted',
+            'resubmitted_at' => now(),
+            'resubmitted_by_user_id' => $user->id,
+            'replacement_document_id' => $document->id,
+        ]);
+
+        AuditLog::log('submit_document_correction', $user, $case, [
+            'original_document_id' => $document->id,
+            'replacement_document_id' => $document->id,
+            'document_correction_id' => $correction->id,
+            'superseded_storage_uri' => $oldStorageUri,
+        ]);
+
+        return redirect()->route('cases.documents.manage', $case)->with('success', 'Corrected document submitted and is pending HU review.');
     }
 
     public function stampDocument(CaseModel $case, $documentId)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             abort(403);
         }
 
@@ -1447,6 +1668,132 @@ class CaseController extends Controller
             \Log::error('Document stamping failed: ' . $e->getMessage());
             return response()->json(['success' => false, 'error' => 'Failed to stamp document: ' . $e->getMessage()]);
         }
+    }
+
+    private function createDocumentCorrection(CaseModel $case, Document $document, User $user, string $type, string $summary, array $items): DocumentCorrection
+    {
+        $normalizedItems = collect($items)
+            ->map(function (array $item, int $index) {
+                return [
+                    'category' => $item['category'] ?? 'other',
+                    'item_note' => trim((string) ($item['item_note'] ?? '')),
+                    'required_action' => trim((string) ($item['required_action'] ?? '')),
+                    'sort_order' => $index,
+                ];
+            })
+            ->filter(fn (array $item) => $item['item_note'] !== '' || $item['required_action'] !== '')
+            ->values();
+
+        if ($normalizedItems->isEmpty()) {
+            $normalizedItems = collect([[
+                'category' => 'other',
+                'item_note' => $summary,
+                'required_action' => 'Review the correction summary, fix the document, and submit a corrected replacement for HU review.',
+                'sort_order' => 0,
+            ]]);
+        }
+
+        $document->correctionCycles()
+            ->whereIn('status', ['open', 'resubmitted'])
+            ->update(['status' => 'superseded']);
+
+        $correction = DocumentCorrection::create([
+            'case_id' => $case->id,
+            'original_document_id' => $document->id,
+            'requested_by_user_id' => $user->id,
+            'correction_type' => $type,
+            'summary' => $summary,
+            'status' => 'open',
+            'requested_at' => now(),
+        ]);
+
+        foreach ($normalizedItems as $item) {
+            $correction->items()->create($item);
+        }
+
+        AuditLog::log('document_correction_requested', $user, $case, [
+            'document_id' => $document->id,
+            'document_correction_id' => $correction->id,
+            'correction_type' => $type,
+            'items_count' => $correction->items()->count(),
+        ]);
+
+        return $correction->load('items');
+    }
+
+    private function syncOpenRejectionResolutions(CaseModel $case, array $resolutionInput, User $user, bool $requireResolved): array
+    {
+        $openRejection = $case->rejections()
+            ->where('status', 'open')
+            ->with('items')
+            ->first();
+
+        if (!$openRejection) {
+            return [];
+        }
+
+        $errors = [];
+
+        foreach ($openRejection->items as $item) {
+            $itemInput = $resolutionInput[$item->id] ?? [];
+            $resolutionNote = trim((string) ($itemInput['resolution_note'] ?? $item->resolution_note ?? ''));
+            $markResolved = $item->resolved_at !== null || isset($itemInput['mark_resolved']);
+
+            if ($markResolved && $resolutionNote === '') {
+                $errors["rejection_items.{$item->id}.resolution_note"] = "Add a resolution note for rejection item {$item->id}.";
+                continue;
+            }
+
+            if ($requireResolved && (!$markResolved || $resolutionNote === '')) {
+                $errors["rejection_items.{$item->id}.mark_resolved"] = "Resolve rejection item {$item->id} before resubmitting.";
+                continue;
+            }
+
+            $updates = [];
+
+            if ($resolutionNote !== '' && $resolutionNote !== (string) $item->resolution_note) {
+                $updates['resolution_note'] = $resolutionNote;
+            }
+
+            if ($markResolved && $resolutionNote !== '' && $item->resolved_at === null) {
+                $updates['resolved_at'] = now();
+                $updates['resolved_by_user_id'] = $user->id;
+            }
+
+            if (!empty($updates)) {
+                $item->update($updates);
+            }
+        }
+
+        return $errors;
+    }
+
+    private function markOpenRejectionResubmitted(CaseModel $case, User $user): void
+    {
+        $openRejection = $case->rejections()
+            ->where('status', 'open')
+            ->with('items')
+            ->first();
+
+        if (!$openRejection) {
+            return;
+        }
+
+        $metadata = $case->metadata ?? [];
+        unset($metadata['rejection_reason']);
+        $case->update(['metadata' => $metadata]);
+
+        $openRejection->update([
+            'status' => 'resubmitted',
+            'resubmitted_at' => now(),
+            'resubmitted_by_user_id' => $user->id,
+        ]);
+
+        AuditLog::log('resubmit_rejected_case', $user, $case, [
+            'rejection_id' => $openRejection->id,
+            'resolved_items' => $openRejection->items->whereNotNull('resolved_at')->count(),
+            'total_items' => $openRejection->items->count(),
+        ]);
     }
 
     public function updateDocumentTitle(Request $request, CaseModel $case, $documentId)
@@ -1498,7 +1845,7 @@ class CaseController extends Controller
 
         // Allow ALU clerks to delete documents from draft/rejected cases
         if (!((auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])) ||
-              auth()->user()->role === 'admin' ||
+              auth()->user()->getCurrentRole() === 'admin' ||
               $document->uploaded_by_user_id === auth()->id())) {
             abort(403);
         }
@@ -1515,7 +1862,7 @@ class CaseController extends Controller
 
     public function close(Request $request, CaseModel $case)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'hu_clerk'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk'])) {
             abort(403);
         }
 
@@ -1541,7 +1888,7 @@ class CaseController extends Controller
 
     public function archive(CaseModel $case)
     {
-        if (!in_array(auth()->user()->role, ['hu_admin', 'admin'])) {
+        if (!in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'admin'])) {
             abort(403);
         }
 
@@ -1554,7 +1901,7 @@ class CaseController extends Controller
 
     public function reopen(Request $request, CaseModel $case)
     {
-        if (auth()->user()->role !== 'hu_admin') {
+        if (auth()->user()->getCurrentRole() !== 'hu_admin') {
             abort(403, 'Only HU Admin can reopen cases.');
         }
 

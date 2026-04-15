@@ -54,8 +54,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                     <span class="text-gray-500">Role:</span>
-                    <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                        {{ ucwords(str_replace('_', ' ', $user->role)) }}
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        {{ ucwords(str_replace('_', ' ', $user->getCurrentRole())) }}
                     </span>
                 </div>
                 <div>

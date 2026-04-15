@@ -29,7 +29,7 @@ return new class extends Migration
             ['name' => 'wrap_dir', 'display_name' => 'WRAP Director', 'group' => 'wrd', 'is_active' => true],
             ['name' => 'hydrology_expert', 'display_name' => 'Hydrology Expert', 'group' => 'wrd', 'is_active' => true],
             ['name' => 'party', 'display_name' => 'Party', 'group' => 'party', 'is_active' => true],
-            ['name' => 'unaffiliated', 'display_name' => 'Unaffiliated', 'group' => 'party', 'is_active' => true],
+            ['name' => 'interested_party', 'display_name' => 'Interested Party', 'group' => 'party', 'is_active' => true],
         ]);
     }
 

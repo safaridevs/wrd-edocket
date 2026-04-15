@@ -3,6 +3,62 @@
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">Case {{ $case->case_no }}</h2>
     </x-slot>
 
+    @php
+        $openRejection = $case->rejections->firstWhere('status', 'open');
+        $rejectionHistory = $case->rejections;
+        $rejectionCategoryLabels = [
+            'missing_document' => 'Missing Document',
+            'caption_issue' => 'Caption Issue',
+            'party_issue' => 'Party Issue',
+            'service_issue' => 'Service Issue',
+            'ose_issue' => 'OSE Issue',
+            'document_issue' => 'Document Issue',
+            'filing_issue' => 'Filing Issue',
+            'other' => 'Other',
+        ];
+        $documentCorrectionCategoryLabels = [
+            'missing_document' => 'Missing Document',
+            'caption_issue' => 'Caption Issue',
+            'party_issue' => 'Party Issue',
+            'service_issue' => 'Service Issue',
+            'ose_issue' => 'OSE Issue',
+            'document_issue' => 'Document Issue',
+            'filing_issue' => 'Filing Issue',
+            'other' => 'Other',
+        ];
+        $showDocumentCorrectionMap = $case->documents->mapWithKeys(function ($document) {
+            $latestCorrection = $document->correctionCycles->firstWhere('status', 'open')
+                ?? $document->correctionCycles->firstWhere('status', 'resubmitted');
+
+            return [
+                $document->id => $latestCorrection ? [
+                    'id' => $latestCorrection->id,
+                    'status' => $latestCorrection->status,
+                    'summary' => $latestCorrection->summary,
+                    'correction_type' => $latestCorrection->correction_type,
+                    'items' => $latestCorrection->items->map(fn ($item) => [
+                        'id' => $item->id,
+                        'category' => $item->category,
+                        'item_note' => $item->item_note,
+                        'required_action' => $item->required_action,
+                        'resolution_note' => $item->resolution_note,
+                    ])->values()->all(),
+                ] : null,
+            ];
+        });
+        $showDocumentMetaMap = $case->documents->mapWithKeys(fn ($document) => [
+            $document->id => [
+                'id' => $document->id,
+                'doc_type' => $document->doc_type,
+                'doc_type_label' => $document->doc_type_label,
+                'pleading_type' => $document->pleading_type,
+                'custom_title' => $document->custom_title,
+                'original_filename' => $document->original_filename,
+                'uploaded_by_user_id' => $document->uploaded_by_user_id,
+            ],
+        ]);
+    @endphp
+
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
@@ -56,7 +112,7 @@
                         </div>
                     </div>
                     <div>
-                        <strong>WRD Office:</strong>
+                        <strong>Adjudication Litigation Unit Office:</strong>
                         <div class="text-sm mt-1">
                             @if($case->wrd_office_label)
                                 <div>{{ $case->wrd_office_label }}</div>
@@ -142,7 +198,50 @@
                     <p class="mt-1 text-sm">{{ $case->caption }}</p>
                 </div>
 
-                @if($case->status === 'rejected' && isset($case->metadata['rejection_reason']))
+                @if($openRejection)
+                <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                            <h4 class="font-medium text-red-800 mb-1">Case Rejected by HU</h4>
+                            <p class="text-sm text-red-700">{{ $openRejection->reason_summary }}</p>
+                            <p class="text-xs text-red-600 mt-2">
+                                Rejected {{ $openRejection->rejected_at?->format('M j, Y g:i A') }}
+                                @if($openRejection->rejectedBy)
+                                    by {{ $openRejection->rejectedBy->getDisplayName() }}
+                                @endif
+                            </p>
+                        </div>
+                        <div class="text-xs text-red-700 font-medium">
+                            {{ $openRejection->openItems->count() }} open correction {{ $openRejection->openItems->count() === 1 ? 'item' : 'items' }}
+                        </div>
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        @foreach($openRejection->items as $item)
+                            <div class="bg-white border border-red-200 rounded-md p-3">
+                                <div class="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <div class="text-xs font-semibold uppercase tracking-wide text-red-700">
+                                            {{ $rejectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 mt-1">{{ $item->item_note }}</div>
+                                        @if($item->required_action)
+                                            <div class="text-sm text-gray-700 mt-2">
+                                                <strong>Required Action:</strong> {{ $item->required_action }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $item->resolved_at ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                        {{ $item->resolved_at ? 'Resolved for Resubmission' : 'Open' }}
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <p class="text-xs text-red-600 mt-3">Open each correction item on the edit screen, document the fix, and resubmit only after every item is resolved.</p>
+                </div>
+                @elseif($case->status === 'rejected' && isset($case->metadata['rejection_reason']))
                 <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
                     <h4 class="font-medium text-red-800 mb-2">❌ Case Rejected by HU</h4>
                     <p class="text-sm text-red-700">{{ $case->metadata['rejection_reason'] }}</p>
@@ -163,6 +262,104 @@
                 </div>
                 @endif
             </div>
+
+            @if($rejectionHistory->count() > 0)
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium">Rejection History</h3>
+                    <span class="text-sm text-gray-500">{{ $rejectionHistory->count() }} cycle{{ $rejectionHistory->count() === 1 ? '' : 's' }}</span>
+                </div>
+                <div class="space-y-4">
+                    @foreach($rejectionHistory as $rejection)
+                        <div class="border rounded-lg p-4 {{ $rejection->status === 'open' ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50' }}">
+                            <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                    <div class="font-medium text-gray-900">{{ $rejection->reason_summary }}</div>
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        Rejected {{ $rejection->rejected_at?->format('M j, Y g:i A') }}
+                                        @if($rejection->rejectedBy)
+                                            by {{ $rejection->rejectedBy->getDisplayName() }}
+                                        @endif
+                                        @if($rejection->resubmitted_at)
+                                            • Resubmitted {{ $rejection->resubmitted_at->format('M j, Y g:i A') }}
+                                            @if($rejection->resubmittedBy)
+                                                by {{ $rejection->resubmittedBy->getDisplayName() }}
+                                            @endif
+                                        @endif
+                                    </div>
+                                </div>
+                                <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $rejection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
+                                    {{ $rejection->status === 'open' ? 'Open Correction Cycle' : 'Resubmitted' }}
+                                </span>
+                            </div>
+                            <div class="mt-3 space-y-2">
+                                @foreach($rejection->items as $item)
+                                    <div class="bg-white rounded border border-gray-200 px-3 py-2">
+                                        <div class="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
+                                            <div>
+                                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                                    {{ $rejectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                                </div>
+                                                <div class="text-sm text-gray-900 mt-1">{{ $item->item_note }}</div>
+                                                @if($item->required_action)
+                                                    <div class="text-xs text-gray-700 mt-1"><strong>Required:</strong> {{ $item->required_action }}</div>
+                                                @endif
+                                                @if($item->resolution_note)
+                                                    <div class="text-xs text-green-700 mt-2"><strong>Resolution:</strong> {{ $item->resolution_note }}</div>
+                                                @endif
+                                            </div>
+                                            <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $item->resolved_at ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                                {{ $item->resolved_at ? 'Resolved' : 'Open' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @if($latestDocCorrection)
+                            <div class="mt-3 rounded-lg border {{ $latestDocCorrection->status === 'open' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50' }} p-3">
+                                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <div class="text-sm font-semibold {{ $latestDocCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
+                                            {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                        </div>
+                                        <div class="text-sm mt-1 {{ $latestDocCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">{{ $latestDocCorrection->summary }}</div>
+                                        <div class="text-xs mt-1 text-gray-600">
+                                            Requested {{ $latestDocCorrection->requested_at?->format('M j, Y g:i A') }}
+                                            @if($latestDocCorrection->requestedBy)
+                                                by {{ $latestDocCorrection->requestedBy->getDisplayName() }}
+                                            @endif
+                                            @if($latestDocCorrection->resubmitted_at)
+                                                • Corrected submission received {{ $latestDocCorrection->resubmitted_at->format('M j, Y g:i A') }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestDocCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
+                                        {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                    </span>
+                                </div>
+                                <div class="mt-3 space-y-2">
+                                    @foreach($latestDocCorrection->items as $item)
+                                    <div class="rounded border border-white bg-white/70 px-3 py-2">
+                                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                            {{ $documentCorrectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 mt-1">{{ $item->item_note }}</div>
+                                        @if($item->required_action)
+                                        <div class="text-xs text-gray-700 mt-1"><strong>Required:</strong> {{ $item->required_action }}</div>
+                                        @endif
+                                        @if($item->resolution_note)
+                                        <div class="text-xs text-green-700 mt-2"><strong>Resolution:</strong> {{ $item->resolution_note }}</div>
+                                        @endif
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
 
             <!-- Parties & Service List -->
             <div class="bg-white shadow rounded-lg p-6">
@@ -529,20 +726,20 @@
                         <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Documents' : 'Manage Documents' }}</a>
                         @endif
                         @if(!in_array($case->status, ['closed', 'archived']))
-                            @if((in_array($case->status, ['draft', 'rejected']) && auth()->user()->canCreateCase()) || auth()->user()->isHearingUnit() || ($case->status === 'active' && auth()->user()->canUploadDocuments() && auth()->user()->canAccessCase($case)))
+                            @if(auth()->user()->canUploadDocumentsToCase($case))
                             <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">{{ auth()->user()->isHearingUnit() ? '+ Issue Order or Notice' : 'File Documents' }}</button>
                             @endif
                         @endif
-                        @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                        @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
                         <button onclick="showAcceptanceModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
                         <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
                         @endif
 
-                        @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+                        @if($case->status === 'active' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
                         <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
                         @elseif($case->status === 'closed')
                         <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
-                        @if(auth()->user()->role === 'hu_admin')
+                        @if(auth()->user()->getCurrentRole() === 'hu_admin')
                         <button onclick="showReopenModal()" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Reopen Case</button>
                         @endif
                         @elseif($case->status === 'archived')
@@ -580,6 +777,10 @@
 
                 <div id="documentsContainer" class="space-y-2">
                     @foreach($case->documents->sortByDesc('uploaded_at') as $doc)
+                    @php
+                        $latestDocCorrection = $doc->correctionCycles->firstWhere('status', 'open')
+                            ?? $doc->correctionCycles->firstWhere('status', 'resubmitted');
+                    @endphp
                     <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
                          data-doc-type="{{ $doc->doc_type }}"
                          data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : 'pending')) }}"
@@ -631,8 +832,72 @@
                                 </svg>
                             </button>
                             @endif
+                            @if($latestDocCorrection && in_array($latestDocCorrection->status, ['open', 'resubmitted']) && !auth()->user()->isHearingUnit() && (int) $doc->uploaded_by_user_id === (int) auth()->id())
+                            <button onclick="showCaseCorrectedUploadModal({{ $doc->id }})" class="text-indigo-600 hover:text-indigo-800 text-sm" title="Submit Corrected Document">
+                                Submit Corrected Document
+                            </button>
+                            @endif
                         </div>
                     </div>
+                    @if($doc->rejected_reason || $latestDocCorrection)
+                    <div class="mt-2 mb-4 space-y-2">
+                        @if($doc->rejected_reason)
+                        <div class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+                            <strong>Rejection Reason:</strong> {{ $doc->rejected_reason }}
+                        </div>
+                        @endif
+
+                        @if($latestDocCorrection)
+                        <div class="rounded-lg border {{ $latestDocCorrection->status === 'open' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50' }} p-3">
+                            <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                <div>
+                                    <div class="text-sm font-semibold {{ $latestDocCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
+                                        {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                    </div>
+                                    <div class="mt-1 text-sm {{ $latestDocCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">
+                                        {{ $latestDocCorrection->summary }}
+                                    </div>
+                                    <div class="mt-1 text-xs text-gray-600">
+                                        Requested {{ $latestDocCorrection->requested_at?->format('M j, Y g:i A') }}
+                                        @if($latestDocCorrection->requestedBy)
+                                            by {{ $latestDocCorrection->requestedBy->getDisplayName() }}
+                                        @endif
+                                        @if($latestDocCorrection->resubmitted_at)
+                                            â€¢ Corrected submission received {{ $latestDocCorrection->resubmitted_at->format('M j, Y g:i A') }}
+                                        @endif
+                                    </div>
+                                </div>
+                                <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestDocCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
+                                    {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                </span>
+                            </div>
+
+                            <div class="mt-3 space-y-2">
+                                @foreach($latestDocCorrection->items as $item)
+                                <div class="rounded border border-white bg-white/70 px-3 py-2">
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                                        {{ $documentCorrectionCategoryLabels[$item->category] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $item->category)) }}
+                                    </div>
+                                    <div class="mt-1 text-sm text-gray-900">{{ $item->item_note }}</div>
+                                    @if($item->required_action)
+                                        <div class="mt-1 text-xs text-gray-700"><strong>Required:</strong> {{ $item->required_action }}</div>
+                                    @endif
+                                    @if($item->resolution_note)
+                                        <div class="mt-2 text-xs text-green-700"><strong>Resolution:</strong> {{ $item->resolution_note }}</div>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </div>
+
+                            @if($latestDocCorrection->replacementDocument)
+                            <div class="mt-3 text-xs text-gray-700">
+                                <strong>Corrected Filing:</strong> {{ $latestDocCorrection->replacementDocument->original_filename }}
+                            </div>
+                            @endif
+                        </div>
+                        @endif
+                    </div>
+                    @endif
                     @endforeach
                 </div>
 
@@ -685,6 +950,40 @@
     </div>
 
 
+    <div id="caseCorrectedUploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-3xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-2">Submit Corrected Document</h3>
+                    <p id="caseCorrectedUploadSummary" class="text-sm text-gray-600 mb-4"></p>
+                    <form id="caseCorrectedUploadForm" method="POST" enctype="multipart/form-data">
+                        @csrf
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <p id="caseCorrectedUploadDocType" class="text-sm text-blue-900 font-medium"></p>
+                                <p id="caseCorrectedUploadOriginalFile" class="text-xs text-blue-700 mt-1"></p>
+                            </div>
+                            <div id="case-corrected-upload-items" class="space-y-3"></div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
+                                <input type="text" name="custom_title" id="caseCorrectedCustomTitle" maxlength="255" required class="block w-full border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Corrected File *</label>
+                                <input type="file" name="document" id="caseCorrectedDocumentFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="block w-full border-gray-300 rounded-md">
+                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for HU review.</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-end space-x-3 mt-6">
+                            <button type="button" onclick="hideCaseCorrectedUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Submit Corrected Document</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Attorney Management Modal -->
     <div id="attorneyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -700,6 +999,9 @@
     </div>
 
     <script>
+        const caseShowDocumentCorrectionMap = @json($showDocumentCorrectionMap);
+        const caseShowDocumentMetaMap = @json($showDocumentMetaMap);
+        const caseShowCorrectionCategoryLabels = @json($documentCorrectionCategoryLabels);
         // Party details toggle
         function togglePartyDetails(index) {
             const details = document.getElementById(`party-details-${index}`);
@@ -741,6 +1043,46 @@
                 paginateDocuments();
             }
         });
+
+        function showCaseCorrectedUploadModal(documentId) {
+            const correction = caseShowDocumentCorrectionMap[documentId];
+            const documentMeta = caseShowDocumentMetaMap[documentId];
+            if (!correction || !documentMeta) {
+                alert('No open document correction cycle is available for this filing.');
+                return;
+            }
+
+            document.getElementById('caseCorrectedUploadSummary').textContent = correction.summary;
+            document.getElementById('caseCorrectedUploadDocType').textContent = `Document Type: ${documentMeta.doc_type_label}`;
+            document.getElementById('caseCorrectedUploadOriginalFile').textContent = `Original Filing: ${documentMeta.original_filename}`;
+            document.getElementById('caseCorrectedCustomTitle').value = documentMeta.custom_title || '';
+            document.getElementById('caseCorrectedDocumentFile').value = '';
+            document.getElementById('caseCorrectedUploadForm').action = `/cases/{{ $case->id }}/documents/${documentId}/submit-correction`;
+
+            const itemsContainer = document.getElementById('case-corrected-upload-items');
+            itemsContainer.innerHTML = '';
+            correction.items.forEach((item) => {
+                itemsContainer.insertAdjacentHTML('beforeend', `
+                    <div class="border rounded-md p-3 bg-gray-50">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                            ${caseShowCorrectionCategoryLabels[item.category] || item.category}
+                        </div>
+                        <div class="text-sm text-gray-900 mt-1">${item.item_note}</div>
+                        ${item.required_action ? `<div class="text-xs text-gray-700 mt-1"><strong>Required:</strong> ${item.required_action}</div>` : ''}
+                        <div class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Resolution Note *</label>
+                            <textarea name="resolution_items[${item.id}][resolution_note]" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Explain exactly how you corrected this issue.">${item.resolution_note ?? ''}</textarea>
+                        </div>
+                    </div>
+                `);
+            });
+
+            document.getElementById('caseCorrectedUploadModal').classList.remove('hidden');
+        }
+
+        function hideCaseCorrectedUploadModal() {
+            document.getElementById('caseCorrectedUploadModal').classList.add('hidden');
+        }
 
         function filterAndPaginate() {
             const typeFilter = document.getElementById('docTypeFilter').value;
@@ -848,6 +1190,47 @@
 
         function hideRejectModal() {
             document.getElementById('rejectModal').classList.add('hidden');
+        }
+
+        function addRejectionItem() {
+            const container = document.getElementById('rejection-items');
+            if (!container) {
+                return;
+            }
+
+            const index = container.querySelectorAll('.rejection-item').length;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'border rounded-md p-3 bg-gray-50 rejection-item';
+            wrapper.innerHTML = `
+                <div class="flex justify-end mb-2">
+                    <button type="button" class="text-xs text-red-600 hover:text-red-800" onclick="this.closest('.rejection-item').remove()">Remove</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                        <select name="rejection_items[${index}][category]" class="block w-full border-gray-300 rounded-md text-sm">
+                            <option value="missing_document">Missing Document</option>
+                            <option value="caption_issue">Caption Issue</option>
+                            <option value="party_issue">Party Issue</option>
+                            <option value="service_issue">Service Issue</option>
+                            <option value="ose_issue">OSE Issue</option>
+                            <option value="document_issue">Document Issue</option>
+                            <option value="filing_issue">Filing Issue</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Required Action</label>
+                        <input type="text" name="rejection_items[${index}][required_action]" class="block w-full border-gray-300 rounded-md text-sm" placeholder="What must be corrected?">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Issue Detail</label>
+                    <textarea name="rejection_items[${index}][item_note]" rows="3" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Describe the specific problem that must be fixed."></textarea>
+                </div>
+            `;
+
+            container.appendChild(wrapper);
         }
 
         function showCloseModal() {
@@ -1063,7 +1446,7 @@
     </script>
 
     <!-- Acceptance Notice Modal -->
-    @if(in_array($case->status, ['submitted_to_hu', 'active']) && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+    @if(in_array($case->status, ['submitted_to_hu', 'active']) && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
     <div id="acceptanceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -1109,7 +1492,7 @@
     <!-- Reject Case Modal -->
     <div id="rejectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
+            <div class="bg-white rounded-lg shadow-lg max-w-3xl w-full">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Reject Case {{ $case->case_no }}</h3>
                     <p class="text-sm text-gray-600 mb-4">The following persons will be notified to make corrections:</p>
@@ -1129,9 +1512,43 @@
                     <form action="{{ route('cases.reject', $case) }}" method="POST">
                         @csrf
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Rejection *</label>
-                            <textarea name="reason" required rows="4" class="block w-full border-gray-300 rounded-md" placeholder="Please provide specific details about what needs to be corrected for resubmission..."></textarea>
-                            <p class="text-xs text-gray-500 mt-1">This reason will be sent to ALU staff for corrections.</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Correction Summary *</label>
+                            <textarea name="reason_summary" required rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Summarize why the case is being rejected and what must be fixed before resubmission."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">This summary becomes the headline for the correction cycle.</p>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">Correction Items</label>
+                                <button type="button" onclick="addRejectionItem()" class="text-sm text-blue-600 hover:text-blue-800">+ Add Item</button>
+                            </div>
+                            <div id="rejection-items" class="space-y-3">
+                                <div class="border rounded-md p-3 bg-gray-50 rejection-item">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Category</label>
+                                            <select name="rejection_items[0][category]" class="block w-full border-gray-300 rounded-md text-sm">
+                                                <option value="missing_document">Missing Document</option>
+                                                <option value="caption_issue">Caption Issue</option>
+                                                <option value="party_issue">Party Issue</option>
+                                                <option value="service_issue">Service Issue</option>
+                                                <option value="ose_issue">OSE Issue</option>
+                                                <option value="document_issue">Document Issue</option>
+                                                <option value="filing_issue">Filing Issue</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Required Action</label>
+                                            <input type="text" name="rejection_items[0][required_action]" class="block w-full border-gray-300 rounded-md text-sm" placeholder="What must be corrected?">
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <label class="block text-xs font-medium text-gray-600 mb-1">Issue Detail</label>
+                                        <textarea name="rejection_items[0][item_note]" rows="3" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Describe the specific problem that must be fixed."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">List each correction separately so ALU can document exactly how it was fixed before resubmission.</p>
                         </div>
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideRejectModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
@@ -1145,7 +1562,7 @@
     @endif
 
     <!-- Close Case Modal -->
-    @if($case->status === 'active' && in_array(auth()->user()->role, ['hu_admin', 'hu_clerk']))
+    @if($case->status === 'active' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
     <div id="closeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -1188,7 +1605,7 @@
     @endif
 
     <!-- Reopen Case Modal -->
-    @if($case->status === 'closed' && auth()->user()->role === 'hu_admin')
+    @if($case->status === 'closed' && auth()->user()->getCurrentRole() === 'hu_admin')
     <div id="reopenModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
@@ -1316,7 +1733,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
@@ -1326,7 +1743,7 @@
                                     <option value="">Select document type...</option>
                                     @php
                                         $documentTypes = \App\Models\DocumentType::where('is_active', true)
-                                            ->when(auth()->user()->role === 'party', function($query) {
+                                            ->when(auth()->user()->getCurrentRole() === 'party', function($query) {
                                                 return $query->where('category', 'party_upload');
                                             })
                                             ->orderBy('name')
@@ -1339,12 +1756,13 @@
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Custom Title *</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
                                 <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
                                        required
                                        class="block w-full border-gray-300 rounded-md"
                                        placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
                                        oninput="updateFilenamePreview()">
+                                <p class="mt-1 text-sm text-amber-700">The title must be the exact same as what is listed as the document title.</p>
                             </div>
 
                             <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
@@ -1375,7 +1793,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->role === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
+                                {{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
                             </button>
                         </div>
                     </form>

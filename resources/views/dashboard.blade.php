@@ -12,7 +12,7 @@
                             @elseif(auth()->user()->isParalegal())
                                 Paralegal
                             @else
-                                {{ ucfirst(str_replace('_', ' ', auth()->user()->role)) }}
+                                {{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}
                             @endif
                             • {{ now()->format('l, F j, Y') }}
                         </p>
@@ -54,7 +54,7 @@
                                         'alu_clerk' => ['alu_clerk'],
                                     ];
 
-                                    if (auth()->user()->role === 'party') {
+                                    if (auth()->user()->getCurrentRole() === 'party') {
                                         if (auth()->user()->isParalegal()) {
                                             $myCases = \App\Models\CaseModel::where(function($caseQuery) {
                                                 $caseQuery->whereHas('parties', function($query) {
@@ -175,7 +175,7 @@
                                     'alu_clerk' => ['alu_clerk'],
                                 ];
 
-                                if (auth()->user()->role === 'party') {
+                                if (auth()->user()->getCurrentRole() === 'party') {
                                     if (auth()->user()->isParalegal()) {
                                         $recentCases = \App\Models\CaseModel::where(function($caseQuery) {
                                             $caseQuery->whereHas('parties', function($query) {
@@ -312,7 +312,7 @@
                 <!-- Quick Actions & Info -->
                 <div class="space-y-6">
                     <!-- My Role -->
-                    @if(auth()->user()->role === 'party')
+                    @if(auth()->user()->getCurrentRole() === 'party')
                         @if(auth()->user()->isParalegal())
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                             <div class="p-6 border-b border-gray-200">
@@ -468,7 +468,7 @@
                             </a>
                             @endif
 
-                            @if(auth()->user()->role === 'party')
+                            @if(auth()->user()->getCurrentRole() === 'party')
                             <div class="pt-3 border-t border-gray-200">
                                 <p class="text-sm text-gray-600 mb-3">Need help with your case?</p>
                                 <a href="mailto:support@ose.nm.gov" class="w-full bg-green-100 hover:bg-green-200 text-green-700 font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2">

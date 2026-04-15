@@ -9,23 +9,28 @@ class UserController extends Controller
 {
     public function getUsersWithRoles()
     {
-        return User::select('id', 'name', 'email', 'role', 'initials')
-            ->orderBy('role')
+        return User::with('roleRelation')
+            ->select('id', 'name', 'email', 'role', 'role_id', 'initials')
             ->orderBy('name')
             ->get()
+            ->map(function ($user) {
+                $user->role = $user->getCurrentRole();
+                return $user;
+            })
             ->groupBy('role');
     }
 
     public function getUsersByRole(string $role)
     {
-        return User::where('role', $role)
-            ->select('id', 'name', 'email', 'role', 'initials')
+        return User::whereCurrentRole($role)
+            ->select('id', 'name', 'email', 'role', 'role_id', 'initials')
+            ->with('roleRelation')
             ->get();
     }
 
     public function getLoginCapableUsers()
     {
-        return User::select('id', 'name', 'email', 'role', 'initials')
+        return User::with('roleRelation')->select('id', 'name', 'email', 'role', 'role_id', 'initials')
             ->whereNotNull('email')
             ->whereNotNull('password')
             ->get()
@@ -34,7 +39,7 @@ class UserController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role,
+                    'role' => $user->getCurrentRole(),
                     'initials' => $user->initials,
                     'permissions' => $user->getPermissions()
                 ];

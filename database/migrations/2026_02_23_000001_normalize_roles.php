@@ -18,7 +18,7 @@ return new class extends Migration
             'wrap_dir' => ['display_name' => 'WRAP Director', 'group' => 'wrd'],
             'hydrology_expert' => ['display_name' => 'Hydrology Expert', 'group' => 'wrd'],
             'party' => ['display_name' => 'Party', 'group' => 'party'],
-            'unaffiliated' => ['display_name' => 'Unaffiliated', 'group' => 'party'],
+            'interested_party' => ['display_name' => 'Interested Party', 'group' => 'party'],
         ];
 
         $aliases = [
@@ -30,6 +30,7 @@ return new class extends Migration
             'hu_law_clerk' => 'hu_clerk',
             'hu_examiner' => 'hu_clerk',
             'system_admin' => 'admin',
+            'unaffiliated' => 'interested_party',
         ];
 
         foreach ($aliases as $alias => $canonicalName) {
