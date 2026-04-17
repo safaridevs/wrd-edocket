@@ -227,6 +227,8 @@ class CaseController extends Controller
             'assignments.user',
             'documents.uploader',
             'parties.person',
+            'parties.attorneys.person',
+            'parties.agents.person',
             'serviceList.person',
             'oseFileNumbers',
             'auditLogs.user',

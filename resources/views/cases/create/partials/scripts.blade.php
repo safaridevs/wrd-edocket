@@ -2,9 +2,32 @@
 
 
     <script>
-        let oseCount = 1, partyCount = 1, optionalDocCount = 1;
+        let oseCount = 1, partyCount = 1;
         let currentWizardStep = 0;
         let caseCreateForm = null;
+        let stagedDocumentCounter = 0;
+        const createDocumentTypeOptions = {
+            application: [
+                { value: 'application', label: 'Application' },
+            ],
+            compliance: [
+                { value: 'compliance_order', label: 'Compliance Order' },
+                { value: 'pre_compliance_letter', label: 'Pre-Compliance Letter' },
+                { value: 'compliance_letter', label: 'Compliance Letter' },
+                { value: 'notice_of_violation', label: 'Notice of Violation' },
+                { value: 'notice_of_reprimand', label: 'Notice of Reprimand (Well Driller)' },
+            ],
+            pleading: [
+                @foreach($pleadingDocs as $docType)
+                { value: '{{ $docType->code }}', label: @json($docType->name) },
+                @endforeach
+            ],
+            optional: [
+                @foreach($optionalDocs as $docType)
+                { value: '{{ $docType->code }}', label: @json(\Illuminate\Support\Str::title($docType->name)) },
+                @endforeach
+            ],
+        };
         const stateOptionsHtml = `@foreach([
             'AL' => 'Alabama',
             'AK' => 'Alaska',
@@ -107,54 +130,268 @@
             const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
             const applicationSection = document.getElementById('application-section');
             const complianceDocs = document.getElementById('compliance-documents');
-            const applicationInput = document.querySelector('input[name="documents[application][]"]');
 
             if (selectedCaseType === 'compliance') {
-                // Hide application section for compliance cases
                 applicationSection.style.display = 'none';
                 complianceDocs.style.display = 'block';
-
-                // Disable application input
-                if (applicationInput) {
-                    applicationInput.required = false;
-                    applicationInput.disabled = true;
-                }
+                setDocumentGroupEnabled('application', false);
+                setDocumentGroupEnabled('compliance', true);
             } else {
-                // Show application section for aggrieved/protested cases
                 applicationSection.style.display = 'block';
                 complianceDocs.style.display = 'none';
-
-                // Enable application input
-                if (applicationInput) {
-                    applicationInput.required = true;
-                    applicationInput.disabled = false;
-                }
-
-                // Disable compliance document inputs
-                complianceDocs.querySelectorAll('input[type="file"]').forEach(input => {
-                    input.required = false;
-                    input.disabled = true;
-                });
+                setDocumentGroupEnabled('application', true);
+                setDocumentGroupEnabled('compliance', false);
             }
         }
 
-        function updateComplianceDocLabel() {
-            const selectedType = document.querySelector('input[name="compliance_doc_type"]:checked');
-            const fileLabel = document.getElementById('compliance-file-label');
-            const fileInput = document.getElementById('compliance-file-input');
+        function setDocumentGroupEnabled(group, enabled) {
+            document.querySelectorAll(`[data-doc-group="${group}"] input`).forEach((input) => {
+                input.disabled = !enabled;
+            });
+        }
 
-            if (selectedType) {
-                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
-                fileLabel.textContent = `${typeText} Document (PDF) *`;
-                fileInput.disabled = false;
-                fileInput.required = true;
-                fileInput.style.opacity = '1';
-            } else {
-                fileLabel.textContent = 'Select Document Type First';
-                fileInput.disabled = true;
-                fileInput.required = false;
-                fileInput.style.opacity = '0.5';
+        function showCreateDocumentModal(group) {
+            const modal = document.getElementById('createDocumentModal');
+            const groupInput = document.getElementById('createDocumentModalGroup');
+            const summary = document.getElementById('createDocumentModalSummary');
+            const select = document.getElementById('createDocumentType');
+            const titleInput = document.getElementById('createDocumentTitle');
+            const filesInput = document.getElementById('createDocumentFiles');
+            const options = createDocumentTypeOptions[group] || [];
+
+            if (!modal || !groupInput || !summary || !select || !titleInput || !filesInput) {
+                return;
             }
+
+            groupInput.value = group;
+            summary.textContent = getCreateDocumentModalSummary(group);
+            select.innerHTML = '<option value="">Select document type...</option>' + options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
+            if (options.length === 1) {
+                select.value = options[0].value;
+            }
+            titleInput.value = '';
+            filesInput.value = '';
+            syncCreateDocumentTitle();
+            modal.classList.remove('hidden');
+        }
+
+        function hideCreateDocumentModal() {
+            const modal = document.getElementById('createDocumentModal');
+            const groupInput = document.getElementById('createDocumentModalGroup');
+            const select = document.getElementById('createDocumentType');
+            const titleInput = document.getElementById('createDocumentTitle');
+            const filesInput = document.getElementById('createDocumentFiles');
+
+            modal?.classList.add('hidden');
+            if (groupInput) groupInput.value = '';
+            if (select) select.innerHTML = '';
+            if (titleInput) titleInput.value = '';
+            if (filesInput) filesInput.value = '';
+        }
+
+        function getCreateDocumentModalSummary(group) {
+            if (group === 'application') {
+                return 'Stage the application filing package for this intake.';
+            }
+            if (group === 'compliance') {
+                return 'Choose the compliance filing type and upload the compliance package.';
+            }
+            if (group === 'pleading') {
+                return 'Choose the pleading type and upload the pleading package.';
+            }
+
+            return 'Choose the supporting document type and upload the files for this package.';
+        }
+
+        function syncCreateDocumentTitle() {
+            const select = document.getElementById('createDocumentType');
+            const titleInput = document.getElementById('createDocumentTitle');
+            const selectedLabel = select?.options[select.selectedIndex]?.text || '';
+
+            if (titleInput && selectedLabel) {
+                titleInput.value = selectedLabel;
+            }
+        }
+
+        function validateFiles(input) {
+            const files = Array.from(input?.files || []);
+            const maxSize = 200 * 1024 * 1024;
+
+            for (const file of files) {
+                if (file.size > maxSize) {
+                    alert(`File "${file.name}" is too large. Each file must be less than 200MB.`);
+                    input.value = '';
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function stageCreateDocument() {
+            const group = document.getElementById('createDocumentModalGroup')?.value;
+            const select = document.getElementById('createDocumentType');
+            const titleInput = document.getElementById('createDocumentTitle');
+            const filesInput = document.getElementById('createDocumentFiles');
+            const selectedOption = select?.options[select.selectedIndex];
+
+            if (!group || !select || !titleInput || !filesInput || !selectedOption || !select.value) {
+                alert('Select a document type before filing this package.');
+                return;
+            }
+
+            const expectedTitle = selectedOption.text.trim();
+            const enteredTitle = titleInput.value.trim();
+            const files = Array.from(filesInput.files || []);
+
+            if (enteredTitle !== expectedTitle) {
+                alert(`The document title must exactly match "${expectedTitle}".`);
+                titleInput.focus();
+                return;
+            }
+
+            if (!files.length) {
+                alert('Choose at least one file before filing this document package.');
+                filesInput.focus();
+                return;
+            }
+
+            if (!validateFiles(filesInput) || !filesInput.files.length) {
+                return;
+            }
+
+            if (group !== 'optional') {
+                removeStagedDocumentByGroup(group);
+            }
+
+            const entryId = `staged-doc-${++stagedDocumentCounter}`;
+            const hiddenWrapper = buildCreateDocumentHiddenInputs(entryId, group, select.value, enteredTitle, Array.from(filesInput.files));
+            const visibleCard = buildCreateDocumentCard(entryId, group, select.value, expectedTitle, Array.from(filesInput.files));
+
+            document.getElementById('document-hidden-inputs')?.appendChild(hiddenWrapper);
+            const targetList = document.getElementById(`${group}-documents-list`);
+            if (group === 'optional') {
+                targetList?.insertAdjacentHTML('beforeend', visibleCard);
+            } else if (targetList) {
+                targetList.innerHTML = visibleCard;
+            }
+
+            hideCreateDocumentModal();
+        }
+
+        function buildCreateDocumentHiddenInputs(entryId, group, docType, customTitle, files) {
+            const wrapper = document.createElement('div');
+            wrapper.dataset.docGroup = group;
+            wrapper.dataset.entryId = entryId;
+            wrapper.id = `${entryId}-hidden`;
+
+            const fileInputName = getCreateDocumentInputName(group, entryId);
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = fileInputName;
+            fileInput.multiple = true;
+            fileInput.dataset.docGroup = group;
+            fileInput.dataset.entryId = entryId;
+            fileInput.className = 'hidden';
+
+            const dataTransfer = new DataTransfer();
+            files.forEach((file) => dataTransfer.items.add(file));
+            fileInput.files = dataTransfer.files;
+            wrapper.appendChild(fileInput);
+
+            if (group === 'optional') {
+                const typeInput = document.createElement('input');
+                typeInput.type = 'hidden';
+                typeInput.name = `optional_docs[${entryId}][type]`;
+                typeInput.value = docType;
+                wrapper.appendChild(typeInput);
+
+                const titleInput = document.createElement('input');
+                titleInput.type = 'hidden';
+                titleInput.name = `optional_docs[${entryId}][custom_title]`;
+                titleInput.value = customTitle;
+                wrapper.appendChild(titleInput);
+            } else if (group === 'pleading') {
+                const typeInput = document.createElement('input');
+                typeInput.type = 'hidden';
+                typeInput.name = 'pleading_type';
+                typeInput.value = docType;
+                wrapper.appendChild(typeInput);
+            } else if (group === 'compliance') {
+                const typeInput = document.createElement('input');
+                typeInput.type = 'hidden';
+                typeInput.name = 'compliance_doc_type';
+                typeInput.value = docType;
+                wrapper.appendChild(typeInput);
+            }
+
+            return wrapper;
+        }
+
+        function getCreateDocumentInputName(group, entryId) {
+            if (group === 'optional') {
+                return `optional_docs[${entryId}][files][]`;
+            }
+
+            if (group === 'application') {
+                return 'documents[application][]';
+            }
+
+            if (group === 'compliance') {
+                return 'documents[compliance][]';
+            }
+
+            return 'documents[pleading][]';
+        }
+
+        function buildCreateDocumentCard(entryId, group, docType, title, files) {
+            const fileNames = files.map((file) => escapeHtml(file.name));
+            const fileLabel = files.length === 1 ? 'file' : 'files';
+
+            return `
+                <div id="${entryId}-card" class="rounded-2xl border border-slate-200 bg-slate-50 p-4" data-doc-group="${group}" data-doc-type="${docType}" data-entry-id="${entryId}">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="text-sm font-semibold text-slate-900">${escapeHtml(title)}</div>
+                            <div class="mt-1 text-xs text-slate-500">${files.length} ${fileLabel} staged for intake</div>
+                            <div class="mt-3 rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-100">${fileNames.join('<br>')}</div>
+                        </div>
+                        <button type="button" onclick="removeStagedDocument('${entryId}')" class="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:text-red-600">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function removeStagedDocument(entryId) {
+            document.getElementById(`${entryId}-card`)?.remove();
+            document.getElementById(`${entryId}-hidden`)?.remove();
+        }
+
+        function removeStagedDocumentByGroup(group) {
+            document.querySelectorAll(`[data-doc-group="${group}"][data-entry-id]`).forEach((card) => {
+                const entryId = card.dataset.entryId;
+                removeStagedDocument(entryId);
+            });
+            document.querySelectorAll(`#document-hidden-inputs > div[data-doc-group="${group}"]`).forEach((wrapper) => {
+                wrapper.remove();
+            });
+        }
+
+        function getStagedDocumentFileCount(group) {
+            return Array.from(document.querySelectorAll(`#document-hidden-inputs > div[data-doc-group="${group}"] input[type="file"]`))
+                .filter((input) => !input.disabled)
+                .reduce((total, input) => total + (input.files?.length || 0), 0);
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function updatePartyRoleOptions() {
@@ -308,6 +545,10 @@
                 return true;
             }
 
+            if (stepEl.querySelector('#documentUploadStage')) {
+                return validateDocumentStep();
+            }
+
             const radioGroups = new Map();
             const fields = Array.from(stepEl.querySelectorAll('input, select, textarea')).filter((field) => {
                 if (field.disabled || field.type === 'hidden' || !field.name) {
@@ -338,6 +579,34 @@
                     group[0].reportValidity();
                     return false;
                 }
+            }
+
+            return true;
+        }
+
+        function validateDocumentStep() {
+            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
+            const hasApplication = getStagedDocumentFileCount('application') > 0;
+            const hasCompliance = getStagedDocumentFileCount('compliance') > 0;
+            const hasPleading = getStagedDocumentFileCount('pleading') > 0;
+
+            if (selectedCaseType === 'compliance') {
+                if (!hasCompliance) {
+                    alert('Stage the compliance document package before continuing.');
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (!hasApplication) {
+                alert('Stage the application document package before continuing.');
+                return false;
+            }
+
+            if (!hasPleading) {
+                alert('Stage the pleading document package before continuing.');
+                return false;
             }
 
             return true;
@@ -444,13 +713,15 @@
                     ? card.querySelector(`input[name="parties[${partyIndex}][organization]"]`)?.value?.trim()
                     : `${card.querySelector(`input[name="parties[${partyIndex}][first_name]"]`)?.value || ''} ${card.querySelector(`input[name="parties[${partyIndex}][last_name]"]`)?.value || ''}`.trim();
                 const email = card.querySelector(`input[name="parties[${partyIndex}][email]"]`)?.value?.trim() || 'No email';
-                const representation = card.querySelector(`input[name="parties[${partyIndex}][representation]"]:checked`)?.value || (isCompany ? 'attorney' : 'self');
-                const attorneyOption = card.querySelector(`input[name="parties[${partyIndex}][attorney_option]"]:checked`)?.value || '';
-                const representationLabel = attorneyOption === 'no_attorney_yet'
-                    ? 'No counsel yet'
-                    : representation === 'attorney'
+                const representation = card.querySelector(`input[name="parties[${partyIndex}][representation]"]:checked`)?.value || (isCompany ? '' : 'self');
+                const representationMode = card.querySelector(`input[name="parties[${partyIndex}][representation_mode]"]:checked`)?.value || '';
+                const representationLabel = isCompany
+                    ? (representationMode === 'attorney'
                         ? 'Counselled'
-                        : 'Self-represented';
+                        : representationMode === 'agent'
+                            ? 'Represented by Agent'
+                            : 'No counsel yet')
+                    : (representation === 'attorney' ? 'Counselled' : 'Self-represented');
                 return `
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <div class="flex items-center justify-between gap-4">
@@ -469,19 +740,14 @@
 
         function populateReviewDocuments() {
             const fileCounts = [
-                ['Application', document.querySelector('input[name="documents[application][]"]')?.files.length || 0],
-                ['Compliance', document.getElementById('compliance-file-input')?.files.length || 0],
-                ['Pleading', document.getElementById('pleading-file-input')?.files.length || 0],
+                ['Application', getStagedDocumentFileCount('application')],
+                ['Compliance', getStagedDocumentFileCount('compliance')],
+                ['Pleading', getStagedDocumentFileCount('pleading')],
             ];
+            fileCounts.push(['Supporting', getStagedDocumentFileCount('optional')]);
 
-            let optionalCount = 0;
-            document.querySelectorAll('input[name^="optional_docs["][name$="[files][]"]').forEach((input) => {
-                optionalCount += input.files.length;
-            });
-            fileCounts.push(['Supporting', optionalCount]);
-
-            const selectedComplianceType = document.querySelector('input[name="compliance_doc_type"]:checked')?.value;
-            const selectedPleadingType = document.querySelector('input[name="pleading_type"]:checked')?.value;
+            const selectedComplianceType = document.querySelector('#document-hidden-inputs input[name="compliance_doc_type"]:not([disabled])')?.value;
+            const selectedPleadingType = document.querySelector('#document-hidden-inputs input[name="pleading_type"]:not([disabled])')?.value;
 
             const rows = [
                 buildReviewRow('Application files', `${fileCounts[0][1]}`),
@@ -565,7 +831,7 @@
                             <label class="block text-sm font-medium text-gray-700">
                                 Type *
                                 <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-blue-700 bg-blue-100 rounded-full cursor-help align-middle"
-                                      title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney.">i</span>
+                                      title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney or an authorized agent until counsel appears.">i</span>
                             </label>
                             <select name="parties[${partyCount}][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(${partyCount})">
                                 <option value="">Select Type</option>
@@ -602,11 +868,11 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">C/o First Name</label>
+                                <label class="block text-sm font-medium text-gray-700">Principal Contact First Name *</label>
                                 <input type="text" name="parties[${partyCount}][first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">C/o Last Name</label>
+                                <label class="block text-sm font-medium text-gray-700">Principal Contact Last Name *</label>
                                 <input type="text" name="parties[${partyCount}][last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
                             </div>
                         </div>
@@ -627,8 +893,18 @@
                                 </label>
                             </div>
                             <div class="company-representation hidden">
-                                <input type="hidden" name="parties[${partyCount}][representation]" value="attorney">
-                                <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
+                                <label class="flex items-center mb-2">
+                                    <input type="radio" name="parties[${partyCount}][representation_mode]" value="attorney" class="mr-2" onchange="toggleCompanyRepresentation(${partyCount})">
+                                    Represented by Attorney
+                                </label>
+                                <label class="flex items-center mb-2">
+                                    <input type="radio" name="parties[${partyCount}][representation_mode]" value="agent" class="mr-2" onchange="toggleCompanyRepresentation(${partyCount})">
+                                    Represented by Agent
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="parties[${partyCount}][representation_mode]" value="none" class="mr-2" onchange="toggleCompanyRepresentation(${partyCount})">
+                                    No representative yet
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -723,12 +999,54 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="no-attorney-yet-option-${partyCount}" class="mb-2 hidden">
-                            <label class="flex items-center mb-1">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="no_attorney_yet" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
-                                No Attorney Yet
-                            </label>
-                            <p class="text-xs text-gray-600">ALU Clerk can submit now and add counsel later.</p>
+                    </div>
+
+                    <div id="agent-fields-${partyCount}" class="hidden mt-4">
+                        <div class="bg-amber-50 border-2 border-amber-200 rounded-lg p-4">
+                            <h5 class="font-semibold text-amber-900 mb-4">Agent Information</h5>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Agent First Name *</label>
+                                    <input type="text" name="parties[${partyCount}][agent_first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Agent Last Name *</label>
+                                    <input type="text" name="parties[${partyCount}][agent_last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Agent Email *</label>
+                                    <input type="email" name="parties[${partyCount}][agent_email]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Agent Phone *</label>
+                                    <input type="text" name="parties[${partyCount}][agent_phone]" inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700">Agent Organization</label>
+                                <input type="text" name="parties[${partyCount}][agent_organization]" class="mt-1 block w-full border-gray-300 rounded-md">
+                            </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700">Agent Address</label>
+                                <input type="text" name="parties[${partyCount}][agent_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <input type="text" name="parties[${partyCount}][agent_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                    <input type="text" name="parties[${partyCount}][agent_city]" placeholder="City" class="border-gray-300 rounded-md">
+                                    <select name="parties[${partyCount}][agent_state]" class="border-gray-300 rounded-md">
+                                        ${stateOptionsHtml}
+                                    </select>
+                                    <input type="text" name="parties[${partyCount}][agent_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                            <p class="mt-4 text-xs text-amber-800">I will be using an Agent and have uploaded the agent authorization form attached with my application.</p>
+                        </div>
+                    </div>
+
+                    <div id="no-representative-note-${partyCount}" class="hidden mt-4">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                            This entity currently has no attorney or agent on file. Principal contact information is required and will be used until representation is added.
                         </div>
                     </div>
                     </div>
@@ -744,6 +1062,8 @@
             const individualRep = document.querySelector(`#representation-${index} .individual-representation`);
             const companyRep = document.querySelector(`#representation-${index} .company-representation`);
             const attorneyFields = document.getElementById(`attorney-fields-${index}`);
+            const agentFields = document.getElementById(`agent-fields-${index}`);
+            const noRepresentativeNote = document.getElementById(`no-representative-note-${index}`);
 
             if (typeSelect.value === 'individual') {
                 individualFields.classList.remove('hidden');
@@ -763,34 +1083,27 @@
                 if (individualRep) {
                     individualRep.classList.remove('hidden');
                     companyRep.classList.add('hidden');
-                    // Disable the hidden representation field in company div
-                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
-                    if (hiddenRepField) hiddenRepField.disabled = true;
+                    companyRep.querySelectorAll('input').forEach(input => {
+                        input.checked = false;
+                        input.required = false;
+                    });
                 }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.add('hidden');
+                if (agentFields) {
+                    agentFields.classList.add('hidden');
                 }
-                const noAttorneyYetRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="no_attorney_yet"]`);
-                if (noAttorneyYetRadio?.checked) {
-                    const newRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]`);
-                    if (newRadio) {
-                        newRadio.checked = true;
-                    }
+                if (noRepresentativeNote) {
+                    noRepresentativeNote.classList.add('hidden');
                 }
-                // Hide attorney fields unless attorney is selected
-                const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
-                if (attorneyFields) {
-                    attorneyFields.classList.toggle('hidden', !attorneySelected);
-                }
+                toggleAgentFields(index, false);
                 toggleAttorneyOption(index);
+                toggleAttorneyFields(index);
             } else if (typeSelect.value === 'company') {
                 individualFields.classList.add('hidden');
                 companyFields.classList.remove('hidden');
                 // Enable company fields
                 companyFields.querySelectorAll('input').forEach(input => {
                     input.disabled = false;
-                    if (input.name.includes('[organization]')) {
+                    if (input.name.includes('[organization]') || input.name.includes('[first_name]') || input.name.includes('[last_name]')) {
                         input.required = true;
                     }
                 });
@@ -802,19 +1115,20 @@
                 if (individualRep) {
                     individualRep.classList.add('hidden');
                     companyRep.classList.remove('hidden');
-                    // Enable the hidden representation field in company div
-                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
-                    if (hiddenRepField) hiddenRepField.disabled = false;
+                    companyRep.querySelectorAll('input').forEach(input => {
+                        input.required = true;
+                    });
                 }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.remove('hidden');
-                }
-                // Always show attorney fields for companies
                 if (attorneyFields) {
-                    attorneyFields.classList.remove('hidden');
+                    attorneyFields.classList.add('hidden');
                 }
-                toggleAttorneyOption(index);
+                if (agentFields) {
+                    agentFields.classList.add('hidden');
+                }
+                if (noRepresentativeNote) {
+                    noRepresentativeNote.classList.add('hidden');
+                }
+                toggleCompanyRepresentation(index);
             } else {
                 individualFields.classList.add('hidden');
                 companyFields.classList.add('hidden');
@@ -830,13 +1144,19 @@
                 if (individualRep) {
                     individualRep.classList.add('hidden');
                     companyRep.classList.add('hidden');
+                    companyRep.querySelectorAll('input').forEach(input => {
+                        input.checked = false;
+                        input.required = false;
+                    });
                 }
                 if (attorneyFields) {
                     attorneyFields.classList.add('hidden');
                 }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.add('hidden');
+                if (agentFields) {
+                    agentFields.classList.add('hidden');
+                }
+                if (noRepresentativeNote) {
+                    noRepresentativeNote.classList.add('hidden');
                 }
             }
         }
@@ -844,6 +1164,11 @@
         function toggleAttorneyFields(index) {
             const attorneyFields = document.getElementById(`attorney-fields-${index}`);
             const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
+            const typeSelect = document.querySelector(`select[name="parties[${index}][type]"]`);
+
+            if (typeSelect?.value === 'company') {
+                return;
+            }
 
             if (attorneyFields) {
                 attorneyFields.classList.toggle('hidden', !attorneySelected);
@@ -863,6 +1188,80 @@
                     // Remove required from attorney fields when not selected
                     attorneyFields.querySelectorAll('input').forEach(input => input.required = false);
                 }
+            }
+        }
+
+        function toggleAgentFields(index, enabled) {
+            const agentFields = document.getElementById(`agent-fields-${index}`);
+            const agentInputs = agentFields?.querySelectorAll('input, select');
+
+            if (!agentFields || !agentInputs) {
+                return;
+            }
+
+            agentFields.classList.toggle('hidden', !enabled);
+            agentInputs.forEach((input) => {
+                input.disabled = !enabled;
+                input.required = enabled && (
+                    input.name.includes('[agent_first_name]')
+                    || input.name.includes('[agent_last_name]')
+                    || input.name.includes('[agent_email]')
+                    || input.name.includes('[agent_phone]')
+                );
+                if (!enabled && input.tagName === 'INPUT') {
+                    input.value = '';
+                }
+            });
+        }
+
+        function toggleCompanyRepresentation(index) {
+            const mode = document.querySelector(`input[name="parties[${index}][representation_mode]"]:checked`)?.value;
+            const attorneyFields = document.getElementById(`attorney-fields-${index}`);
+            const noRepresentativeNote = document.getElementById(`no-representative-note-${index}`);
+
+            if (attorneyFields) {
+                attorneyFields.classList.toggle('hidden', mode !== 'attorney');
+            }
+
+            if (noRepresentativeNote) {
+                noRepresentativeNote.classList.toggle('hidden', mode !== 'none');
+            }
+
+            toggleAgentFields(index, mode === 'agent');
+
+            if (mode === 'attorney') {
+                const selectedAttorneyOption = document.querySelector(`input[name="parties[${index}][attorney_option]"]:checked`);
+                if (!selectedAttorneyOption) {
+                    const defaultAttorneyOption = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]`);
+                    if (defaultAttorneyOption) {
+                        defaultAttorneyOption.checked = true;
+                    }
+                }
+                toggleAttorneyOption(index);
+            } else {
+                const existingSelect = document.querySelector(`select[name="parties[${index}][attorney_id]"]`);
+                const newFields = document.getElementById(`new-attorney-${index}`);
+                const newInputs = newFields?.querySelectorAll('input');
+
+                if (existingSelect) {
+                    existingSelect.disabled = true;
+                    existingSelect.required = false;
+                    existingSelect.value = '';
+                }
+                if (newFields) {
+                    newFields.classList.add('opacity-50');
+                }
+                if (newInputs) {
+                    newInputs.forEach((input) => {
+                        input.disabled = true;
+                        input.required = false;
+                        input.value = '';
+                    });
+                }
+            }
+
+            if (mode === 'agent') {
+                alert('I will be using an Agent and have uploaded the agent authorization form attached with my application');
             }
         }
 
@@ -899,19 +1298,6 @@
                         input.required = needsAttorneyDetails;
                     }
                 });
-            } else if (option === 'no_attorney_yet') {
-                if (existingSelect) {
-                    existingSelect.disabled = true;
-                    existingSelect.value = '';
-                    existingSelect.required = false;
-                }
-                if (newFields) newFields.classList.add('opacity-50');
-                if (newInputs) newInputs.forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                    input.value = '';
-                });
-                alert('I will be using an Agent and have uploaded the agent authorization form attached with my application');
             }
         }
 
@@ -936,70 +1322,6 @@
             input.value = parts.join('-');
         }
 
-        function updatePleadingLabel() {
-            const selectedType = document.querySelector('input[name="pleading_type"]:checked');
-            const fileLabel = document.getElementById('pleading-file-label');
-            const fileInput = document.getElementById('pleading-file-input');
-
-            if (selectedType) {
-                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
-                fileLabel.textContent = `${typeText} Document (PDF) *`;
-                fileInput.name = 'documents[pleading][]';
-                fileInput.disabled = false;
-                fileInput.style.opacity = '1';
-                fileInput.required = true;
-            } else {
-                fileLabel.textContent = 'Select Pleading Type First';
-                fileInput.disabled = true;
-                fileInput.style.opacity = '0.5';
-                fileInput.required = false;
-            }
-        }
-
-        function updateOptionalDocLabel(index) {
-            const select = document.querySelector(`select[name="optional_docs[${index}][type]"]`);
-            const fileInput = document.querySelector(`input[name="optional_docs[${index}][files][]"]`);
-
-            if (select.value) {
-                fileInput.disabled = false;
-                fileInput.style.opacity = '1';
-            } else {
-                fileInput.disabled = true;
-                fileInput.style.opacity = '0.5';
-                fileInput.value = '';
-            }
-        }
-
-        function addOptionalDocument() {
-            const optionalDocsContainer = document.getElementById('optional-documents');
-            const optionalDocOptions = `@foreach($optionalDocs as $docType)<option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>@endforeach`;
-
-            optionalDocsContainer.insertAdjacentHTML('beforeend', `
-                <div class="border rounded-lg p-4 optional-doc-item">
-                    <div class="flex justify-between items-start mb-3">
-                        <h5 class="font-medium text-gray-700">Optional Document ${optionalDocCount + 1}</h5>
-                        <button type="button" onclick="this.closest('.optional-doc-item').remove()" class="text-red-600 text-sm hover:text-red-800">Remove</button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                            <select name="optional_docs[${optionalDocCount}][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(${optionalDocCount})">
-                                <option value="">Select document type...</option>
-                                ${optionalDocOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">File Upload</label>
-                            <input type="file" name="optional_docs[${optionalDocCount}][files][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
-                </div>
-            `);
-            optionalDocCount++;
-        }
-
-        // File preview functionality
         document.addEventListener('DOMContentLoaded', function() {
             // Add file change listeners for previews
             const fileInputs = {

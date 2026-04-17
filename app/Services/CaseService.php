@@ -54,14 +54,16 @@ class CaseService
                             'service_enabled' => true
                         ]);
                         
-                        // Handle attorney representation
-                        if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
+                        // Handle representative relationships
+                        if ($this->shouldCreateAttorneyParty($partyData)) {
                             \Log::info('Creating attorney party for case', [
                                 'case_id' => $case->id,
                                 'client_party_id' => $clientParty->id,
                                 'party_data' => $partyData
                             ]);
                             $this->createAttorneyParty($case, $partyData, $clientParty);
+                        } elseif ($this->shouldCreateAgentParty($partyData)) {
+                            $this->createAgentParty($case, $partyData, $clientParty);
                         }
                         
                         // Auto-create service list entry
@@ -191,6 +193,7 @@ class CaseService
                     'client_party_id' => $clientParty->id,
                     'service_enabled' => true
                 ]);
+                $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
                 \Log::info('Created counsel party for existing attorney', ['counsel_party_id' => $counselParty->id]);
             }
         }
@@ -231,8 +234,85 @@ class CaseService
                 'client_party_id' => $clientParty->id,
                 'service_enabled' => true
             ]);
+            $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
             \Log::info('Created counsel party for new attorney', ['counsel_party_id' => $counselParty->id]);
         }
+    }
+
+    private function createAgentParty(CaseModel $case, array $data, CaseParty $clientParty): void
+    {
+        $agentPerson = Person::firstOrCreate(
+            ['email' => $data['agent_email']],
+            [
+                'type' => 'individual',
+                'first_name' => $data['agent_first_name'] ?? null,
+                'last_name' => $data['agent_last_name'] ?? null,
+                'organization' => $data['agent_organization'] ?? null,
+                'email' => $data['agent_email'],
+                'phone_office' => $data['agent_phone'] ?? null,
+                'address_line1' => $data['agent_address_line1'] ?? null,
+                'address_line2' => $data['agent_address_line2'] ?? null,
+                'city' => $data['agent_city'] ?? null,
+                'state' => $data['agent_state'] ?? null,
+                'zip' => $data['agent_zip'] ?? null,
+            ]
+        );
+
+        if (!$agentPerson->wasRecentlyCreated) {
+            $agentPerson->update([
+                'first_name' => $data['agent_first_name'] ?? $agentPerson->first_name,
+                'last_name' => $data['agent_last_name'] ?? $agentPerson->last_name,
+                'organization' => $data['agent_organization'] ?? $agentPerson->organization,
+                'phone_office' => $data['agent_phone'] ?? $agentPerson->phone_office,
+                'address_line1' => $data['agent_address_line1'] ?? $agentPerson->address_line1,
+                'address_line2' => $data['agent_address_line2'] ?? $agentPerson->address_line2,
+                'city' => $data['agent_city'] ?? $agentPerson->city,
+                'state' => $data['agent_state'] ?? $agentPerson->state,
+                'zip' => $data['agent_zip'] ?? $agentPerson->zip,
+            ]);
+        }
+
+        CaseParty::create([
+            'case_id' => $case->id,
+            'person_id' => $agentPerson->id,
+            'role' => 'agent',
+            'client_party_id' => $clientParty->id,
+            'service_enabled' => true,
+        ]);
+
+        $this->syncRepresentativeServiceListEntry($case, $agentPerson, $data['service_method'] ?? 'email');
+    }
+
+    private function syncRepresentativeServiceListEntry(CaseModel $case, Person $person, string $serviceMethod = 'email'): void
+    {
+        if (empty($person->email)) {
+            return;
+        }
+
+        ServiceList::firstOrCreate(
+            [
+                'case_id' => $case->id,
+                'person_id' => $person->id,
+            ],
+            [
+                'email' => $person->email,
+                'service_method' => $serviceMethod,
+                'is_primary' => false,
+            ]
+        );
+    }
+
+    private function shouldCreateAttorneyParty(array $partyData): bool
+    {
+        return (($partyData['type'] ?? null) === 'company' && ($partyData['representation_mode'] ?? null) === 'attorney')
+            || (($partyData['type'] ?? null) !== 'company' && ($partyData['representation'] ?? null) === 'attorney');
+    }
+
+    private function shouldCreateAgentParty(array $partyData): bool
+    {
+        return ($partyData['type'] ?? null) === 'company'
+            && ($partyData['representation_mode'] ?? null) === 'agent'
+            && !empty($partyData['agent_email']);
     }
     
     private function createPersonFromName(string $name): Person
@@ -860,9 +940,11 @@ class CaseService
                                 'service_enabled' => true
                             ]);
                             
-                            // Handle attorney representation
-                            if (isset($partyData['representation']) && $partyData['representation'] === 'attorney') {
+                            // Handle representative relationships
+                            if ($this->shouldCreateAttorneyParty($partyData)) {
                                 $this->createAttorneyParty($case, $partyData, $clientParty);
+                            } elseif ($this->shouldCreateAgentParty($partyData)) {
+                                $this->createAgentParty($case, $partyData, $clientParty);
                             }
                             
                             // Auto-create service list entry

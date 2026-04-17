@@ -15,7 +15,7 @@ class StoreCaseRequest extends FormRequest
                     return $party;
                 }
 
-                foreach (['phone', 'phone_mobile', 'phone_office', 'attorney_phone'] as $field) {
+                foreach (['phone', 'phone_mobile', 'phone_office', 'attorney_phone', 'agent_phone'] as $field) {
                     if (array_key_exists($field, $party)) {
                         $party[$field] = $this->normalizePhoneNumber($party[$field]);
                     }

@@ -384,11 +384,12 @@
                         @php
                             $sortedParties = $case->parties
                                 ->reject(fn($party) => $party->isWrdAgencyParty())
-                                ->whereNotIn('role', ['counsel', 'paralegal'])
+                                ->whereNotIn('role', ['counsel', 'paralegal', 'agent'])
                                 ->sortBy(function($party) {
                                     $order = ['applicant' => 1, 'protestant' => 2, 'respondent' => 3, 'intervenor' => 4];
                                     return $order[$party->role] ?? 99;
-                                });
+                                })
+                                ->values();
                         @endphp
                         @foreach($sortedParties as $index => $party)
                         <div class="border rounded-lg mb-3 bg-gray-50">
@@ -400,10 +401,19 @@
                                         <div class="text-xs text-gray-500">{{ $party->person->email }}</div>
                                         @php
                                             $hasAttorney = $party->attorneys->count() > 0;
+                                            $hasAgent = $party->agents->count() > 0;
                                         @endphp
                                         @if($hasAttorney)
                                             <div class="text-xs text-blue-600 mt-1">
                                                 <span class="bg-blue-100 px-2 py-1 rounded">Represented by Attorney</span>
+                                            </div>
+                                        @elseif($hasAgent)
+                                            <div class="text-xs text-amber-700 mt-1">
+                                                <span class="bg-amber-100 px-2 py-1 rounded">Represented by Agent</span>
+                                            </div>
+                                        @elseif($party->person->type === 'company')
+                                            <div class="text-xs text-gray-500 mt-1">
+                                                <span class="bg-gray-100 px-2 py-1 rounded">No representative yet</span>
                                             </div>
                                         @elseif($party->role !== 'paralegal')
                                             <div class="text-xs text-gray-500 mt-1">
@@ -434,8 +444,8 @@
                                         @if($party->person->organization)
                                             <div><strong>Organization:</strong> {{ $party->person->organization }}</div>
                                         @endif
-                                        @if($party->person->title)
-                                            <div><strong>Title:</strong> {{ $party->person->title }}</div>
+                                        @if($party->person->first_name || $party->person->last_name)
+                                            <div><strong>Principal Contact:</strong> {{ trim(($party->person->first_name ?? '') . ' ' . ($party->person->last_name ?? '')) }}</div>
                                         @endif
                                     @endif
 
@@ -502,6 +512,26 @@
                                                         </div>
                                                     </div>
                                                 @endif
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if($hasAgent)
+                                        <div class="md:col-span-2 mt-3 pt-3 border-t">
+                                            <strong class="text-amber-700">Agent Information:</strong>
+                                            <div class="mt-2 bg-amber-50 p-3 rounded">
+                                                @foreach($party->agents as $agentParty)
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3 last:mb-0">
+                                                        <div><strong>Name:</strong> {{ $agentParty->person->full_name }}</div>
+                                                        <div><strong>Email:</strong> {{ $agentParty->person->email }}</div>
+                                                        @if($agentParty->person->phone_office)
+                                                            <div><strong>Phone:</strong> {{ $agentParty->person->phone_office }}</div>
+                                                        @endif
+                                                        @if($agentParty->person->organization)
+                                                            <div><strong>Organization:</strong> {{ $agentParty->person->organization }}</div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
                                             </div>
                                         </div>
                                     @endif

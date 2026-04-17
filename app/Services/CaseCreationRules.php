@@ -18,6 +18,7 @@ class CaseCreationRules
             'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.representation' => 'nullable|in:self,attorney',
+            'parties.*.representation_mode' => 'nullable|in:attorney,agent,none',
             'parties.*.attorney_option' => 'nullable|in:existing,new,no_attorney_yet',
             'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
             'parties.*.prefix' => 'nullable|string|max:10',
@@ -45,6 +46,16 @@ class CaseCreationRules
             'parties.*.attorney_city' => 'nullable|string|max:100',
             'parties.*.attorney_state' => 'nullable|string|max:50',
             'parties.*.attorney_zip' => 'nullable|string|max:10',
+            'parties.*.agent_first_name' => 'nullable|string|max:255',
+            'parties.*.agent_last_name' => 'nullable|string|max:255',
+            'parties.*.agent_email' => 'nullable|email|max:255',
+            'parties.*.agent_phone' => ['nullable', 'string', ...self::PHONE_RULE],
+            'parties.*.agent_organization' => 'nullable|string|max:255',
+            'parties.*.agent_address_line1' => 'nullable|string|max:500',
+            'parties.*.agent_address_line2' => 'nullable|string|max:500',
+            'parties.*.agent_city' => 'nullable|string|max:100',
+            'parties.*.agent_state' => 'nullable|string|max:50',
+            'parties.*.agent_zip' => 'nullable|string|max:10',
             'ose_numbers' => 'nullable|array',
             'ose_numbers.*.basin_code_from' => 'nullable|string|exists:ose_basin_codes,initial',
             'ose_numbers.*.basin_code_to' => 'nullable|string|exists:ose_basin_codes,initial',
@@ -97,6 +108,7 @@ class CaseCreationRules
             $role = $party['role'] ?? null;
             $type = $party['type'] ?? null;
             $representation = $party['representation'] ?? null;
+            $representationMode = $party['representation_mode'] ?? null;
             $attorneyOption = $party['attorney_option'] ?? null;
 
             if ($caseType !== 'compliance' && $role === 'respondent') {
@@ -107,11 +119,24 @@ class CaseCreationRules
                 $validator->errors()->add("parties.{$index}.first_name", 'First name and last name are required for individuals.');
             }
 
+            if ($type === 'company') {
+                if (empty($party['first_name']) || empty($party['last_name'])) {
+                    $validator->errors()->add("parties.{$index}.first_name", 'Principal contact first name and last name are required for entities.');
+                }
+
+                if (empty($representationMode)) {
+                    $validator->errors()->add("parties.{$index}.representation_mode", 'Please choose whether the entity is represented by an attorney, represented by an agent, or has no representative yet.');
+                }
+            }
+
             if (empty($party['phone_mobile']) && empty($party['phone'])) {
                 $validator->errors()->add("parties.{$index}.phone_mobile", 'A phone number is required in 555-555-5555 format.');
             }
 
-            if ($representation === 'attorney') {
+            $needsAttorney = ($type === 'company' && $representationMode === 'attorney')
+                || ($type !== 'company' && $representation === 'attorney');
+
+            if ($needsAttorney) {
                 $hasExistingAttorney = !empty($party['attorney_id']);
                 $hasNewAttorney = !empty($party['attorney_name']) && !empty($party['attorney_email']);
                 $hasNoAttorneyYet = $type === 'company' && $attorneyOption === 'no_attorney_yet';
@@ -126,6 +151,20 @@ class CaseCreationRules
 
                 if ($attorneyOption === 'new' && empty($party['attorney_phone'])) {
                     $validator->errors()->add("parties.{$index}.attorney_phone", 'Attorney phone is required in 555-555-5555 format.');
+                }
+            }
+
+            if ($type === 'company' && $representationMode === 'agent') {
+                if (empty($party['agent_first_name']) || empty($party['agent_last_name'])) {
+                    $validator->errors()->add("parties.{$index}.agent_first_name", 'Agent first name and last name are required when the entity is represented by an agent.');
+                }
+
+                if (empty($party['agent_email'])) {
+                    $validator->errors()->add("parties.{$index}.agent_email", 'Agent email is required when the entity is represented by an agent.');
+                }
+
+                if (empty($party['agent_phone'])) {
+                    $validator->errors()->add("parties.{$index}.agent_phone", 'Agent phone is required in 555-555-5555 format.');
                 }
             }
         }

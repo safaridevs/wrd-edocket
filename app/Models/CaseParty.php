@@ -40,6 +40,11 @@ class CaseParty extends Model
         return $this->hasMany(CaseParty::class, 'client_party_id')->where('role', 'counsel');
     }
 
+    public function agents()
+    {
+        return $this->hasMany(CaseParty::class, 'client_party_id')->where('role', 'agent');
+    }
+
     public function isWrdAgencyParty(): bool
     {
         $organization = strtoupper(trim((string) ($this->person->organization ?? '')));
