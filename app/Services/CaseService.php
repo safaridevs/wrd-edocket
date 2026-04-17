@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Storage;
 
 class CaseService
 {
+    private const HU_SUBMISSION_EMAIL = 'hu.admin@ose.nm.gov';
+
     public function __construct(
         private NotificationService $notificationService,
         private CaseStorageService $caseStorageService
@@ -444,7 +446,7 @@ class CaseService
         }
     }
 
-    public function acceptCase(CaseModel $case, User $user): bool
+    public function acceptCase(CaseModel $case, User $user, array $recipients = [], ?string $customMessage = null): bool
     {
         if (!$user->canAcceptFilings()) {
             return false;
@@ -461,15 +463,7 @@ class CaseService
         
         AuditLog::log('accept_request', $user, $case);
         
-        $this->notificationService->notify(
-            $case->creator,
-            'case_accepted',
-            'Case Accepted',
-            "Your case {$case->case_no} has been accepted and is now active.",
-            $case
-        );
-
-        $this->sendCaseAcceptanceNotifications($case, $user);
+        $this->sendCaseAcceptanceNotifications($case, $user, $recipients, $customMessage);
 
         return true;
     }
@@ -555,47 +549,120 @@ class CaseService
         return true;
     }
 
-    private function sendCaseAcceptanceNotifications(CaseModel $case, User $user): void
+    private function sendCaseAcceptanceNotifications(CaseModel $case, User $user, array $recipients = [], ?string $customMessage = null): void
     {
-        $case->loadMissing(['parties.person', 'assignedAttorney', 'assignedHydrologyExpert']);
+        $recipientMap = $this->buildAcceptanceRecipientMap($case);
+        $selectedTokens = array_values(array_intersect($recipients, array_keys($recipientMap)));
 
-        // Notify all parties
-        $partyRecipients = $case->parties
-            ->map(fn($party) => $party->person)
-            ->filter()
-            ->values()
+        if (empty($selectedTokens)) {
+            AuditLog::log('notify_parties', $user, $case, ['recipients_count' => 0]);
+            return;
+        }
+
+        $baseMessage = "Case {$case->case_no} has been accepted and is proceeding to hearing.";
+        $fullMessage = $customMessage ? $baseMessage . "\n\n" . $customMessage : $baseMessage;
+        $notifiedEmails = [];
+
+        foreach ($selectedTokens as $token) {
+            $recipient = $recipientMap[$token];
+
+            $this->notificationService->notify(
+                $recipient['notifiable'],
+                'case_accepted',
+                'Case Accepted',
+                $fullMessage,
+                $case,
+                false
+            );
+
+            $notifiedEmails[] = $recipient['email'];
+        }
+
+        AuditLog::log('notify_parties', $user, $case, [
+            'recipients_count' => count($notifiedEmails),
+            'recipients' => $notifiedEmails,
+        ]);
+    }
+
+    public function getSubmissionNotificationOptions(): array
+    {
+        return [[
+            'token' => 'hu_submission_mailbox',
+            'name' => 'Hearing Unit',
+            'role' => 'HU Admin',
+            'email' => self::HU_SUBMISSION_EMAIL,
+        ]];
+    }
+
+    public function getAcceptanceNotificationOptions(CaseModel $case): array
+    {
+        return collect($this->buildAcceptanceRecipientMap($case))
+            ->map(fn (array $recipient, string $token) => [
+                'token' => $token,
+                'group' => $recipient['group'],
+                'name' => $recipient['name'],
+                'role' => $recipient['role'],
+                'email' => $recipient['email'],
+            ])
+            ->groupBy('group')
+            ->map(fn ($group) => $group->values()->all())
             ->all();
-        if (!empty($partyRecipients)) {
-            $this->notificationService->notifyMultiple(
-                $partyRecipients,
-                'case_accepted',
-                'Case Accepted',
-                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
-                $case
-            );
+    }
+
+    private function buildAcceptanceRecipientMap(CaseModel $case): array
+    {
+        $case->loadMissing(['parties.person', 'creator', 'assignments.user']);
+
+        $recipients = [];
+
+        foreach ($case->parties->reject(fn ($party) => $party->isWrdAgencyParty()) as $party) {
+            if (!$party->person || empty($party->person->email)) {
+                continue;
+            }
+
+            $group = $party->role === 'counsel' ? 'attorneys' : 'parties';
+            $token = ($party->role === 'counsel' ? 'attorney_' : 'party_') . $party->id;
+
+            $recipients[$token] = [
+                'group' => $group,
+                'name' => $party->person->full_name,
+                'role' => ucfirst(str_replace('_', ' ', $party->role)),
+                'email' => $party->person->email,
+                'notifiable' => $party->person,
+            ];
         }
 
-        // Notify assigned attorney
-        if ($case->assignedAttorney) {
-            $this->notificationService->notify(
-                $case->assignedAttorney,
-                'case_accepted',
-                'Case Accepted',
-                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
-                $case
-            );
+        if ($case->creator && !empty($case->creator->email)) {
+            $recipients['staff_' . $case->creator->id] = [
+                'group' => 'staff',
+                'name' => $case->creator->name,
+                'role' => 'Case Creator',
+                'email' => $case->creator->email,
+                'notifiable' => $case->creator,
+            ];
         }
 
-        // Notify hydrology expert
-        if ($case->assignedHydrologyExpert) {
-            $this->notificationService->notify(
-                $case->assignedHydrologyExpert,
-                'case_accepted',
-                'Case Accepted',
-                "Case {$case->case_no} has been accepted and is proceeding to hearing.",
-                $case
-            );
+        foreach ($case->assignments as $assignment) {
+            if (!$assignment->user || empty($assignment->user->email)) {
+                continue;
+            }
+
+            $token = 'staff_' . $assignment->user_id;
+
+            if (isset($recipients[$token])) {
+                continue;
+            }
+
+            $recipients[$token] = [
+                'group' => 'staff',
+                'name' => $assignment->user->name,
+                'role' => ucfirst(str_replace('_', ' ', $assignment->assignment_type)),
+                'email' => $assignment->user->email,
+                'notifiable' => $assignment->user,
+            ];
         }
+
+        return $recipients;
     }
 
     public function notifySelectedParties(CaseModel $case, array $recipients, ?string $customMessage, User $user): int
@@ -928,56 +995,18 @@ class CaseService
             $fullMessage .= "\n\nAdditional Information: {$customMessage}";
         }
 
-        // If no specific recipients provided, notify all
-        if (empty($recipients)) {
-            $recipients = $this->getAllCaseRecipients($case);
-        }
-
         $notifiedEmails = [];
-        foreach ($recipients as $recipient) {
-            [$type, $id] = explode('_', $recipient, 2);
-            
-            if ($type === 'party') {
-                $party = $case->parties()->find($id);
-                if ($party && $party->person && $party->person->email) {
-                    $this->notificationService->notify(
-                        $party->person,
-                        'case_submitted',
-                        'Case Submitted for Review',
-                        $fullMessage,
-                        $case,
-                        false // Don't log individual notifications
-                    );
-                    $notifiedEmails[] = $party->person->email;
-                }
-            } elseif ($type === 'attorney') {
-                $attorney = $case->parties()->find($id);
-                if ($attorney && $attorney->person && $attorney->person->email) {
-                    $this->notificationService->notify(
-                        $attorney->person,
-                        'case_submitted',
-                        'Case Submitted for Review',
-                        $fullMessage,
-                        $case,
-                        false // Don't log individual notifications
-                    );
-                    $notifiedEmails[] = $attorney->person->email;
-                }
-            } elseif ($type === 'staff') {
-                $user = User::find($id);
-                if ($user && $user->email) {
-                    $this->notificationService->notify(
-                        $user,
-                        'case_submitted',
-                        'Case Submitted for Review',
-                        $fullMessage,
-                        $case,
-                        false // Don't log individual notifications
-                    );
-                    $notifiedEmails[] = $user->email;
-                }
-            }
-        }
+
+        $this->notificationService->notifyEmailAddress(
+            self::HU_SUBMISSION_EMAIL,
+            'case_submitted',
+            'Case Submitted for Review',
+            $fullMessage,
+            $case,
+            false
+        );
+
+        $notifiedEmails[] = self::HU_SUBMISSION_EMAIL;
         
         // Log once with all recipients
         if (!empty($notifiedEmails) && auth()->user()) {

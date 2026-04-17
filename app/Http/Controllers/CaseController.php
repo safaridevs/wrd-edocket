@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCaseRequest;
 use App\Models\AuditLog;
 use App\Models\CaseModel;
 use App\Models\CaseAssignment;
@@ -147,123 +148,13 @@ class CaseController extends Controller
         return view('cases.create', compact('basinCodes', 'attorneys', 'documentTypes', 'pleadingDocs', 'optionalDocs'));
     }
 
-    public function store(Request $request)
+    public function store(StoreCaseRequest $request)
     {
-        if (!Auth::user()->canCreateCase()) {
-            abort(403);
-        }
-
-        $caseType = $request->input('case_type');
-
-        $rules = [
-            'case_type' => 'required|in:aggrieved,protested,compliance',
-            'caption' => 'required|string|max:1000',
-            'wrd_office' => 'required|in:albuquerque,santa_fe',
-            'parties' => 'required|array|min:1',
-            'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
-            'parties.*.type' => 'required|in:individual,company',
-            'parties.*.representation' => 'nullable|in:self,attorney',
-            'parties.*.attorney_option' => 'nullable|in:existing,new,no_attorney_yet',
-            'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
-            'parties.*.prefix' => 'nullable|string|max:10',
-            'parties.*.first_name' => 'nullable|string|max:255',
-            'parties.*.middle_name' => 'nullable|string|max:255',
-            'parties.*.last_name' => 'nullable|string|max:255',
-            'parties.*.suffix' => 'nullable|string|max:10',
-            'parties.*.organization' => 'nullable|string|max:255',
-            'parties.*.title' => 'nullable|string|max:255',
-            'parties.*.email' => 'required|email|max:255',
-            'parties.*.phone_mobile' => 'nullable|string|max:20',
-            'parties.*.phone_office' => 'nullable|string|max:20',
-            'parties.*.address_line1' => 'nullable|string|max:500',
-            'parties.*.address_line2' => 'nullable|string|max:500',
-            'parties.*.city' => 'nullable|string|max:100',
-            'parties.*.state' => 'nullable|string|max:50',
-            'parties.*.zip' => 'nullable|string|max:10',
-            'parties.*.attorney_name' => 'nullable|string|max:255',
-            'parties.*.attorney_email' => 'nullable|email|max:255',
-            'parties.*.attorney_phone' => 'nullable|string|max:20',
-            'parties.*.bar_number' => 'nullable|string|max:50',
-            'parties.*.attorney_address_line1' => 'nullable|string|max:500',
-            'parties.*.attorney_address_line2' => 'nullable|string|max:500',
-            'parties.*.attorney_city' => 'nullable|string|max:100',
-            'parties.*.attorney_state' => 'nullable|string|max:50',
-            'parties.*.attorney_zip' => 'nullable|string|max:10',
-            'ose_numbers' => 'nullable|array',
-            'ose_numbers.*.basin_code_from' => 'nullable|string|exists:ose_basin_codes,initial',
-            'ose_numbers.*.basin_code_to' => 'nullable|string|exists:ose_basin_codes,initial',
-            'ose_numbers.*.file_no_from' => 'nullable|string|max:50',
-            'ose_numbers.*.file_no_to' => 'nullable|string|max:50',
-            'documents' => 'nullable|array',
-            'documents.notice_publication' => 'nullable|array',
-            'documents.notice_publication.*' => 'nullable|file|mimes:pdf|max:204800',
-            'documents.pleading' => 'nullable|array',
-            'documents.pleading.*' => 'nullable|file|mimes:pdf|max:204800',
-            'documents.protest_letter' => 'nullable|array',
-            'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:204800',
-            'documents.supporting' => 'nullable|array',
-            'documents.supporting.*' => 'nullable|file|mimes:pdf|max:204800',
-            'assigned_attorneys' => 'nullable|array',
-            'assigned_attorneys.*' => 'exists:users,id',
-            'assigned_clerks' => 'nullable|array',
-            'assigned_clerks.*' => 'exists:users,id',
-            'optional_docs' => 'nullable|array',
-            'optional_docs.*.type' => 'nullable|string',
-            'optional_docs.*.custom_title' => 'nullable|string|max:255',
-            'optional_docs.*.files' => 'nullable|array',
-            'optional_docs.*.files.*' => 'nullable|file|mimes:pdf|max:204800',
-            'affirmation' => 'required|accepted',
-            'action' => 'required|in:draft,validate,submit'
-        ];
-
-        if ($caseType === 'compliance') {
-            $rules['pleading_type'] = 'nullable|in:request_pre_hearing,request_to_docket';
-            $rules['documents.application'] = 'nullable|array';
-            $rules['documents.application.*'] = 'nullable|file|mimes:pdf|max:204800';
-            $rules['compliance_doc_type'] = 'required|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand';
-            $rules['documents.compliance'] = 'required|array';
-            $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:204800';
-        } else {
-            $rules['pleading_type'] = 'required|in:request_pre_hearing,request_to_docket';
-            $rules['documents.application'] = 'required|array';
-            $rules['documents.application.*'] = 'required|file|mimes:pdf|max:204800';
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validated();
 
         // Log raw request data for debugging
         \Log::info('Raw request parties:', ['parties' => $request->input('parties')]);
         \Log::info('Party validation data:', ['parties' => $validated['parties']]);
-
-        // Additional validation for individuals and attorney representation
-        foreach ($validated['parties'] as $index => $party) {
-            if ($caseType !== 'compliance' && ($party['role'] ?? null) === 'respondent') {
-                return back()->withInput()->withErrors(["parties.{$index}.role" => 'Respondent role is only allowed for compliance action cases.']);
-            }
-
-            // Require first_name and last_name for individuals only
-            if ($party['type'] === 'individual') {
-                if (empty($party['first_name']) || empty($party['last_name'])) {
-                    \Log::warning('Individual missing name', ['index' => $index, 'party' => $party]);
-                    return back()->withInput()->withErrors(["parties.{$index}.first_name" => 'First name and last name are required for individuals.']);
-                }
-            }
-
-            // Require attorney information when representation is attorney
-            if (isset($party['representation']) && $party['representation'] === 'attorney') {
-                $hasExistingAttorney = !empty($party['attorney_id']);
-                $hasNewAttorney = !empty($party['attorney_name']) && !empty($party['attorney_email']);
-                $hasNoAttorneyYet = ($party['type'] ?? null) === 'company' && ($party['attorney_option'] ?? null) === 'no_attorney_yet';
-
-                if (($party['type'] ?? null) !== 'company' && ($party['attorney_option'] ?? null) === 'no_attorney_yet') {
-                    return back()->withInput()->withErrors(["parties.{$index}.attorney_option" => 'No Attorney Yet is only allowed for entities (non-person).']);
-                }
-
-                if (!$hasExistingAttorney && !$hasNewAttorney && !$hasNoAttorneyYet) {
-                    return back()->withInput()->withErrors(["parties.{$index}.attorney_name" => 'Please select an existing attorney or provide new attorney name and email.']);
-                }
-            }
-        }
 
         try {
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
@@ -343,7 +234,10 @@ class CaseController extends Controller
             'rejections.resubmittedBy',
             'rejections.items.resolvedBy',
         ]);
-        return view('cases.show', compact('case'));
+        $submissionNotificationRecipients = $this->caseService->getSubmissionNotificationOptions();
+        $acceptanceNotificationRecipients = $this->caseService->getAcceptanceNotificationOptions($case);
+
+        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients'));
     }
 
     public function downloadServiceList(CaseModel $case)
@@ -530,9 +424,8 @@ class CaseController extends Controller
                 }
 
                 // Send notifications to selected recipients
-                $recipients = $validated['notify_recipients'] ?? [];
                 $customMessage = $validated['custom_message'] ?? null;
-                $this->caseService->notifyCaseSubmission($case, $recipients, $customMessage);
+                $this->caseService->notifyCaseSubmission($case, [], $customMessage);
             }
 
             $message = match($validated['action']) {
@@ -552,7 +445,18 @@ class CaseController extends Controller
 
     public function accept(CaseModel $case)
     {
-        if ($this->caseService->acceptCase($case, Auth::user())) {
+        $validated = request()->validate([
+            'notify_recipients' => 'nullable|array',
+            'notify_recipients.*' => 'string',
+            'custom_message' => 'nullable|string|max:1000',
+        ]);
+
+        if ($this->caseService->acceptCase(
+            $case,
+            Auth::user(),
+            $validated['notify_recipients'] ?? [],
+            $validated['custom_message'] ?? null
+        )) {
             return back()->with('success', 'Case accepted successfully.');
         }
 

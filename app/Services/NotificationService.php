@@ -10,6 +10,51 @@ use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
+    public function notifyEmailAddress(string $email, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): Notification
+    {
+        $emailStatus = 'pending';
+        $bounceReason = null;
+
+        try {
+            Mail::raw($message, function ($mail) use ($email, $title) {
+                $mail->to($email)
+                     ->subject($title);
+            });
+
+            $emailStatus = 'sent';
+
+            if ($logAudit) {
+                $currentUser = auth()->user();
+                if ($currentUser) {
+                    AuditService::logEmailNotificationBatch($currentUser, $case, [$email], $type, $title);
+                }
+            }
+        } catch (\Exception $e) {
+            $emailStatus = 'failed';
+            $bounceReason = $e->getMessage();
+
+            \Log::error('Failed to send email notification', [
+                'email' => $email,
+                'title' => $title,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return Notification::create([
+            'case_id' => $case?->id,
+            'notification_type' => $type,
+            'payload_json' => [
+                'title' => $title,
+                'message' => $message,
+                'email' => $email,
+                'user_id' => null
+            ],
+            'sent_at' => now(),
+            'email_status' => $emailStatus,
+            'bounce_reason' => $bounceReason
+        ]);
+    }
+
     public function notify($recipient, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): Notification
     {
         $userId = null;

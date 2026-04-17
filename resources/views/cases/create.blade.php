@@ -3,1186 +3,211 @@
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">New Case</h2>
     </x-slot>
 
-    <div class="py-12">
+    <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Success Message -->
-            @if(session('success'))
-                <div class="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Success!</strong>
-                    <span class="block sm:inline">{{ session('success') }}</span>
-                </div>
-            @endif
+            @include('cases.create.partials.alerts')
 
-            <!-- Error Messages -->
-            @if($errors->any())
-                <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <strong class="font-bold">Please fix the following errors:</strong>
-                    <ul class="mt-2 list-disc list-inside">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('cases.store') }}" enctype="multipart/form-data" class="bg-white shadow-sm rounded-lg p-6">
-                @csrf
-
-                <!-- Case Type -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Case Type *</label>
-                    <div class="space-y-2">
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="aggrieved" {{ old('case_type') == 'aggrieved' ? 'checked' : '' }} required class="mr-2">
-                            Aggrieved
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="protested" {{ old('case_type') == 'protested' ? 'checked' : '' }} required class="mr-2">
-                            Protested
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="compliance" {{ old('case_type') == 'compliance' ? 'checked' : '' }} required class="mr-2">
-                            Compliance Action
-                        </label>
+            <div class="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <aside class="space-y-6">
+                    <div class="rounded-3xl border border-slate-200 bg-[linear-gradient(140deg,#0f172a_0%,#1d4ed8_52%,#dbeafe_100%)] p-6 text-white shadow-sm">
+                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-blue-100">Case Intake</p>
+                        <h3 class="mt-3 text-2xl font-semibold leading-tight">Build the case in clear stages.</h3>
+                        <p class="mt-3 text-sm leading-6 text-blue-50/90">Move from basics to parties, then documents, and finish with a full review before anything is sent to the Hearing Unit.</p>
                     </div>
-                    @error('case_type')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
 
-                <!-- Caption -->
-                <div class="mb-6">
-                    <label for="caption" class="block text-sm font-medium text-gray-700">Caption *</label>
-                    <textarea name="caption" id="caption" rows="3" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm {{ $errors->has('caption') ? 'border-red-500' : '' }}">{{ old('caption') }}</textarea>
-                    @error('caption')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
+                    <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div class="mb-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Progress</p>
+                                <p id="wizardProgressLabel" class="mt-1 text-sm font-medium text-slate-900">Step 1 of 5</p>
+                            </div>
+                            <span id="wizardProgressPercent" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">20%</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-slate-100">
+                            <div id="wizardProgressBar" class="h-2 rounded-full bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-400 transition-all duration-300" style="width: 20%"></div>
+                        </div>
 
-                <!-- Water Rights Division Office Selection -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-3">Administrative Litigation Unit *</label>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label class="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
-                            <input type="radio" name="wrd_office" value="albuquerque" {{ old('wrd_office', 'santa_fe') == 'albuquerque' ? 'checked' : '' }} required class="mt-1 mr-3">
-                            <div class="flex-1">
-                                <div class="font-semibold text-gray-900">Albuquerque Office</div>
-                                <div class="text-sm text-gray-600 mt-1">
-                                    <div>5550 San Antonio Dr NE</div>
-                                    <div>Albuquerque, NM 87109</div>
-                                    <div class="mt-1">Phone: (505) 469-9662</div>
-                                </div>
-                            </div>
-                        </label>
-                        <label class="flex items-start p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50 {{ old('wrd_office', 'santa_fe') == 'santa_fe' ? 'border-blue-500 bg-blue-50' : 'border-gray-300' }}">
-                            <input type="radio" name="wrd_office" value="santa_fe" {{ old('wrd_office', 'santa_fe') == 'santa_fe' ? 'checked' : '' }} required class="mt-1 mr-3">
-                            <div class="flex-1">
-                                <div class="font-semibold text-gray-900">Santa Fe Office</div>
-                                <div class="text-sm text-gray-600 mt-1">
-                                    <div>407 Galisteo St STE 102</div>
-                                    <div>Santa Fe, NM 87501</div>
-                                    <div class="mt-1">Phone: (505) 827-6120</div>
-                                </div>
-                            </div>
-                        </label>
+                        <div class="mt-6 space-y-3" id="wizardStepNav">
+                            <button type="button" data-step-target="0" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
+                                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 1</span>
+                                <span class="mt-1 block text-sm font-semibold text-slate-900">Case Basics</span>
+                                <span class="mt-1 block text-xs text-slate-500">Type, caption, office, and assignments.</span>
+                            </button>
+                            <button type="button" data-step-target="1" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
+                                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 2</span>
+                                <span class="mt-1 block text-sm font-semibold text-slate-900">Parties & Counsel</span>
+                                <span class="mt-1 block text-xs text-slate-500">Add participants, service, and representation.</span>
+                            </button>
+                            <button type="button" data-step-target="2" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
+                                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 3</span>
+                                <span class="mt-1 block text-sm font-semibold text-slate-900">Case Numbers</span>
+                                <span class="mt-1 block text-xs text-slate-500">Capture OSE file numbers and ranges.</span>
+                            </button>
+                            <button type="button" data-step-target="3" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
+                                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 4</span>
+                                <span class="mt-1 block text-sm font-semibold text-slate-900">Documents</span>
+                                <span class="mt-1 block text-xs text-slate-500">Upload required and supporting filings.</span>
+                            </button>
+                            <button type="button" data-step-target="4" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
+                                <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 5</span>
+                                <span class="mt-1 block text-sm font-semibold text-slate-900">Review & Submit</span>
+                                <span class="mt-1 block text-xs text-slate-500">Check the intake summary before filing.</span>
+                            </button>
+                        </div>
                     </div>
-                    @error('wrd_office')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
+                </aside>
 
-                <!-- ALU Attorney Assignments -->
-                @if(auth()->user()->canAssignAttorneys())
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign ALU Attorneys</label>
-                    <div class="border rounded-lg p-4 bg-gray-50">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            @foreach(\App\Models\User::whereCurrentRole('alu_atty')->get() as $attorney)
-                            <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
-                                <input type="checkbox" name="assigned_attorneys[]" value="{{ $attorney->id }}"
-                                       {{ in_array($attorney->id, old('assigned_attorneys', [])) ? 'checked' : '' }}
-                                       class="mr-3">
+                <form id="caseCreateForm" method="POST" action="{{ route('cases.store') }}" enctype="multipart/form-data" class="rounded-[32px] border border-slate-200 bg-white shadow-sm">
+                    @csrf
+
+                    <div class="border-b border-slate-200 px-6 py-6 sm:px-8">
+                        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600" id="wizardStepEyebrow">Step 1</p>
+                        <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <h3 id="wizardStepTitle" class="text-2xl font-semibold text-slate-950">Case Basics</h3>
+                                <p id="wizardStepDescription" class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Set the foundational details that determine the rest of the intake experience.</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                                <span class="font-semibold text-slate-900">Guided Intake</span>
+                                <span class="block mt-1">Each step validates before you move forward.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-6 sm:px-8">
+                        <section class="wizard-step" data-step-index="0">
+                            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                                 <div>
-                                    <div class="font-medium">{{ $attorney->name }}</div>
-                                    <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
+                                    @include('cases.create.partials.case-details')
                                 </div>
-                            </label>
-                            @endforeach
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2">Select one or more ALU attorneys to assign to this case</p>
+                                <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                    <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Why This Matters</h4>
+                                    <p class="mt-3 text-sm leading-6 text-slate-600">These choices drive allowed party roles, required documents, and the review path used later in intake.</p>
+                                    <div class="mt-6 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+                                        <p class="text-sm font-semibold text-slate-900">Case Setup Tips</p>
+                                        <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                                            <li>Choose the case type first so the rest of the form can adjust correctly.</li>
+                                            <li>Use the caption exactly as it should appear in notices and filings.</li>
+                                            <li>Set assignments here if your role requires intake routing.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Assignments</h4>
+                                <p class="mt-2 text-sm leading-6 text-slate-600">If your role can route work now, assign the ALU team before the case moves forward.</p>
+                                <div class="mt-5">
+                                    @include('cases.create.partials.assignments')
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="wizard-step hidden" data-step-index="1">
+                            <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-slate-950">Parties and Representation</h4>
+                                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Add each party once, choose whether it is an individual or entity, then capture service and counsel details in the same flow.</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100">
+                                        <span class="font-semibold text-slate-900">Tip</span>
+                                        <span class="block mt-1">Use one party card per participant so review and service remain clean later.</span>
+                                    </div>
+                                </div>
+                                @include('cases.create.partials.parties')
+                            </div>
+                        </section>
+
+                        <section class="wizard-step hidden" data-step-index="2">
+                            <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+                                <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                    <h4 class="text-lg font-semibold text-slate-950">OSE File Numbers</h4>
+                                    <p class="mt-2 text-sm leading-6 text-slate-600">Capture the case numbers cleanly, including ranges when a matter spans more than one file number.</p>
+                                    <div class="mt-5">
+                                        @include('cases.create.partials.ose-numbers')
+                                    </div>
+                                </div>
+                                <div class="rounded-3xl border border-slate-200 bg-[linear-gradient(180deg,#f8fafc_0%,#eff6ff_100%)] p-5">
+                                    <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Numbering Notes</h4>
+                                    <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+                                        <li>Use separate entries when file numbers are unrelated.</li>
+                                        <li>Use ranges only when the matter truly spans sequential records.</li>
+                                        <li>Accurate case numbers improve search, docketing, and notices later.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="wizard-step hidden" data-step-index="3">
+                            <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-slate-950">Document Intake</h4>
+                                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Upload only what belongs with this case. The form will switch requirements based on case type and pleading choices.</p>
+                                    </div>
+                                    <div class="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100">
+                                        <span class="font-semibold text-slate-900">File Check</span>
+                                        <span class="block mt-1">Each file is checked against the current intake path before submission.</span>
+                                    </div>
+                                </div>
+                                @include('cases.create.partials.documents')
+                            </div>
+                        </section>
+
+                        <section class="wizard-step hidden" data-step-index="4">
+                            <div class="space-y-6">
+                                <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                                    <h4 class="text-lg font-semibold text-slate-950">Review Intake Summary</h4>
+                                    <p class="mt-2 text-sm leading-6 text-slate-600">Confirm the case setup, parties, and document package before you save or submit. If something looks off, go back to that step and fix it there.</p>
+                                </div>
+
+                                <div class="grid gap-4 lg:grid-cols-2" id="wizardReviewGrid">
+                                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Case Basics</p>
+                                        <div id="reviewBasics" class="mt-4 space-y-3 text-sm text-slate-700"></div>
+                                    </div>
+                                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Assignments & Numbers</p>
+                                        <div id="reviewRouting" class="mt-4 space-y-3 text-sm text-slate-700"></div>
+                                    </div>
+                                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Parties</p>
+                                        <div id="reviewParties" class="mt-4 space-y-3 text-sm text-slate-700"></div>
+                                    </div>
+                                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Documents</p>
+                                        <div id="reviewDocuments" class="mt-4 space-y-3 text-sm text-slate-700"></div>
+                                    </div>
+                                </div>
+
+                                <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                                    <p class="text-sm font-semibold text-emerald-900">Final Confirmation</p>
+                                    <p class="mt-2 text-sm leading-6 text-emerald-800">Use <span class="font-semibold">Save Draft</span> if the intake should remain editable, or <span class="font-semibold">Submit to HU</span> once everything is ready for Hearing Unit review.</p>
+                                </div>
+
+                                @include('cases.create.partials.actions')
+                            </div>
+                        </section>
                     </div>
-                    @error('assigned_attorneys')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
 
-                <!-- ALU Clerk Assignments -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Assign ALU Clerks</label>
-                    <div class="border rounded-lg p-4 bg-gray-50">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            @foreach(\App\Models\User::whereCurrentRole('alu_clerk')->get() as $clerk)
-                                <label class="flex items-center p-2 border rounded hover:bg-white cursor-pointer">
-                                    <input type="checkbox" name="assigned_clerks[]" value="{{ $clerk->id }}"
-                                        {{ in_array($clerk->id, old('assigned_clerks', [])) ? 'checked' : '' }}
-                                        class="mr-3">
-                                    <div>
-                                        <div class="font-medium">{{ $clerk->name }}</div>
-                                        <div class="text-sm text-gray-600">{{ $clerk->email }}</div>
-                                    </div>
-                                </label>
-                            @endforeach
-                        </div>
-                        <p class="text-xs text-gray-500 mt-2">Select one or more ALU clerks to assign to this case</p>
-                    </div>
-                    @error('assigned_clerks')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-                @endif
-
-                <!-- OSE File Numbers -->
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">OSE File Numbers</label>
-                    <div id="ose-numbers" class="space-y-2">
-                        <div class="flex gap-2 items-center flex-wrap">
-                            <div class="flex items-center gap-1">
-                                <select name="ose_numbers[0][basin_code_from]" class="border-gray-300 rounded-md text-sm">
-                                    <option value="">Select Basin</option>
-                                    @foreach($basinCodes as $code)
-                                        <option value="{{ $code->initial }}" {{ old('ose_numbers.0.basin_code_from') == $code->initial ? 'selected' : '' }}>{{ $code->initial }} - {{ $code->description }}</option>
-                                    @endforeach
-                                </select>
-                                <span class="text-sm">-</span>
-                                <input type="text" name="ose_numbers[0][file_no_from]" placeholder="12345" value="{{ old('ose_numbers.0.file_no_from') }}" class="border-gray-300 rounded-md w-20 text-sm">
-                            </div>
-                            <div id="to-section-0" class="flex items-center gap-1 {{ old('ose_numbers.0.file_no_to') ? '' : 'hidden' }}">
-                                <span class="text-sm text-gray-600">into</span>
-                                <select name="ose_numbers[0][basin_code_to]" class="border-gray-300 rounded-md text-sm">
-                                    <option value="">Select Basin</option>
-                                    @foreach($basinCodes as $code)
-                                        <option value="{{ $code->initial }}" {{ old('ose_numbers.0.basin_code_to') == $code->initial ? 'selected' : '' }}>{{ $code->initial }} - {{ $code->description }}</option>
-                                    @endforeach
-                                </select>
-                                <span class="text-sm">-</span>
-                                <input type="text" name="ose_numbers[0][file_no_to]" placeholder="12350" value="{{ old('ose_numbers.0.file_no_to') }}" class="border-gray-300 rounded-md w-20 text-sm">
-                                <button type="button" onclick="hideToSection(0)" class="text-red-600 text-xs ml-1">✕</button>
-                            </div>
-                            <button id="add-to-0" type="button" onclick="showToSection(0)" class="text-blue-600 text-xs {{ old('ose_numbers.0.file_no_to') ? 'hidden' : '' }}">+ Add Range</button>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addOseNumber()" class="mt-2 text-blue-600 text-sm">+ Add Another</button>
-                </div>
-
-                <!-- Parties with Contact Information -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Parties & Contact Information</h3>
-
-                    <div id="parties-list" class="space-y-6">
-                        <!-- First Applicant (Required) -->
-                        <div class="border rounded-lg p-4 bg-gray-50">
-                            <div class="flex justify-between items-center mb-4">
-                                <h4 class="font-medium text-gray-900" id="party-0-title">Primary Party 1 *</h4>
-                            </div>
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700">Party Role *</label>
-                                <select name="parties[0][role]" id="party-0-role" required class="mt-1 block w-full border-gray-300 rounded-md">
-                                    <option value="">Select Role</option>
-                                    <option value="applicant" {{ old('parties.0.role') == 'applicant' ? 'selected' : '' }}>Applicant</option>
-                                    <option value="respondent" {{ old('parties.0.role') == 'respondent' ? 'selected' : '' }} class="compliance-role" style="display: none;">Respondent</option>
-                                </select>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">
-                                        Type *
-                                        <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-blue-700 bg-blue-100 rounded-full cursor-help align-middle"
-                                              title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney.">i</span>
-                                    </label>
-                                    <select name="parties[0][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(0)">
-                                        <option value="">Select Type</option>
-                                        <option value="individual" {{ old('parties.0.type') == 'individual' ? 'selected' : '' }}>Individual</option>
-                                        <option value="company" {{ old('parties.0.type') == 'company' ? 'selected' : '' }}>Entity (Non-Person)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Service Method</label>
-                                    <select name="parties[0][service_method]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                        <option value="email" {{ old('parties.0.service_method') == 'email' ? 'selected' : '' }}>Email</option>
-                                        <option value="mail" {{ old('parties.0.service_method') == 'mail' ? 'selected' : '' }}>Mail</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <!-- Individual Fields -->
-                            <div id="individual-fields-0" class="{{ old('parties.0.type') == 'individual' ? '' : 'hidden' }}">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">First Name *</label>
-                                        <input type="text" name="parties[0][first_name]" value="{{ old('parties.0.first_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Last Name *</label>
-                                        <input type="text" name="parties[0][last_name]" value="{{ old('parties.0.last_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Company Fields -->
-                            <div id="company-fields-0" class="{{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
-                                <div class="mb-4">
-                                    <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
-                                    <input type="text" name="parties[0][organization]" value="{{ old('parties.0.organization') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">C/o First Name</label>
-                                        <input type="text" name="parties[0][first_name]" value="{{ old('parties.0.first_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">C/o Last Name</label>
-                                        <input type="text" name="parties[0][last_name]" value="{{ old('parties.0.last_name') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- Representation -->
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700">Representation</label>
-                                <div id="representation-0" class="mt-2">
-                                    <div class="individual-representation {{ old('parties.0.type') == 'individual' ? '' : 'hidden' }}">
-                                        <label class="flex items-center mb-2">
-                                            <input type="radio" name="parties[0][representation]" value="self" {{ old('parties.0.representation', 'self') == 'self' ? 'checked' : '' }} class="mr-2" onchange="toggleAttorneyFields(0)">
-                                            Self-Represented
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="radio" name="parties[0][representation]" value="attorney" {{ old('parties.0.representation') == 'attorney' ? 'checked' : '' }} class="mr-2" onchange="toggleAttorneyFields(0)">
-                                            Represented by Attorney
-                                        </label>
-                                    </div>
-                                    <div class="company-representation {{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
-                                        <input type="hidden" name="parties[0][representation]" value="attorney" disabled>
-                                        <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Common Contact Fields -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Email *</label>
-                                    <input type="email" name="parties[0][email]" value="{{ old('parties.0.email') }}" required class="mt-1 block w-full border-gray-300 rounded-md">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Phone</label>
-                                    <input type="text" name="parties[0][phone]" value="{{ old('parties.0.phone') }}" class="mt-1 block w-full border-gray-300 rounded-md">
-                                </div>
-                            </div>
-
-                            <!-- Address -->
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700">Address</label>
-                                <input type="text" name="parties[0][address_line1]" value="{{ old('parties.0.address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                                <input type="text" name="parties[0][address_line2]" value="{{ old('parties.0.address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <input type="text" name="parties[0][city]" value="{{ old('parties.0.city') }}" placeholder="City" class="border-gray-300 rounded-md">
-                                <input type="text" name="parties[0][state]" value="{{ old('parties.0.state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
-                                <input type="text" name="parties[0][zip]" value="{{ old('parties.0.zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md">
-                            </div>
-
-                            <!-- Attorney Fields -->
-                            <div id="attorney-fields-0" class="{{ (old('parties.0.representation') == 'attorney' || old('parties.0.type') == 'company') ? '' : 'hidden' }} mt-4">
-                                <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
-                                    <h5 class="font-semibold text-indigo-900 mb-4 flex items-center">
-                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                        </svg>
-                                        Attorney Information
-                                    </h5>
-
-                                <div class="mb-4">
-                                    <label class="flex items-center mb-2">
-                                        <input type="radio" name="parties[0][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id') ? 'checked' : '' }}>
-                                        Select Existing Attorney
-                                    </label>
-                                    <select name="parties[0][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" {{ old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id') ? '' : 'disabled' }}>
-                                        <option value="">Choose an attorney...</option>
-                                        @foreach($attorneys as $attorney)
-                                            <option value="{{ $attorney->id }}" {{ old('parties.0.attorney_id') == $attorney->id ? 'selected' : '' }}>
-                                                {{ $attorney->name }} - {{ $attorney->email }}
-                                                @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="flex items-center mb-2">
-                                        <input type="radio" name="parties[0][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option', old('parties.0.attorney_id') ? 'existing' : 'new') == 'new' ? 'checked' : '' }}>
-                                        Add New Attorney
-                                    </label>
-                                    <div id="new-attorney-0" class="{{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'opacity-50' : '' }}">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                                <input type="text" name="parties[0][attorney_name]" value="{{ old('parties.0.attorney_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
-                                                <input type="email" name="parties[0][attorney_email]" value="{{ old('parties.0.attorney_email') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
-                                                <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                                <input type="text" name="parties[0][bar_number]" value="{{ old('parties.0.bar_number') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
-                                        <div class="mt-4">
-                                            <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
-                                            <input type="text" name="parties[0][attorney_address_line1]" value="{{ old('parties.0.attorney_address_line1') }}" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            <input type="text" name="parties[0][attorney_address_line2]" value="{{ old('parties.0.attorney_address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                                <input type="text" name="parties[0][attorney_city]" value="{{ old('parties.0.attorney_city') }}" placeholder="City" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                                <input type="text" name="parties[0][attorney_state]" value="{{ old('parties.0.attorney_state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                                <input type="text" name="parties[0][attorney_zip]" value="{{ old('parties.0.attorney_zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div id="no-attorney-yet-option-0" class="mb-2 {{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
-                                    <label class="flex items-center mb-1">
-                                        <input type="radio" name="parties[0][attorney_option]" value="no_attorney_yet" class="mr-2" onchange="toggleAttorneyOption(0)" {{ old('parties.0.attorney_option') == 'no_attorney_yet' ? 'checked' : '' }}>
-                                        No Attorney Yet
-                                    </label>
-                                    <p class="text-xs text-gray-600">ALU Clerk can submit now and add counsel later.</p>
-                                </div>
-                            </div>
+                    <div class="border-t border-slate-200 bg-slate-50 px-6 py-5 sm:px-8">
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="text-sm text-slate-500">Draft as you go. Nothing is submitted until the final step.</div>
+                            <div class="flex items-center gap-3">
+                                <button type="button" id="wizardPrevBtn" class="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900">
+                                    Back
+                                </button>
+                                <button type="button" id="wizardNextBtn" class="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                                    Continue
+                                </button>
                             </div>
                         </div>
                     </div>
-
-                    <div class="mt-4 space-x-2" id="add-party-buttons">
-                        <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800 regular-case-btn">+ Add Applicant</button>
-                        <button type="button" onclick="addParty('respondent')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Respondent</button>
-                        <button type="button" onclick="addParty('protestant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Protestant</button>
-                        <button type="button" onclick="addParty('counsel')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Counsel</button>
-                    </div>
-                </div>
-
-                <!-- Application Document (Required for Aggrieved/Protested) -->
-                <div class="mb-6" id="application-section">
-                    <h3 class="text-lg font-medium mb-4">Application Document</h3>
-                    <div class="border rounded-lg p-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Application (PDF) *</label>
-                        <input type="file" name="documents[application][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2">
-                        <p class="text-xs text-gray-500 mt-1">Name format: YYYY-MM-DD Application (e.g., 2025-07-18 Application.pdf)</p>
-                    </div>
-                </div>
-
-                <!-- Document Uploads -->
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Required Documents</h3>
-
-                    @php
-                        $requiredDocs = $documentTypes->where('is_required', true)->where('is_pleading', false);
-                        $pleadingDocs = $documentTypes->where('is_pleading', true)->where('code', '!=', 'application');
-                        $optionalDocs = $documentTypes->where('is_required', false)->where('is_pleading', false);
-                    @endphp
-
-                    <!-- Compliance Case Documents -->
-                    <div id="compliance-documents" class="space-y-4" style="display: none;">
-                        <div class="border rounded-lg p-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Compliance Document Type *</label>
-                            <div class="grid grid-cols-1 gap-3 mb-4">
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="compliance_doc_type" value="compliance_order" class="mr-3" onchange="updateComplianceDocLabel()">
-                                    <div>
-                                        <div class="font-medium">Compliance Order</div>
-                                        <div class="text-xs text-gray-500">Official order for compliance action</div>
-                                    </div>
-                                </label>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="compliance_doc_type" value="pre_compliance_letter" class="mr-3" onchange="updateComplianceDocLabel()">
-                                    <div>
-                                        <div class="font-medium">Pre-Compliance Letter</div>
-                                        <div class="text-xs text-gray-500">Initial notice before formal action</div>
-                                    </div>
-                                </label>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="compliance_doc_type" value="compliance_letter" class="mr-3" onchange="updateComplianceDocLabel()">
-                                    <div>
-                                        <div class="font-medium">Compliance Letter</div>
-                                        <div class="text-xs text-gray-500">Formal compliance notification</div>
-                                    </div>
-                                </label>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="compliance_doc_type" value="notice_of_violation" class="mr-3" onchange="updateComplianceDocLabel()">
-                                    <div>
-                                        <div class="font-medium">Notice of Violation</div>
-                                        <div class="text-xs text-gray-500">Official violation notice</div>
-                                    </div>
-                                </label>
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="compliance_doc_type" value="notice_of_reprimand" class="mr-3" onchange="updateComplianceDocLabel()">
-                                    <div>
-                                        <div class="font-medium">Notice of Reprimand (Well Driller)</div>
-                                        <div class="text-xs text-gray-500">Reprimand notice for well drilling violations</div>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <label id="compliance-file-label" class="block text-sm font-medium text-gray-700 mb-2">Select Document Type First</label>
-                            <input type="file" name="documents[compliance][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="compliance-file-input">
-                            <p class="text-xs text-gray-500 mt-1">Choose document type above to enable file upload</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Pleading Documents -->
-                @if($pleadingDocs->count() > 0)
-                <div class="mb-6">
-                    <h3 class="text-lg font-medium mb-4">Pleading Documents</h3>
-                        <div class="border rounded-lg p-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type *</label>
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                @foreach($pleadingDocs as $docType)
-                                <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                    <input type="radio" name="pleading_type" value="{{ $docType->code }}" required class="mr-3" onchange="updatePleadingLabel()">
-                                    <div>
-                                        <div class="font-medium">{{ $docType->name }}</div>
-                                        <div class="text-xs text-gray-500">{{ $docType->code === 'request_pre_hearing' ? 'For pre-hearing conference requests' : 'For docketing requests' }}</div>
-                                    </div>
-                                </label>
-                                @endforeach
-                            </div>
-
-                            <label id="pleading-file-label" class="block text-sm font-medium text-gray-700 mb-2">Select Pleading Type First</label>
-                            <input type="file" name="documents[pleading][]" accept=".pdf" multiple required class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled id="pleading-file-input">
-                            <p class="text-xs text-gray-500 mt-1">Choose pleading type above to enable file upload</p>
-                        </div>
-                </div>
-                @endif
-                <!-- Optional Documents -->
-                    @if($optionalDocs->count() > 0)
-                    <div class="mb-6">
-                        <h4 class="font-medium text-gray-900 mb-3">Supporting Documents</h4>
-                        <div id="optional-documents" class="space-y-4">
-                            <!-- Initial optional document upload -->
-                            <div class="border rounded-lg p-4 optional-doc-item">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                                        <select name="optional_docs[0][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(0)">
-                                            <option value="">Select document type...</option>
-                                            @foreach($optionalDocs as $docType)
-                                            <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-2">File Upload</label>
-                                        <input type="file" name="optional_docs[0][files][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled>
-                                    </div>
-                                </div>
-                                <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
-                            </div>
-                        </div>
-                        <button type="button" onclick="addOptionalDocument()" class="mt-3 text-blue-600 text-sm hover:text-blue-800">+ add additional supporting document</button>
-                    </div>
-                    @endif
-
-                    <!-- Upload Progress -->
-                    <div id="upload-progress" class="hidden">
-                        <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-                            <div class="flex items-center">
-                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                <span class="text-sm text-blue-800">Processing documents...</span>
-                            </div>
-                        </div>
-                    </div>
-
-                <!-- Affirmation -->
-                <div class="mb-6">
-                    <label class="flex items-center">
-                        <input type="checkbox" name="affirmation" {{ old('affirmation') ? 'checked' : '' }} required class="mr-2">
-                        <span class="text-sm">Information provided is complete and correct *</span>
-                    </label>
-                    @error('affirmation')
-                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <!-- Actions -->
-                <div class="flex justify-center gap-4">
-                    <button type="submit" name="action" value="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Save Draft
-                    </button>
-                    <button type="submit" name="action" value="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Submit to HU
-                    </button>
-                    <a href="{{ route('cases.index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md transition-colors">
-                        Cancel
-                    </a>
-                </div>
-            </form>
-    </div>
+                </form>
+            </div>
         </div>
     </div>
-
-
-    <script>
-        let oseCount = 1, partyCount = 1, optionalDocCount = 1;
-
-        // Handle case type changes
-        document.addEventListener('DOMContentLoaded', function() {
-            const caseTypeInputs = document.querySelectorAll('input[name="case_type"]');
-            caseTypeInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    updatePartyRoleOptions();
-                    updateDocumentSections();
-                });
-            });
-
-            // Initialize on page load
-            updatePartyRoleOptions();
-            updateDocumentSections();
-            document.querySelectorAll('select[name^="parties["][name$="[type]"]').forEach(select => {
-                const match = select.name.match(/parties\[(\d+)\]\[type\]/);
-                if (match) {
-                    togglePersonFields(parseInt(match[1], 10));
-                }
-            });
-        });
-
-        function updateDocumentSections() {
-            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
-            const applicationSection = document.getElementById('application-section');
-            const complianceDocs = document.getElementById('compliance-documents');
-            const applicationInput = document.querySelector('input[name="documents[application][]"]');
-
-            if (selectedCaseType === 'compliance') {
-                // Hide application section for compliance cases
-                applicationSection.style.display = 'none';
-                complianceDocs.style.display = 'block';
-
-                // Disable application input
-                if (applicationInput) {
-                    applicationInput.required = false;
-                    applicationInput.disabled = true;
-                }
-            } else {
-                // Show application section for aggrieved/protested cases
-                applicationSection.style.display = 'block';
-                complianceDocs.style.display = 'none';
-
-                // Enable application input
-                if (applicationInput) {
-                    applicationInput.required = true;
-                    applicationInput.disabled = false;
-                }
-
-                // Disable compliance document inputs
-                complianceDocs.querySelectorAll('input[type="file"]').forEach(input => {
-                    input.required = false;
-                    input.disabled = true;
-                });
-            }
-        }
-
-        function updateComplianceDocLabel() {
-            const selectedType = document.querySelector('input[name="compliance_doc_type"]:checked');
-            const fileLabel = document.getElementById('compliance-file-label');
-            const fileInput = document.getElementById('compliance-file-input');
-
-            if (selectedType) {
-                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
-                fileLabel.textContent = `${typeText} Document (PDF) *`;
-                fileInput.disabled = false;
-                fileInput.required = true;
-                fileInput.style.opacity = '1';
-            } else {
-                fileLabel.textContent = 'Select Document Type First';
-                fileInput.disabled = true;
-                fileInput.required = false;
-                fileInput.style.opacity = '0.5';
-            }
-        }
-
-        function updatePartyRoleOptions() {
-            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
-            const complianceRoles = document.querySelectorAll('.compliance-role');
-            const regularCaseBtns = document.querySelectorAll('.regular-case-btn');
-            const complianceCaseBtns = document.querySelectorAll('.compliance-case-btn');
-            const partyTitle = document.getElementById('party-0-title');
-            const partyRoleSelect = document.getElementById('party-0-role');
-
-            if (selectedCaseType === 'compliance') {
-                // Show compliance roles
-                complianceRoles.forEach(option => option.style.display = 'block');
-                regularCaseBtns.forEach(btn => btn.style.display = 'none');
-                complianceCaseBtns.forEach(btn => btn.style.display = 'inline-block');
-
-                // Update title and default selection
-                if (partyTitle) partyTitle.textContent = 'Primary Party 1 *';
-
-                // Hide applicant option for compliance cases
-                const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
-                if (applicantOption) applicantOption.style.display = 'none';
-
-                // Auto-select first compliance role if no role selected
-                if (partyRoleSelect && (!partyRoleSelect.value || partyRoleSelect.value === 'applicant')) {
-                    partyRoleSelect.value = 'respondent';
-                }
-            } else {
-                // Show regular roles
-                complianceRoles.forEach(option => option.style.display = 'none');
-                regularCaseBtns.forEach(btn => btn.style.display = 'inline-block');
-                complianceCaseBtns.forEach(btn => btn.style.display = 'none');
-
-                // Update title
-                if (partyTitle) partyTitle.textContent = 'Applicant 1 *';
-
-                // Show applicant option for regular cases
-                const applicantOption = partyRoleSelect?.querySelector('option[value="applicant"]');
-                if (applicantOption) applicantOption.style.display = 'block';
-
-                // Auto-select applicant for regular case types
-                if (partyRoleSelect && (!partyRoleSelect.value || partyRoleSelect.value === 'respondent')) {
-                    partyRoleSelect.value = 'applicant';
-                }
-            }
-        }
-
-        function showToSection(index) {
-            document.getElementById(`to-section-${index}`).classList.remove('hidden');
-            document.getElementById(`add-to-${index}`).classList.add('hidden');
-        }
-
-        function hideToSection(index) {
-            const toSection = document.getElementById(`to-section-${index}`);
-            const addButton = document.getElementById(`add-to-${index}`);
-
-            // Clear the to fields
-            toSection.querySelector('select').selectedIndex = 0;
-            toSection.querySelector('input').value = '';
-
-            toSection.classList.add('hidden');
-            addButton.classList.remove('hidden');
-        }
-
-        function addOseNumber() {
-            const basinOptions = `<option value="">Select Basin</option>@foreach($basinCodes as $code)<option value="{{ $code->initial }}">{{ $code->initial }} - {{ $code->description }}</option>@endforeach`;
-            document.getElementById('ose-numbers').insertAdjacentHTML('beforeend', `
-                <div class="flex gap-2 items-center flex-wrap">
-                    <div class="flex items-center gap-1">
-                        <select name="ose_numbers[${oseCount}][basin_code_from]" class="border-gray-300 rounded-md text-sm">
-                            ${basinOptions}
-                        </select>
-                        <span class="text-sm">-</span>
-                        <input type="text" name="ose_numbers[${oseCount}][file_no_from]" placeholder="12345" class="border-gray-300 rounded-md w-20 text-sm">
-                    </div>
-                    <div id="to-section-${oseCount}" class="flex items-center gap-1 hidden">
-                        <span class="text-sm text-gray-600">to</span>
-                        <select name="ose_numbers[${oseCount}][basin_code_to]" class="border-gray-300 rounded-md text-sm">
-                            ${basinOptions}
-                        </select>
-                        <span class="text-sm">-</span>
-                        <input type="text" name="ose_numbers[${oseCount}][file_no_to]" placeholder="12350" class="border-gray-300 rounded-md w-20 text-sm">
-                        <button type="button" onclick="hideToSection(${oseCount})" class="text-red-600 text-xs ml-1">✕</button>
-                    </div>
-                    <button id="add-to-${oseCount}" type="button" onclick="showToSection(${oseCount})" class="text-blue-600 text-xs">+ Add Range</button>
-                </div>
-            `);
-            oseCount++;
-        }
-
-        function addParty(role) {
-            const roleTitle = role.charAt(0).toUpperCase() + role.slice(1);
-            document.getElementById('parties-list').insertAdjacentHTML('beforeend', `
-                <div class="border rounded-lg p-4 bg-gray-50">
-                    <div class="flex justify-between items-center mb-4">
-                        <h4 class="font-medium text-gray-900">${roleTitle} ${partyCount + 1}</h4>
-                        <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-600 text-sm hover:text-red-800">Remove</button>
-                    </div>
-
-                    <input type="hidden" name="parties[${partyCount}][role]" value="${role}">
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">
-                                Type *
-                                <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-blue-700 bg-blue-100 rounded-full cursor-help align-middle"
-                                      title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney.">i</span>
-                            </label>
-                            <select name="parties[${partyCount}][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(${partyCount})">
-                                <option value="">Select Type</option>
-                                <option value="individual">Individual</option>
-                                <option value="company">Entity (Non-Person)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Service Method</label>
-                            <select name="parties[${partyCount}][service_method]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                <option value="email">Email</option>
-                                <option value="mail">Mail</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="individual-fields-${partyCount}" class="hidden">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">First Name *</label>
-                                <input type="text" name="parties[${partyCount}][first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Last Name *</label>
-                                <input type="text" name="parties[${partyCount}][last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="company-fields-${partyCount}" class="hidden">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">Entity Name *</label>
-                            <input type="text" name="parties[${partyCount}][organization]" class="mt-1 block w-full border-gray-300 rounded-md">
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">C/o First Name</label>
-                                <input type="text" name="parties[${partyCount}][first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">C/o Last Name</label>
-                                <input type="text" name="parties[${partyCount}][last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Representation -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Representation</label>
-                        <div id="representation-${partyCount}" class="mt-2">
-                            <div class="individual-representation hidden">
-                                <label class="flex items-center mb-2">
-                                    <input type="radio" name="parties[${partyCount}][representation]" value="self" class="mr-2" onchange="toggleAttorneyFields(${partyCount})">
-                                    Self-Represented
-                                </label>
-                                <label class="flex items-center">
-                                    <input type="radio" name="parties[${partyCount}][representation]" value="attorney" class="mr-2" onchange="toggleAttorneyFields(${partyCount})">
-                                    Represented by Attorney
-                                </label>
-                            </div>
-                            <div class="company-representation hidden">
-                                <input type="hidden" name="parties[${partyCount}][representation]" value="attorney">
-                                <p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">Entities must be represented by an attorney</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Email *</label>
-                            <input type="email" name="parties[${partyCount}][email]" required class="mt-1 block w-full border-gray-300 rounded-md">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Phone</label>
-                            <input type="text" name="parties[${partyCount}][phone]" class="mt-1 block w-full border-gray-300 rounded-md">
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700">Address</label>
-                        <input type="text" name="parties[${partyCount}][address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <input type="text" name="parties[${partyCount}][city]" placeholder="City" class="border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
-                    </div>
-
-                    <!-- Attorney Fields -->
-                    <div id="attorney-fields-${partyCount}" class="hidden mt-4">
-                        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
-                            <h5 class="font-semibold text-indigo-900 mb-4 flex items-center">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                </svg>
-                                Attorney Information
-                            </h5>
-
-                        <div class="mb-4">
-                            <label class="flex items-center mb-2">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
-                                Select Existing Attorney
-                            </label>
-                            <select name="parties[${partyCount}][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" disabled>
-                                <option value="">Choose an attorney...</option>
-                                @foreach($attorneys as $attorney)
-                                    <option value="{{ $attorney->id }}">
-                                        {{ $attorney->name }} - {{ $attorney->email }}
-                                        @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="flex items-center mb-2">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(${partyCount})" checked>
-                                Add New Attorney
-                            </label>
-                            <div id="new-attorney-${partyCount}">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                        <input type="text" name="parties[${partyCount}][attorney_name]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
-                                        <input type="email" name="parties[${partyCount}][attorney_email]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
-                                        <input type="text" name="parties[${partyCount}][attorney_phone]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                        <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                                <div class="mt-4">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
-                                    <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                        <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
-                                        <input type="text" name="parties[${partyCount}][attorney_state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
-                                        <input type="text" name="parties[${partyCount}][attorney_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="no-attorney-yet-option-${partyCount}" class="mb-2 hidden">
-                            <label class="flex items-center mb-1">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="no_attorney_yet" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
-                                No Attorney Yet
-                            </label>
-                            <p class="text-xs text-gray-600">ALU Clerk can submit now and add counsel later.</p>
-                        </div>
-                    </div>
-                    </div>
-                </div>
-            `);
-            partyCount++;
-        }
-
-        function togglePersonFields(index) {
-            const typeSelect = document.querySelector(`select[name="parties[${index}][type]"]`);
-            const individualFields = document.getElementById(`individual-fields-${index}`);
-            const companyFields = document.getElementById(`company-fields-${index}`);
-            const individualRep = document.querySelector(`#representation-${index} .individual-representation`);
-            const companyRep = document.querySelector(`#representation-${index} .company-representation`);
-            const attorneyFields = document.getElementById(`attorney-fields-${index}`);
-
-            if (typeSelect.value === 'individual') {
-                individualFields.classList.remove('hidden');
-                companyFields.classList.add('hidden');
-                // Enable individual name fields and make them required
-                individualFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = false;
-                    if (input.name.includes('[first_name]') || input.name.includes('[last_name]')) {
-                        input.required = true;
-                    }
-                });
-                // Disable company fields so they don't submit
-                companyFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                });
-                if (individualRep) {
-                    individualRep.classList.remove('hidden');
-                    companyRep.classList.add('hidden');
-                    // Disable the hidden representation field in company div
-                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
-                    if (hiddenRepField) hiddenRepField.disabled = true;
-                }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.add('hidden');
-                }
-                const noAttorneyYetRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="no_attorney_yet"]`);
-                if (noAttorneyYetRadio?.checked) {
-                    const newRadio = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]`);
-                    if (newRadio) {
-                        newRadio.checked = true;
-                    }
-                }
-                // Hide attorney fields unless attorney is selected
-                const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
-                if (attorneyFields) {
-                    attorneyFields.classList.toggle('hidden', !attorneySelected);
-                }
-                toggleAttorneyOption(index);
-            } else if (typeSelect.value === 'company') {
-                individualFields.classList.add('hidden');
-                companyFields.classList.remove('hidden');
-                // Enable company fields
-                companyFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = false;
-                    if (input.name.includes('[organization]')) {
-                        input.required = true;
-                    }
-                });
-                // Disable individual name fields so they don't submit
-                individualFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                });
-                if (individualRep) {
-                    individualRep.classList.add('hidden');
-                    companyRep.classList.remove('hidden');
-                    // Enable the hidden representation field in company div
-                    const hiddenRepField = companyRep.querySelector('input[type="hidden"]');
-                    if (hiddenRepField) hiddenRepField.disabled = false;
-                }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.remove('hidden');
-                }
-                // Always show attorney fields for companies
-                if (attorneyFields) {
-                    attorneyFields.classList.remove('hidden');
-                }
-                toggleAttorneyOption(index);
-            } else {
-                individualFields.classList.add('hidden');
-                companyFields.classList.add('hidden');
-                // Disable all fields when nothing selected
-                individualFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                });
-                companyFields.querySelectorAll('input').forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                });
-                if (individualRep) {
-                    individualRep.classList.add('hidden');
-                    companyRep.classList.add('hidden');
-                }
-                if (attorneyFields) {
-                    attorneyFields.classList.add('hidden');
-                }
-                const noAttorneyYetWrapper = document.getElementById(`no-attorney-yet-option-${index}`);
-                if (noAttorneyYetWrapper) {
-                    noAttorneyYetWrapper.classList.add('hidden');
-                }
-            }
-        }
-
-        function toggleAttorneyFields(index) {
-            const attorneyFields = document.getElementById(`attorney-fields-${index}`);
-            const attorneySelected = document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
-
-            if (attorneyFields) {
-                attorneyFields.classList.toggle('hidden', !attorneySelected);
-
-                // Make attorney fields required when attorney representation is selected
-                if (attorneySelected) {
-                    const newAttorneyOption = document.querySelector(`input[name="parties[${index}][attorney_option]"][value="new"]:checked`);
-                    if (newAttorneyOption) {
-                        const newAttorneyDiv = document.getElementById(`new-attorney-${index}`);
-                        if (newAttorneyDiv) {
-                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_name]"], input[name*="[attorney_email]"]').forEach(input => {
-                                if (!input.disabled) input.required = true;
-                            });
-                        }
-                    }
-                } else {
-                    // Remove required from attorney fields when not selected
-                    attorneyFields.querySelectorAll('input').forEach(input => input.required = false);
-                }
-            }
-        }
-
-        function toggleAttorneyOption(index) {
-            const option = document.querySelector(`input[name="parties[${index}][attorney_option]"]:checked`)?.value;
-            const existingSelect = document.querySelector(`select[name="parties[${index}][attorney_id]"]`);
-            const newFields = document.getElementById(`new-attorney-${index}`);
-            const newInputs = newFields?.querySelectorAll('input');
-            const typeSelect = document.querySelector(`select[name="parties[${index}][type]"]`);
-            const attorneyRadioSelected = !!document.querySelector(`input[name="parties[${index}][representation]"][value="attorney"]:checked`);
-            const needsAttorneyDetails = (typeSelect?.value === 'company') || attorneyRadioSelected;
-
-            if (option === 'existing') {
-                if (existingSelect) {
-                    existingSelect.disabled = false;
-                    existingSelect.required = true;
-                }
-                if (newFields) newFields.classList.add('opacity-50');
-                if (newInputs) newInputs.forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                });
-            } else if (option === 'new') {
-                if (existingSelect) {
-                    existingSelect.disabled = true;
-                    existingSelect.value = '';
-                    existingSelect.required = false;
-                }
-                if (newFields) newFields.classList.remove('opacity-50');
-                if (newInputs) newInputs.forEach(input => {
-                    input.disabled = false;
-                    // Make attorney name and email required for new attorney
-                    if (input.name.includes('[attorney_name]') || input.name.includes('[attorney_email]')) {
-                        input.required = needsAttorneyDetails;
-                    }
-                });
-            } else if (option === 'no_attorney_yet') {
-                if (existingSelect) {
-                    existingSelect.disabled = true;
-                    existingSelect.value = '';
-                    existingSelect.required = false;
-                }
-                if (newFields) newFields.classList.add('opacity-50');
-                if (newInputs) newInputs.forEach(input => {
-                    input.disabled = true;
-                    input.required = false;
-                    input.value = '';
-                });
-            }
-        }
-
-        function updatePleadingLabel() {
-            const selectedType = document.querySelector('input[name="pleading_type"]:checked');
-            const fileLabel = document.getElementById('pleading-file-label');
-            const fileInput = document.getElementById('pleading-file-input');
-
-            if (selectedType) {
-                const typeText = selectedType.nextElementSibling.querySelector('.font-medium').textContent;
-                fileLabel.textContent = `${typeText} Document (PDF) *`;
-                fileInput.name = 'documents[pleading][]';
-                fileInput.disabled = false;
-                fileInput.style.opacity = '1';
-                fileInput.required = true;
-            } else {
-                fileLabel.textContent = 'Select Pleading Type First';
-                fileInput.disabled = true;
-                fileInput.style.opacity = '0.5';
-                fileInput.required = false;
-            }
-        }
-
-        function updateOptionalDocLabel(index) {
-            const select = document.querySelector(`select[name="optional_docs[${index}][type]"]`);
-            const fileInput = document.querySelector(`input[name="optional_docs[${index}][files][]"]`);
-
-            if (select.value) {
-                fileInput.disabled = false;
-                fileInput.style.opacity = '1';
-            } else {
-                fileInput.disabled = true;
-                fileInput.style.opacity = '0.5';
-                fileInput.value = '';
-            }
-        }
-
-        function addOptionalDocument() {
-            const optionalDocsContainer = document.getElementById('optional-documents');
-            const optionalDocOptions = `@foreach($optionalDocs as $docType)<option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>@endforeach`;
-
-            optionalDocsContainer.insertAdjacentHTML('beforeend', `
-                <div class="border rounded-lg p-4 optional-doc-item">
-                    <div class="flex justify-between items-start mb-3">
-                        <h5 class="font-medium text-gray-700">Optional Document ${optionalDocCount + 1}</h5>
-                        <button type="button" onclick="this.closest('.optional-doc-item').remove()" class="text-red-600 text-sm hover:text-red-800">Remove</button>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                            <select name="optional_docs[${optionalDocCount}][type]" class="mt-1 block w-full border-gray-300 rounded-md" onchange="updateOptionalDocLabel(${optionalDocCount})">
-                                <option value="">Select document type...</option>
-                                ${optionalDocOptions}
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">File Upload</label>
-                            <input type="file" name="optional_docs[${optionalDocCount}][files][]" accept=".pdf" multiple class="mt-1 block w-full border-gray-300 rounded-md p-2" disabled>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500">Select document type first, then upload files. Files will be renamed to: YYYY-MM-DD [Document Type].pdf</p>
-                </div>
-            `);
-            optionalDocCount++;
-        }
-
-        // File preview functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add file change listeners for previews
-            const fileInputs = {
-                'documents[application]': 'application-preview',
-                'documents[notice_publication][]': 'notice-preview',
-                'documents[request_to_docket]': 'pleading-preview',
-                'documents[protest_letter][]': 'protest-preview',
-                'documents[supporting][]': 'supporting-preview'
-            };
-
-            Object.entries(fileInputs).forEach(([inputName, previewId]) => {
-                const input = document.querySelector(`input[name="${inputName}"]`);
-                const preview = document.getElementById(previewId);
-
-                if (input && preview) {
-                    input.addEventListener('change', function() {
-                        if (this.files.length > 0) {
-                            if (this.multiple) {
-                                const fileNames = Array.from(this.files).map(f => f.name).join(', ');
-                                preview.textContent = `✓ ${this.files.length} file(s) selected: ${fileNames}`;
-                            } else {
-                                preview.textContent = `✓ Selected: ${this.files[0].name}`;
-                            }
-                            preview.classList.remove('hidden');
-                        } else {
-                            preview.classList.add('hidden');
-                        }
-                    });
-                }
-            });
-
-            // Form submission progress
-            const form = document.querySelector('form');
-            const progressDiv = document.getElementById('upload-progress');
-
-            form.addEventListener('submit', function() {
-                progressDiv.classList.remove('hidden');
-            });
-        });
-
-        // File size validation
-        function validateFileSize(input, maxSizeMB = 200) {
-            const files = input.files;
-            for (let file of files) {
-                if (file.size > maxSizeMB * 1024 * 1024) {
-                    alert(`File "${file.name}" is too large. Maximum size is ${maxSizeMB}MB.`);
-                    input.value = '';
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        // Add file size validation to all file inputs
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('input[type="file"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    validateFileSize(this);
-                });
-            });
-        });
-    </script>
+    @include('cases.create.partials.scripts')
 </x-app-layout>
+

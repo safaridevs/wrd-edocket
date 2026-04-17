@@ -315,7 +315,7 @@
                                     </div>
                                 @endforeach
                             </div>
-                            @if($latestDocCorrection)
+                            {{-- Legacy document-correction block removed from rejection history.
                             <div class="mt-3 rounded-lg border {{ $latestDocCorrection->status === 'open' ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50' }} p-3">
                                 <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                     <div>
@@ -354,7 +354,7 @@
                                     @endforeach
                                 </div>
                             </div>
-                            @endif
+                            --}}
                         </div>
                     @endforeach
                 </div>
@@ -813,13 +813,13 @@
                             </div>
                         </div>
                         <div class="flex space-x-2">
-                            <a href="{{ route('documents.preview', $doc) }}" target="_blank" class="text-gray-600 hover:text-gray-800 text-sm" title="Preview">
+                            <a href="{{ route('documents.preview', $doc) }}" target="_blank" class="text-gray-600 hover:text-gray-800 text-sm" title="Preview" @if(!$doc->approved) onclick="return confirmPendingDocumentAction()" @endif>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
                             </a>
-                            <a href="{{ route('documents.download', $doc) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Download">
+                            <a href="{{ route('documents.download', $doc) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Download" @if(!$doc->approved) onclick="return confirmPendingDocumentAction()" @endif>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
@@ -1176,6 +1176,10 @@
             }
         }
 
+        function confirmPendingDocumentAction() {
+            return confirm('The document you are about to view or download has not been accepted yet. By viewing or downloading you affirm that this document can be accepted or rejected.');
+        }
+
         function showAcceptanceModal() {
             document.getElementById('acceptanceModal').classList.remove('hidden');
         }
@@ -1252,6 +1256,13 @@
         function toggleAll() {
             const selectAll = document.getElementById('selectAll');
             const checkboxes = document.querySelectorAll('.notify-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function toggleAcceptanceRecipients(selectAll) {
+            const checkboxes = document.querySelectorAll('.acceptance-notify-checkbox');
             checkboxes.forEach(checkbox => {
                 checkbox.checked = selectAll.checked;
             });
@@ -1452,7 +1463,8 @@
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Accept Case {{ $case->case_no }}</h3>
-                    <p class="text-sm text-gray-600 mb-4">The following persons will be notified of the case acceptance:</p>
+                    <div class="hidden">
+                        <p class="text-sm text-gray-600 mb-4">The following persons will be notified of the case acceptance:</p>
 
                     <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
                         <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
@@ -1476,12 +1488,65 @@
                         </div>
                         @endif
                     </div>
+                    </div>
+
+                    <p class="text-sm text-gray-600 mb-4">Select which parties or staff should be notified that the case has been accepted.</p>
 
                     <form action="{{ route('cases.accept', $case) }}" method="POST">
                         @csrf
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
+                            <div class="mb-4">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="acceptanceSelectAll" class="mr-2" onchange="toggleAcceptanceRecipients(this)">
+                                    <span class="font-medium">Select All</span>
+                                </label>
+                            </div>
+
+                            @if(!empty($acceptanceNotificationRecipients['parties']))
+                            <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
+                            @foreach($acceptanceNotificationRecipients['parties'] as $recipient)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="{{ $recipient['token'] }}" class="mr-2 acceptance-notify-checkbox" checked>
+                                    <span>{{ $recipient['name'] }} ({{ $recipient['role'] }}) - {{ $recipient['email'] }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                            @endif
+
+                            @if(!empty($acceptanceNotificationRecipients['attorneys']))
+                            <h4 class="font-medium text-sm mt-3 mb-2">Attorneys:</h4>
+                            @foreach($acceptanceNotificationRecipients['attorneys'] as $recipient)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="{{ $recipient['token'] }}" class="mr-2 acceptance-notify-checkbox" checked>
+                                    <span>{{ $recipient['name'] }} ({{ $recipient['role'] }}) - {{ $recipient['email'] }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                            @endif
+
+                            @if(!empty($acceptanceNotificationRecipients['staff']))
+                            <h4 class="font-medium text-sm mt-3 mb-2">Staff:</h4>
+                            @foreach($acceptanceNotificationRecipients['staff'] as $recipient)
+                            <div class="text-sm py-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="notify_recipients[]" value="{{ $recipient['token'] }}" class="mr-2 acceptance-notify-checkbox" checked>
+                                    <span>{{ $recipient['name'] }} ({{ $recipient['role'] }}) - {{ $recipient['email'] }}</span>
+                                </label>
+                            </div>
+                            @endforeach
+                            @endif
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Additional Message (Optional)</label>
+                            <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information for the selected recipients..."></textarea>
+                        </div>
+
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideAcceptanceModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Accept & Notify All</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Accept & Notify Selected</button>
                         </div>
                     </form>
                 </div>
@@ -1653,7 +1718,7 @@
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">Submit Case {{ $case->case_no }} to Hearing Unit</h3>
-                    <p class="text-sm text-gray-600 mb-4">The following people will be notified about the case submission:</p>
+                    <p class="text-sm text-gray-600 mb-4">Submitting to Hearing Unit now only notifies the Hearing Unit recipient below.</p>
 
                     <form action="{{ route('cases.update', $case) }}" method="POST">
                         @csrf
@@ -1664,62 +1729,27 @@
                         <input type="hidden" name="affirmation" value="1">
 
                         <div class="bg-gray-50 rounded-lg p-4 mb-4 max-h-60 overflow-y-auto">
-                            <div class="mb-4">
-                                <label class="flex items-center">
-                                    <input type="checkbox" id="selectAll" class="mr-2" onchange="toggleAll()">
-                                    <span class="font-medium">Select All</span>
-                                </label>
-                            </div>
-
-                            <h4 class="font-medium text-sm mb-2">Case Parties:</h4>
-                            @foreach($case->parties->reject(fn($party) => $party->isWrdAgencyParty())->where('role', '!=', 'counsel') as $party)
+                            <h4 class="font-medium text-sm mb-2">Hearing Unit:</h4>
+                            @forelse($submissionNotificationRecipients as $recipient)
                             <div class="text-sm py-1">
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="notify_recipients[]" value="party_{{ $party->id }}" class="mr-2 notify-checkbox" checked>
-                                    <span>{{ $party->person->full_name }} ({{ ucfirst($party->role) }}) - {{ $party->person->email }}</span>
-                                </label>
+                                <input type="hidden" name="notify_recipients[]" value="{{ $recipient['token'] }}">
+                                <div class="flex items-center rounded-md border border-gray-200 bg-white px-3 py-2">
+                                    <span>{{ $recipient['name'] }} ({{ $recipient['role'] }}) - {{ $recipient['email'] }}</span>
+                                </div>
                             </div>
-                            @endforeach
-
-                            @php
-                                $attorneys = $case->parties->where('role', 'counsel');
-                            @endphp
-                            @if($attorneys->count() > 0)
-                            <h4 class="font-medium text-sm mt-3 mb-2">Attorneys:</h4>
-                            @foreach($attorneys as $attorney)
-                            <div class="text-sm py-1">
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="notify_recipients[]" value="attorney_{{ $attorney->id }}" class="mr-2 notify-checkbox" checked>
-                                    <span>{{ $attorney->person->full_name }} - {{ $attorney->person->email }}</span>
-                                </label>
-                            </div>
-                            @endforeach
-                            @endif
-
-                            @php
-                                $assignedUsers = $case->assignments->whereNotIn('assignment_type', ['hydrology_expert', 'wrd']);
-                            @endphp
-                            @if($assignedUsers->count() > 0)
-                            <h4 class="font-medium text-sm mt-3 mb-2">Assigned Staff:</h4>
-                            @foreach($assignedUsers as $assignment)
-                            <div class="text-sm py-1">
-                                <label class="flex items-center">
-                                    <input type="checkbox" name="notify_recipients[]" value="staff_{{ $assignment->user_id }}" class="mr-2 notify-checkbox" checked>
-                                    <span>{{ $assignment->user->name }} ({{ ucfirst(str_replace('_', ' ', $assignment->assignment_type)) }}) - {{ $assignment->user->email }}</span>
-                                </label>
-                            </div>
-                            @endforeach
-                            @endif
+                            @empty
+                            <p class="text-sm text-red-600">No Hearing Unit recipient is configured. Submission will continue without an email notification.</p>
+                            @endforelse
                         </div>
 
                         <div class="mb-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Additional Message (Optional)</label>
-                            <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information for the recipients..."></textarea>
+                            <textarea name="custom_message" rows="3" class="block w-full border-gray-300 rounded-md" placeholder="Add any additional information for Hearing Unit..."></textarea>
                         </div>
 
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideSubmitModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Submit to HU & Notify Selected</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Submit to HU</button>
                         </div>
                     </form>
                 </div>
