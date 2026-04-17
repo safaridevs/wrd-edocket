@@ -5,6 +5,58 @@
         let oseCount = 1, partyCount = 1, optionalDocCount = 1;
         let currentWizardStep = 0;
         let caseCreateForm = null;
+        const stateOptionsHtml = `@foreach([
+            'AL' => 'Alabama',
+            'AK' => 'Alaska',
+            'AZ' => 'Arizona',
+            'AR' => 'Arkansas',
+            'CA' => 'California',
+            'CO' => 'Colorado',
+            'CT' => 'Connecticut',
+            'DE' => 'Delaware',
+            'FL' => 'Florida',
+            'GA' => 'Georgia',
+            'HI' => 'Hawaii',
+            'ID' => 'Idaho',
+            'IL' => 'Illinois',
+            'IN' => 'Indiana',
+            'IA' => 'Iowa',
+            'KS' => 'Kansas',
+            'KY' => 'Kentucky',
+            'LA' => 'Louisiana',
+            'ME' => 'Maine',
+            'MD' => 'Maryland',
+            'MA' => 'Massachusetts',
+            'MI' => 'Michigan',
+            'MN' => 'Minnesota',
+            'MS' => 'Mississippi',
+            'MO' => 'Missouri',
+            'MT' => 'Montana',
+            'NE' => 'Nebraska',
+            'NV' => 'Nevada',
+            'NH' => 'New Hampshire',
+            'NJ' => 'New Jersey',
+            'NM' => 'New Mexico',
+            'NY' => 'New York',
+            'NC' => 'North Carolina',
+            'ND' => 'North Dakota',
+            'OH' => 'Ohio',
+            'OK' => 'Oklahoma',
+            'OR' => 'Oregon',
+            'PA' => 'Pennsylvania',
+            'RI' => 'Rhode Island',
+            'SC' => 'South Carolina',
+            'SD' => 'South Dakota',
+            'TN' => 'Tennessee',
+            'TX' => 'Texas',
+            'UT' => 'Utah',
+            'VT' => 'Vermont',
+            'VA' => 'Virginia',
+            'WA' => 'Washington',
+            'WV' => 'West Virginia',
+            'WI' => 'Wisconsin',
+            'WY' => 'Wyoming',
+        ] as $code => $label)<option value="{{ $code }}" {{ $code === 'NM' ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>@endforeach`;
 
         const wizardStepMeta = [
             {
@@ -393,6 +445,12 @@
                     : `${card.querySelector(`input[name="parties[${partyIndex}][first_name]"]`)?.value || ''} ${card.querySelector(`input[name="parties[${partyIndex}][last_name]"]`)?.value || ''}`.trim();
                 const email = card.querySelector(`input[name="parties[${partyIndex}][email]"]`)?.value?.trim() || 'No email';
                 const representation = card.querySelector(`input[name="parties[${partyIndex}][representation]"]:checked`)?.value || (isCompany ? 'attorney' : 'self');
+                const attorneyOption = card.querySelector(`input[name="parties[${partyIndex}][attorney_option]"]:checked`)?.value || '';
+                const representationLabel = attorneyOption === 'no_attorney_yet'
+                    ? 'No counsel yet'
+                    : representation === 'attorney'
+                        ? 'Counselled'
+                        : 'Self-represented';
                 return `
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <div class="flex items-center justify-between gap-4">
@@ -400,7 +458,7 @@
                                 <div class="text-sm font-semibold text-slate-900">${name || 'Unnamed party'}</div>
                                 <div class="mt-1 text-xs text-slate-500">${toTitle(role.replace(/_/g, ' '))} • ${isCompany ? 'Entity' : 'Individual'} • ${email}</div>
                             </div>
-                            <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">${representation === 'attorney' ? 'Counselled' : 'Self-represented'}</span>
+                            <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">${representationLabel}</span>
                         </div>
                     </div>
                 `;
@@ -581,8 +639,8 @@
                             <input type="email" name="parties[${partyCount}][email]" required class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">Phone</label>
-                            <input type="text" name="parties[${partyCount}][phone]" class="mt-1 block w-full border-gray-300 rounded-md">
+                            <label class="block text-sm font-medium text-gray-700">Phone *</label>
+                            <input type="text" name="parties[${partyCount}][phone]" required inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
                         </div>
                     </div>
 
@@ -593,7 +651,9 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <input type="text" name="parties[${partyCount}][city]" placeholder="City" class="border-gray-300 rounded-md">
-                        <input type="text" name="parties[${partyCount}][state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                        <select name="parties[${partyCount}][state]" class="border-gray-300 rounded-md">
+                            ${stateOptionsHtml}
+                        </select>
                         <input type="text" name="parties[${partyCount}][zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
                     </div>
 
@@ -641,8 +701,8 @@
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
-                                        <input type="text" name="parties[${partyCount}][attorney_phone]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
+                                        <input type="text" name="parties[${partyCount}][attorney_phone]" required inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700">Bar Number</label>
@@ -655,7 +715,9 @@
                                     <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                         <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
-                                        <input type="text" name="parties[${partyCount}][attorney_state]" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                                        <select name="parties[${partyCount}][attorney_state]" class="border-gray-300 rounded-md">
+                                            ${stateOptionsHtml}
+                                        </select>
                                         <input type="text" name="parties[${partyCount}][attorney_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
                                     </div>
                                 </div>
@@ -792,7 +854,7 @@
                     if (newAttorneyOption) {
                         const newAttorneyDiv = document.getElementById(`new-attorney-${index}`);
                         if (newAttorneyDiv) {
-                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_name]"], input[name*="[attorney_email]"]').forEach(input => {
+                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_name]"], input[name*="[attorney_email]"], input[name*="[attorney_phone]"]').forEach(input => {
                                 if (!input.disabled) input.required = true;
                             });
                         }
@@ -832,8 +894,8 @@
                 if (newFields) newFields.classList.remove('opacity-50');
                 if (newInputs) newInputs.forEach(input => {
                     input.disabled = false;
-                    // Make attorney name and email required for new attorney
-                    if (input.name.includes('[attorney_name]') || input.name.includes('[attorney_email]')) {
+                    // Make attorney name, email, and phone required for new attorney
+                    if (input.name.includes('[attorney_name]') || input.name.includes('[attorney_email]') || input.name.includes('[attorney_phone]')) {
                         input.required = needsAttorneyDetails;
                     }
                 });
@@ -849,7 +911,29 @@
                     input.required = false;
                     input.value = '';
                 });
+                alert('I will be using an Agent and have uploaded the agent authorization form attached with my application');
             }
+        }
+
+        function formatPhoneInput(input) {
+            if (!input) {
+                return;
+            }
+
+            const digits = input.value.replace(/\D/g, '').slice(0, 10);
+            const parts = [];
+
+            if (digits.length > 0) {
+                parts.push(digits.slice(0, 3));
+            }
+            if (digits.length >= 4) {
+                parts.push(digits.slice(3, 6));
+            }
+            if (digits.length >= 7) {
+                parts.push(digits.slice(6, 10));
+            }
+
+            input.value = parts.join('-');
         }
 
         function updatePleadingLabel() {

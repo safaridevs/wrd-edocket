@@ -6,6 +6,8 @@ use Illuminate\Validation\Validator;
 
 class CaseCreationRules
 {
+    private const PHONE_RULE = ['regex:/^\d{3}-\d{3}-\d{4}$/', 'max:12'];
+
     public function validationRules(?string $caseType): array
     {
         $rules = [
@@ -26,8 +28,9 @@ class CaseCreationRules
             'parties.*.organization' => 'nullable|string|max:255',
             'parties.*.title' => 'nullable|string|max:255',
             'parties.*.email' => 'required|email|max:255',
-            'parties.*.phone_mobile' => 'nullable|string|max:20',
-            'parties.*.phone_office' => 'nullable|string|max:20',
+            'parties.*.phone' => ['nullable', 'string', ...self::PHONE_RULE],
+            'parties.*.phone_mobile' => ['nullable', 'string', ...self::PHONE_RULE],
+            'parties.*.phone_office' => ['nullable', 'string', ...self::PHONE_RULE],
             'parties.*.address_line1' => 'nullable|string|max:500',
             'parties.*.address_line2' => 'nullable|string|max:500',
             'parties.*.city' => 'nullable|string|max:100',
@@ -35,7 +38,7 @@ class CaseCreationRules
             'parties.*.zip' => 'nullable|string|max:10',
             'parties.*.attorney_name' => 'nullable|string|max:255',
             'parties.*.attorney_email' => 'nullable|email|max:255',
-            'parties.*.attorney_phone' => 'nullable|string|max:20',
+            'parties.*.attorney_phone' => ['nullable', 'string', ...self::PHONE_RULE],
             'parties.*.bar_number' => 'nullable|string|max:50',
             'parties.*.attorney_address_line1' => 'nullable|string|max:500',
             'parties.*.attorney_address_line2' => 'nullable|string|max:500',
@@ -104,6 +107,10 @@ class CaseCreationRules
                 $validator->errors()->add("parties.{$index}.first_name", 'First name and last name are required for individuals.');
             }
 
+            if (empty($party['phone_mobile']) && empty($party['phone'])) {
+                $validator->errors()->add("parties.{$index}.phone_mobile", 'A phone number is required in 555-555-5555 format.');
+            }
+
             if ($representation === 'attorney') {
                 $hasExistingAttorney = !empty($party['attorney_id']);
                 $hasNewAttorney = !empty($party['attorney_name']) && !empty($party['attorney_email']);
@@ -115,6 +122,10 @@ class CaseCreationRules
 
                 if (!$hasExistingAttorney && !$hasNewAttorney && !$hasNoAttorneyYet) {
                     $validator->errors()->add("parties.{$index}.attorney_name", 'Please select an existing attorney or provide new attorney name and email.');
+                }
+
+                if ($attorneyOption === 'new' && empty($party['attorney_phone'])) {
+                    $validator->errors()->add("parties.{$index}.attorney_phone", 'Attorney phone is required in 555-555-5555 format.');
                 }
             }
         }

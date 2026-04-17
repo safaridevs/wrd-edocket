@@ -1,3 +1,58 @@
+@php
+    $stateOptions = [
+        'AL' => 'Alabama',
+        'AK' => 'Alaska',
+        'AZ' => 'Arizona',
+        'AR' => 'Arkansas',
+        'CA' => 'California',
+        'CO' => 'Colorado',
+        'CT' => 'Connecticut',
+        'DE' => 'Delaware',
+        'FL' => 'Florida',
+        'GA' => 'Georgia',
+        'HI' => 'Hawaii',
+        'ID' => 'Idaho',
+        'IL' => 'Illinois',
+        'IN' => 'Indiana',
+        'IA' => 'Iowa',
+        'KS' => 'Kansas',
+        'KY' => 'Kentucky',
+        'LA' => 'Louisiana',
+        'ME' => 'Maine',
+        'MD' => 'Maryland',
+        'MA' => 'Massachusetts',
+        'MI' => 'Michigan',
+        'MN' => 'Minnesota',
+        'MS' => 'Mississippi',
+        'MO' => 'Missouri',
+        'MT' => 'Montana',
+        'NE' => 'Nebraska',
+        'NV' => 'Nevada',
+        'NH' => 'New Hampshire',
+        'NJ' => 'New Jersey',
+        'NM' => 'New Mexico',
+        'NY' => 'New York',
+        'NC' => 'North Carolina',
+        'ND' => 'North Dakota',
+        'OH' => 'Ohio',
+        'OK' => 'Oklahoma',
+        'OR' => 'Oregon',
+        'PA' => 'Pennsylvania',
+        'RI' => 'Rhode Island',
+        'SC' => 'South Carolina',
+        'SD' => 'South Dakota',
+        'TN' => 'Tennessee',
+        'TX' => 'Texas',
+        'UT' => 'Utah',
+        'VT' => 'Vermont',
+        'VA' => 'Virginia',
+        'WA' => 'Washington',
+        'WV' => 'West Virginia',
+        'WI' => 'Wisconsin',
+        'WY' => 'Wyoming',
+    ];
+@endphp
+
 <div class="mb-6">
     <h3 class="text-lg font-medium mb-4">Parties & Contact Information</h3>
 
@@ -93,12 +148,12 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Mobile Phone</label>
-                        <input type="text" name="parties[0][phone_mobile]" value="{{ old('parties.0.phone_mobile') }}" class="mt-1 block w-full border-gray-300 rounded-md">
+                        <label class="block text-sm font-medium text-gray-700">Mobile Phone *</label>
+                        <input type="text" name="parties[0][phone_mobile]" value="{{ old('parties.0.phone_mobile') }}" required inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Office Phone</label>
-                        <input type="text" name="parties[0][phone_office]" value="{{ old('parties.0.phone_office') }}" class="mt-1 block w-full border-gray-300 rounded-md">
+                        <input type="text" name="parties[0][phone_office]" value="{{ old('parties.0.phone_office') }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
                     </div>
                 </div>
             </div>
@@ -110,7 +165,11 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input type="text" name="parties[0][city]" value="{{ old('parties.0.city') }}" placeholder="City" class="border-gray-300 rounded-md">
-                <input type="text" name="parties[0][state]" value="{{ old('parties.0.state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                <select name="parties[0][state]" class="border-gray-300 rounded-md">
+                    @foreach($stateOptions as $code => $label)
+                        <option value="{{ $code }}" {{ old('parties.0.state', 'NM') === $code ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>
+                    @endforeach
+                </select>
                 <input type="text" name="parties[0][zip]" value="{{ old('parties.0.zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md">
             </div>
 
@@ -157,8 +216,8 @@
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Attorney Phone</label>
-                                    <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                    <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
+                                    <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }} {{ (!old('parties.0.attorney_option') || old('parties.0.attorney_option') == 'new') && !old('parties.0.attorney_id') ? 'required' : '' }}>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Bar Number</label>
@@ -171,7 +230,11 @@
                                 <input type="text" name="parties[0][attorney_address_line2]" value="{{ old('parties.0.attorney_address_line2') }}" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                     <input type="text" name="parties[0][attorney_city]" value="{{ old('parties.0.attorney_city') }}" placeholder="City" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                    <input type="text" name="parties[0][attorney_state]" value="{{ old('parties.0.attorney_state') }}" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                    <select name="parties[0][attorney_state]" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                        @foreach($stateOptions as $code => $label)
+                                            <option value="{{ $code }}" {{ old('parties.0.attorney_state', 'NM') === $code ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>
+                                        @endforeach
+                                    </select>
                                     <input type="text" name="parties[0][attorney_zip]" value="{{ old('parties.0.attorney_zip') }}" placeholder="ZIP" class="border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_option') == 'no_attorney_yet' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
                                 </div>
                             </div>
