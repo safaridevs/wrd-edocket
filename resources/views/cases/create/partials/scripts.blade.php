@@ -170,6 +170,7 @@
                 select.value = options[0].value;
             }
             titleInput.value = '';
+            titleInput.dataset.lastSuggestedTitle = '';
             filesInput.value = '';
             syncCreateDocumentTitle();
             modal.classList.remove('hidden');
@@ -185,7 +186,10 @@
             modal?.classList.add('hidden');
             if (groupInput) groupInput.value = '';
             if (select) select.innerHTML = '';
-            if (titleInput) titleInput.value = '';
+            if (titleInput) {
+                titleInput.value = '';
+                titleInput.dataset.lastSuggestedTitle = '';
+            }
             if (filesInput) filesInput.value = '';
         }
 
@@ -207,9 +211,11 @@
             const select = document.getElementById('createDocumentType');
             const titleInput = document.getElementById('createDocumentTitle');
             const selectedLabel = select?.options[select.selectedIndex]?.text || '';
+            const previousSuggestedTitle = titleInput?.dataset.lastSuggestedTitle || '';
 
-            if (titleInput && selectedLabel) {
+            if (titleInput && selectedLabel && (!titleInput.value.trim() || titleInput.value.trim() === previousSuggestedTitle)) {
                 titleInput.value = selectedLabel;
+                titleInput.dataset.lastSuggestedTitle = selectedLabel;
             }
         }
 
@@ -240,12 +246,11 @@
                 return;
             }
 
-            const expectedTitle = selectedOption.text.trim();
             const enteredTitle = titleInput.value.trim();
             const files = Array.from(filesInput.files || []);
 
-            if (enteredTitle !== expectedTitle) {
-                alert(`The document title must exactly match "${expectedTitle}".`);
+            if (!enteredTitle) {
+                alert('Enter a document title before filing this package.');
                 titleInput.focus();
                 return;
             }
@@ -266,7 +271,7 @@
 
             const entryId = `staged-doc-${++stagedDocumentCounter}`;
             const hiddenWrapper = buildCreateDocumentHiddenInputs(entryId, group, select.value, enteredTitle, Array.from(filesInput.files));
-            const visibleCard = buildCreateDocumentCard(entryId, group, select.value, expectedTitle, Array.from(filesInput.files));
+            const visibleCard = buildCreateDocumentCard(entryId, group, select.value, enteredTitle, Array.from(filesInput.files));
 
             document.getElementById('document-hidden-inputs')?.appendChild(hiddenWrapper);
             const targetList = document.getElementById(`${group}-documents-list`);
@@ -317,12 +322,30 @@
                 typeInput.name = 'pleading_type';
                 typeInput.value = docType;
                 wrapper.appendChild(typeInput);
+
+                const titleInput = document.createElement('input');
+                titleInput.type = 'hidden';
+                titleInput.name = 'pleading_custom_title';
+                titleInput.value = customTitle;
+                wrapper.appendChild(titleInput);
             } else if (group === 'compliance') {
                 const typeInput = document.createElement('input');
                 typeInput.type = 'hidden';
                 typeInput.name = 'compliance_doc_type';
                 typeInput.value = docType;
                 wrapper.appendChild(typeInput);
+                
+                const titleInput = document.createElement('input');
+                titleInput.type = 'hidden';
+                titleInput.name = 'compliance_custom_title';
+                titleInput.value = customTitle;
+                wrapper.appendChild(titleInput);
+            } else if (group === 'application') {
+                const titleInput = document.createElement('input');
+                titleInput.type = 'hidden';
+                titleInput.name = 'application_custom_title';
+                titleInput.value = customTitle;
+                wrapper.appendChild(titleInput);
             }
 
             return wrapper;

@@ -8,7 +8,7 @@
             </div>
             <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-100">
                 <span class="font-semibold text-slate-900">Title rule</span>
-                <span class="mt-1 block">The document title must exactly match the selected document type.</span>
+                <span class="mt-1 block">Use a matching title when possible. A mismatch shows a warning but does not block upload.</span>
             </div>
         </div>
     </div>
@@ -97,8 +97,9 @@
 
                         <div>
                             <label for="createDocumentTitle" class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
-                            <input type="text" id="createDocumentTitle" maxlength="255" class="block w-full rounded-md border-gray-300" placeholder="Enter the exact document title">
-                            <p class="mt-2 text-sm text-orange-600">The title must be the exact same as what is listed as the document title.</p>
+                            <input type="text" id="createDocumentTitle" maxlength="255" class="block w-full rounded-md border-gray-300" placeholder="Enter the document title">
+                            <p class="mt-2 text-sm text-gray-600">Document title is required.</p>
+                            <p class="mt-1 text-sm text-orange-600">Note: the entered title should exactly match the document being uploaded. You can override the auto-filled title when needed.</p>
                         </div>
 
                         <div>
@@ -117,4 +118,3 @@
         </div>
     </div>
 </div>
-

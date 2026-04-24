@@ -90,10 +90,13 @@ class CaseCreationRules
             $rules['compliance_doc_type'] = 'required|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand';
             $rules['documents.compliance'] = 'required|array';
             $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:204800';
+            $rules['compliance_custom_title'] = 'nullable|string|max:255';
         } else {
             $rules['pleading_type'] = 'required|in:request_pre_hearing,request_to_docket';
             $rules['documents.application'] = 'required|array';
             $rules['documents.application.*'] = 'required|file|mimes:pdf|max:204800';
+            $rules['application_custom_title'] = 'nullable|string|max:255';
+            $rules['pleading_custom_title'] = 'nullable|string|max:255';
         }
 
         return $rules;
@@ -166,6 +169,28 @@ class CaseCreationRules
                 if (empty($party['agent_phone'])) {
                     $validator->errors()->add("parties.{$index}.agent_phone", 'Agent phone is required in 555-555-5555 format.');
                 }
+            }
+        }
+
+        if (!empty($data['documents']['application']) && empty(trim((string) ($data['application_custom_title'] ?? '')))) {
+            $validator->errors()->add('application_custom_title', 'Document title is required for the application package.');
+        }
+
+        if (!empty($data['documents']['pleading']) && empty(trim((string) ($data['pleading_custom_title'] ?? '')))) {
+            $validator->errors()->add('pleading_custom_title', 'Document title is required for the pleading package.');
+        }
+
+        if (!empty($data['documents']['compliance']) && empty(trim((string) ($data['compliance_custom_title'] ?? '')))) {
+            $validator->errors()->add('compliance_custom_title', 'Document title is required for the compliance package.');
+        }
+
+        foreach (($data['optional_docs'] ?? []) as $index => $optionalDoc) {
+            $hasType = !empty($optionalDoc['type']);
+            $hasFiles = !empty($optionalDoc['files']);
+            $hasTitle = !empty(trim((string) ($optionalDoc['custom_title'] ?? '')));
+
+            if (($hasType || $hasFiles) && !$hasTitle) {
+                $validator->errors()->add("optional_docs.{$index}.custom_title", 'Document title is required for each supporting document package.');
             }
         }
     }

@@ -340,7 +340,15 @@ class CaseService
         
         // Handle required documents (Application)
         if ($request->hasFile('documents.application')) {
-            $this->processFileArray($request->file('documents.application'), $case, 'application', $uploader, $oseString, $storageFolder);
+            $this->processFileArray(
+                $request->file('documents.application'),
+                $case,
+                'application',
+                $uploader,
+                $oseString,
+                $storageFolder,
+                $request->input('application_custom_title')
+            );
         }
         
         // Handle pleading documents (from pleading_type selection)
@@ -349,13 +357,15 @@ class CaseService
         
         if ($pleadingType && $request->hasFile('documents.pleading')) {
             \Log::info('Processing pleading documents', ['type' => $pleadingType, 'file_count' => count($request->file('documents.pleading'))]);
+            $customTitle = $request->input('pleading_custom_title');
             
             foreach ($request->file('documents.pleading') as $index => $file) {
                 if ($file && $file->isValid()) {
                     $displayType = $this->getDisplayType($pleadingType);
-                    $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . '.pdf';
+                    $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
+                    $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                     if ($index > 0) {
-                        $originalFilename = now()->format('Y-m-d') . ' - ' . $displayType . ' (' . ($index + 1) . ').pdf';
+                        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($index + 1) . ').pdf';
                     }
                     
                     $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
@@ -364,6 +374,7 @@ class CaseService
                     $documentData = [
                         'case_id' => $case->id,
                         'doc_type' => $pleadingType,
+                        'custom_title' => $customTitle,
                         'original_filename' => $originalFilename,
                         'stored_filename' => $storedFilename,
                         'mime' => $file->getMimeType(),
@@ -394,7 +405,15 @@ class CaseService
         // Handle compliance documents
         if ($case->case_type === 'compliance' && $request->hasFile('documents.compliance')) {
             $complianceType = $request->input('compliance_doc_type') ?: 'compliance_document';
-            $this->processFileArray($request->file('documents.compliance'), $case, $complianceType, $uploader, $oseString, $storageFolder);
+            $this->processFileArray(
+                $request->file('documents.compliance'),
+                $case,
+                $complianceType,
+                $uploader,
+                $oseString,
+                $storageFolder,
+                $request->input('compliance_custom_title')
+            );
         }
         
         // Handle multiple document types with standardized naming
@@ -1126,12 +1145,12 @@ class CaseService
         return $recipients;
     }
 
-    private function processFileArray($files, CaseModel $case, string $docType, User $uploader, string $oseString, string $storageFolder): void
+    private function processFileArray($files, CaseModel $case, string $docType, User $uploader, string $oseString, string $storageFolder, ?string $customTitle = null): void
     {
         foreach ($files as $index => $file) {
             if ($file && $file->isValid()) {
                 $fileSize = $file->getSize();
-                $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString, $storageFolder);
+                $this->processSingleFile($file, $index, $case, $docType, $uploader, $oseString, $storageFolder, $customTitle);
                 unset($file);
                 if ($fileSize > 5 * 1024 * 1024) {
                     gc_collect_cycles();
