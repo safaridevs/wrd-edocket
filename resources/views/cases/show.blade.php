@@ -783,9 +783,6 @@
                     <input type="text" id="searchInput" placeholder="Search documents..." class="border-gray-300 rounded-md text-sm flex-1 min-w-64">
                     <select id="docTypeFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Types</option>
-                        @php
-                            $documentTypes = \App\Models\DocumentType::where('is_active', true)->orderBy('name')->get();
-                        @endphp
                         @foreach($documentTypes as $docType)
                             <option value="{{ $docType->code }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                         @endforeach
@@ -1801,14 +1798,6 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
                                 <select name="doc_type" required class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
                                     <option value="">Select document type...</option>
-                                    @php
-                                        $documentTypes = \App\Models\DocumentType::where('is_active', true)
-                                            ->when(auth()->user()->getCurrentRole() === 'party', function($query) {
-                                                return $query->where('category', 'party_upload');
-                                            })
-                                            ->orderBy('name')
-                                            ->get();
-                                    @endphp
                                     @foreach($documentTypes as $docType)
                                     <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
                                     @endforeach

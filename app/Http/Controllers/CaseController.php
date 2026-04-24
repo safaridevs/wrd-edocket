@@ -238,8 +238,11 @@ class CaseController extends Controller
         ]);
         $submissionNotificationRecipients = $this->caseService->getSubmissionNotificationOptions();
         $acceptanceNotificationRecipients = $this->caseService->getAcceptanceNotificationOptions($case);
+        $documentTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
+            ->orderBy('name')
+            ->get();
 
-        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients'));
+        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'documentTypes'));
     }
 
     public function downloadServiceList(CaseModel $case)
@@ -1199,7 +1202,9 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $validDocTypes = \App\Models\DocumentType::where('is_active', true)->pluck('code')->toArray();
+        $validDocTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
+            ->pluck('code')
+            ->toArray();
 
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),

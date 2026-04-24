@@ -74,7 +74,7 @@
                     <label class="block text-sm font-medium text-gray-700">
                         Type *
                         <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-blue-700 bg-blue-100 rounded-full cursor-help align-middle"
-                              title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney.">i</span>
+                              title="19.25.2.11 (B) and (C) NMAC:&#10;B. An individual may appear as a pro se party. Parties appearing pro se shall be responsible for familiarizing themselves with this rule, the rules of civil procedure for the district courts of New Mexico, the rules of evidence governing non-jury trials for the district courts of New Mexico, the instructions for parties in administrative proceedings, and all other rules of the OSE.&#10;&#10;C. A party that is not an individual shall be represented by an attorney or an authorized agent until counsel appears.">i</span>
                     </label>
                     <select name="parties[0][type]" required class="mt-1 block w-full border-gray-300 rounded-md" onchange="togglePersonFields(0)">
                         <option value="">Select Type</option>
@@ -154,6 +154,7 @@
                             No representative yet
                         </label>
                     </div>
+                    <p class="mt-2 text-xs text-slate-500">If you choose agent representation, the Agent Information section opens below.</p>
                 </div>
             </div>
 
