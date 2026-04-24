@@ -1009,11 +1009,11 @@
                                         <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
                                     </div>
                                 </div>
-                                <div class="mt-4">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
-                                    <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
+                                <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                                <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                         <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
                                         <select name="parties[${partyCount}][attorney_state]" class="border-gray-300 rounded-md">
                                             ${stateOptionsHtml}
@@ -1023,6 +1023,7 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
                     </div>
 
                     <div id="agent-fields-${partyCount}" class="hidden mt-4">
