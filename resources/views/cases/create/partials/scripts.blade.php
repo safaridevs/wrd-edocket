@@ -967,63 +967,63 @@
                                 Attorney Information
                             </h5>
 
-                        <div class="mb-4">
-                            <label class="flex items-center mb-2">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
-                                Select Existing Attorney
-                            </label>
-                            <select name="parties[${partyCount}][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" disabled>
-                                <option value="">Choose an attorney...</option>
-                                @foreach($attorneys as $attorney)
-                                    <option value="{{ $attorney->id }}">
-                                        {{ $attorney->name }} - {{ $attorney->email }}
-                                        @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                            <div class="mb-4">
+                                <label class="flex items-center mb-2">
+                                    <input type="radio" name="parties[${partyCount}][attorney_option]" value="existing" class="mr-2" onchange="toggleAttorneyOption(${partyCount})">
+                                    Select Existing Attorney
+                                </label>
+                                <select name="parties[${partyCount}][attorney_id]" class="mt-1 block w-full border-gray-300 rounded-md" disabled>
+                                    <option value="">Choose an attorney...</option>
+                                    @foreach($attorneys as $attorney)
+                                        <option value="{{ $attorney->id }}">
+                                            {{ $attorney->name }} - {{ $attorney->email }}
+                                            @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                        <div class="mb-4">
-                            <label class="flex items-center mb-2">
-                                <input type="radio" name="parties[${partyCount}][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(${partyCount})" checked>
-                                Add New Attorney
-                            </label>
-                            <div id="new-attorney-${partyCount}">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                        <input type="text" name="parties[${partyCount}][attorney_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                            <div class="mb-4">
+                                <label class="flex items-center mb-2">
+                                    <input type="radio" name="parties[${partyCount}][attorney_option]" value="new" class="mr-2" onchange="toggleAttorneyOption(${partyCount})" checked>
+                                    Add New Attorney
+                                </label>
+                                <div id="new-attorney-${partyCount}">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
+                                            <input type="email" name="parties[${partyCount}][attorney_email]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
-                                        <input type="email" name="parties[${partyCount}][attorney_email]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_phone]" required inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Bar Number</label>
+                                            <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
-                                        <input type="text" name="parties[${partyCount}][attorney_phone]" required inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                        <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                    </div>
-                                </div>
-                            <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
-                                <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
-                                <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                        <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
-                                        <select name="parties[${partyCount}][attorney_state]" class="border-gray-300 rounded-md">
-                                            ${stateOptionsHtml}
-                                        </select>
-                                        <input type="text" name="parties[${partyCount}][attorney_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
+                                    <div class="mt-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
+                                        <input type="text" name="parties[${partyCount}][attorney_address_line1]" placeholder="Address Line 1" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        <input type="text" name="parties[${partyCount}][attorney_address_line2]" placeholder="Address Line 2 (Optional)" class="mt-2 block w-full border-gray-300 rounded-md">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                            <input type="text" name="parties[${partyCount}][attorney_city]" placeholder="City" class="border-gray-300 rounded-md">
+                                            <select name="parties[${partyCount}][attorney_state]" class="border-gray-300 rounded-md">
+                                                ${stateOptionsHtml}
+                                            </select>
+                                            <input type="text" name="parties[${partyCount}][attorney_zip]" placeholder="ZIP" class="border-gray-300 rounded-md">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
                     </div>
 
                     <div id="agent-fields-${partyCount}" class="hidden mt-4">

@@ -440,9 +440,9 @@ class CaseService
                             $displayType = $this->getDisplayType($optionalDoc['type']);
                             $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
                             
-                            $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . '.pdf';
+                            $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
                             if ($fileIndex > 0) {
-                                $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . $oseString . ' (' . ($fileIndex + 1) . ').pdf';
+                                $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . ' (' . ($fileIndex + 1) . ').pdf';
                             }
                             
                             $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);

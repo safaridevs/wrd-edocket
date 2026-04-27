@@ -106,7 +106,7 @@
 
             <div id="company-fields-0" class="{{ old('parties.0.type') == 'company' ? '' : 'hidden' }}">
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700">Organization Name *</label>
+                    <label class="block text-sm font-medium text-gray-700">Entity Name *</label>
                     <input type="text" name="parties[0][organization]" value="{{ old('parties.0.organization') }}" class="mt-1 block w-full border-gray-300 rounded-md">
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
