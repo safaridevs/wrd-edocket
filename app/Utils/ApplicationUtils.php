@@ -509,7 +509,7 @@ class ApplicationUtils
         $audit->table_id = $model->id;
         $audit->table_name = $model->getTable();
         $audit->Activity = 'Update';
-        $audit->DoneBy = auth()->user()?->name[0]??'unknown';
+        $audit->DoneBy = auth()->user()?->initials ?: 'unknown';
         $audit->Date_Time =now();
         $dirtyAttributes = $model->getDirty();
         $originalValues = $model->getOriginal();

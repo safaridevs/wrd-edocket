@@ -292,12 +292,18 @@ class User extends Authenticatable
 
     public function attorneyRecord()
     {
-        return Attorney::where('email', $this->email)->first();
+        return Person::where('email', $this->email)
+            ->whereHas('caseParties', fn ($query) => $query->where('role', 'counsel'))
+            ->first();
     }
 
     public function isAttorney(): bool
     {
-        return Attorney::where('email', $this->email)->exists();
+        return CaseParty::where('role', 'counsel')
+            ->whereHas('person', function ($query) {
+                $query->where('email', $this->email);
+            })
+            ->exists();
     }
 
     public function isParalegal(): bool

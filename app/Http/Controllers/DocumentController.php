@@ -4,14 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
 use App\Models\Document;
+use App\Models\DocumentType;
 use App\Services\DocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Validation\Rule;
 
 class DocumentController extends Controller
 {
     public function __construct(private DocumentService $documentService) {}
+
+    public function myDocuments(Request $request)
+    {
+        $documents = Auth::user()->documents()
+            ->with(['case', 'documentType'])
+            ->latest('uploaded_at')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('documents.index', compact('documents'));
+    }
 
     public function store(Request $request, CaseModel $case)
     {
@@ -20,15 +33,22 @@ class DocumentController extends Controller
             abort(403, 'You can only file documents to cases you are associated with.');
         }
 
+        $documentTypes = $this->partyUploadDocumentTypes();
+        if ($documentTypes->isEmpty()) {
+            return back()->withErrors([
+                'doc_type' => 'No document types are configured for your role.'
+            ])->withInput();
+        }
+
         $validated = $request->validate([
             'document' => 'required|file|mimes:pdf|max:204800',
-            'doc_type' => 'required|string|in:filing_other,protest_letter,aggrieval_letter,affidavit_publication'
+            'doc_type' => ['required', 'string', Rule::in($documentTypes->pluck('code')->all())]
         ], [
             'document.required' => 'Please select a document to upload.',
             'document.mimes' => 'Document must be a PDF file.',
-            'document.max' => 'Document size cannot exceed 100MB.',
+            'document.max' => 'Document size cannot exceed 200MB.',
             'doc_type.required' => 'Please select a document type.',
-            'doc_type.in' => 'Invalid document type selected.'
+            'doc_type.in' => 'Invalid document type selected for your role.'
         ]);
 
         $file = $request->file('document');
@@ -82,7 +102,9 @@ class DocumentController extends Controller
         }
 
         $case->load(['serviceList.person']);
-        return view('documents.file', compact('case'));
+        $documentTypes = $this->partyUploadDocumentTypes();
+
+        return view('documents.file', compact('case', 'documentTypes'));
     }
 
     public function approve(Document $document)
@@ -92,6 +114,15 @@ class DocumentController extends Controller
         }
 
         return back()->with('error', 'Unable to approve document.');
+    }
+
+    private function partyUploadDocumentTypes()
+    {
+        return DocumentType::forRole(Auth::user()->getCurrentRole())
+            ->where('category', 'party_upload')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
     }
 }
 

@@ -43,7 +43,7 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('documents.store', $case) }}" enctype="multipart/form-data">
+                <form method="POST" action="{{ route('documents.file.store', $case) }}" enctype="multipart/form-data">
                     @csrf
                     
                     <!-- Case Info -->
@@ -56,6 +56,7 @@
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Document (PDF Required) *</label>
                         <input type="file" name="document" accept=".pdf" required class="block w-full border-gray-300 rounded-md">
+                        <p class="text-xs text-gray-500 mt-1">Maximum file size: 200MB.</p>
                         <p class="text-xs text-gray-500 mt-1">
                             Filename must follow convention: YYYY-MM-DD — Doc Type — Description — {{ $case->case_no }}
                         </p>
@@ -66,11 +67,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
                         <select name="doc_type" required class="block w-full border-gray-300 rounded-md">
                             <option value="">Select Type</option>
-                            <option value="affidavit_publication">Affidavit Of Publication</option>
-                            <option value="aggrieval_letter">Aggrieval Letter</option>
-                            <option value="filing_other">Filing</option>
-                            <option value="protest_letter">Protest Letter</option>
+                            @foreach($documentTypes as $documentType)
+                                <option value="{{ $documentType->code }}" @selected(old('doc_type') === $documentType->code)>
+                                    {{ $documentType->name }}
+                                </option>
+                            @endforeach
                         </select>
+                        @if($documentTypes->isEmpty())
+                            <p class="text-xs text-red-600 mt-1">No document types are configured for your role.</p>
+                        @endif
                     </div>
 
                     <!-- Service Recipients -->

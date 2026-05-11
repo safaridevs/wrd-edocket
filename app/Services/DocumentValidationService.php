@@ -25,9 +25,9 @@ class DocumentValidationService
             $errors[] = 'Invalid file type. Allowed: PDF, DOCX, MP4, M4A';
         }
 
-        // Size validation (100MB)
-        if ($file->getSize() > 100 * 1024 * 1024) {
-            $errors[] = 'File size exceeds 100MB limit';
+        // Size validation (200MB)
+        if ($file->getSize() > 200 * 1024 * 1024) {
+            $errors[] = 'File size exceeds 200MB limit';
         }
 
         // MIME type validation
@@ -53,7 +53,7 @@ class DocumentValidationService
         return sprintf(
             "ELECTRONICALLY FILED\n%s\nOSE HEARING UNIT / %s",
             $now->format('D m/d/Y @ g:i A'),
-            $user->initials ?? strtoupper(substr($user->name, 0, 2))
+            $user->initials ?? 'HU'
         );
     }
 }

@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use App\Models\Person;
-use App\Models\Attorney;
 use App\Models\CaseModel;
 use App\Models\CaseParty;
 use App\Models\ServiceList;
@@ -47,15 +46,15 @@ class DemoDataSeeder extends Seeder
             );
         }
 
-        // Create Attorneys
+        // Create counsel contacts
         $attorneys = [
-            ['name' => 'James Wilson', 'email' => 'jwilson@lawfirm.com', 'phone' => '505-555-0101', 'bar_number' => 'NM12345'],
-            ['name' => 'Patricia Davis', 'email' => 'pdavis@legalgroup.com', 'phone' => '505-555-0102', 'bar_number' => 'NM12346'],
-            ['name' => 'Robert Brown', 'email' => 'rbrown@waterlaw.com', 'phone' => '505-555-0103', 'bar_number' => 'NM12347'],
+            ['first_name' => 'James', 'last_name' => 'Wilson', 'email' => 'jwilson@lawfirm.com', 'phone_office' => '505-555-0101'],
+            ['first_name' => 'Patricia', 'last_name' => 'Davis', 'email' => 'pdavis@legalgroup.com', 'phone_office' => '505-555-0102'],
+            ['first_name' => 'Robert', 'last_name' => 'Brown', 'email' => 'rbrown@waterlaw.com', 'phone_office' => '505-555-0103'],
         ];
 
         foreach ($attorneys as $attorneyData) {
-            Attorney::firstOrCreate(['email' => $attorneyData['email']], $attorneyData);
+            Person::firstOrCreate(['email' => $attorneyData['email']], array_merge(['type' => 'individual'], $attorneyData));
         }
 
         // Create Persons
@@ -164,7 +163,11 @@ class DemoDataSeeder extends Seeder
     private function addPartiesToCase($case)
     {
         $persons = Person::all();
-        $attorneys = Attorney::all();
+        $attorneys = Person::whereIn('email', [
+            'jwilson@lawfirm.com',
+            'pdavis@legalgroup.com',
+            'rbrown@waterlaw.com',
+        ])->get();
 
         // Add 2-3 parties per case
         $partyCount = rand(2, 3);
@@ -176,16 +179,25 @@ class DemoDataSeeder extends Seeder
             
             // Check if this person is already a party in this case
             if (!CaseParty::where('case_id', $case->id)->where('person_id', $person->id)->exists()) {
-                $attorney = rand(0, 1) ? $attorneys->random() : null;
-                
-                CaseParty::create([
+                $attorney = $attorneys->isNotEmpty() && rand(0, 1) ? $attorneys->random() : null;
+
+                $clientParty = CaseParty::create([
                     'case_id' => $case->id,
                     'person_id' => $person->id,
                     'role' => $role,
                     'service_enabled' => true,
-                    'attorney_id' => $attorney?->id,
-                    'representation' => $attorney ? 'attorney' : 'self'
                 ]);
+
+                if ($attorney) {
+                    CaseParty::firstOrCreate([
+                        'case_id' => $case->id,
+                        'person_id' => $attorney->id,
+                        'role' => 'counsel',
+                        'client_party_id' => $clientParty->id,
+                    ], [
+                        'service_enabled' => true,
+                    ]);
+                }
 
                 // Add to service list
                 ServiceList::create([

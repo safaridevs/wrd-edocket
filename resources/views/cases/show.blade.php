@@ -482,17 +482,11 @@
                                                     $attorneyParalegals = $case->parties->where('role', 'paralegal')->where('client_party_id', $party->id);
                                                 @endphp
                                                 @foreach($party->attorneys as $attorneyParty)
-                                                    @php
-                                                        $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                                                    @endphp
                                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-3 last:mb-0">
                                                         <div><strong>Name:</strong> {{ $attorneyParty->person->full_name }}</div>
                                                         <div><strong>Email:</strong> {{ $attorneyParty->person->email }}</div>
                                                         @if($attorneyParty->person->phone_office)
                                                             <div><strong>Phone:</strong> {{ $attorneyParty->person->phone_office }}</div>
-                                                        @endif
-                                                        @if($attorney && $attorney->bar_number)
-                                                            <div><strong>Bar Number:</strong> {{ $attorney->bar_number }}</div>
                                                         @endif
                                                     </div>
                                                 @endforeach

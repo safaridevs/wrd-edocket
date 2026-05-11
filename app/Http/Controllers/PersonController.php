@@ -58,11 +58,9 @@ class PersonController extends Controller
             $person->update($validated);
 
             if ($person->email === $user->email) {
-                $displayName = User::getDisplayNameFromPersonAttributes($validated);
-
-                if ($displayName !== null) {
-                    $user->update(['name' => $displayName]);
-                }
+                $user->update([
+                    'name' => $person->full_name,
+                ]);
             }
         });
 

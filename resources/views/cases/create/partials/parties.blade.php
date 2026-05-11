@@ -208,8 +208,7 @@
                             <option value="">Choose an attorney...</option>
                             @foreach($attorneys as $attorney)
                                 <option value="{{ $attorney->id }}" {{ old('parties.0.attorney_id') == $attorney->id ? 'selected' : '' }}>
-                                    {{ $attorney->name }} - {{ $attorney->email }}
-                                    @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                    {{ $attorney->full_name }} - {{ $attorney->email }}
                                 </option>
                             @endforeach
                         </select>
@@ -221,25 +220,41 @@
                             Add New Attorney
                         </label>
                         <div id="new-attorney-0" class="{{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'opacity-50' : '' }}">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                    <input type="text" name="parties[0][attorney_name]" value="{{ old('parties.0.attorney_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                    <label class="block text-sm font-medium text-gray-700">Prefix</label>
+                                    <input type="text" name="parties[0][attorney_prefix]" value="{{ old('parties.0.attorney_prefix') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">First Name *</label>
+                                    <input type="text" name="parties[0][attorney_first_name]" value="{{ old('parties.0.attorney_first_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Middle</label>
+                                    <input type="text" name="parties[0][attorney_middle_name]" value="{{ old('parties.0.attorney_middle_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                    <input type="text" name="parties[0][attorney_last_name]" value="{{ old('parties.0.attorney_last_name') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Suffix</label>
+                                    <input type="text" name="parties[0][attorney_suffix]" value="{{ old('parties.0.attorney_suffix') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Title</label>
+                                    <input type="text" name="parties[0][attorney_title]" value="{{ old('parties.0.attorney_title') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
                                     <input type="email" name="parties[0][attorney_email]" value="{{ old('parties.0.attorney_email') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
-                                    <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }} {{ (!old('parties.0.attorney_option') || old('parties.0.attorney_option') == 'new') && !old('parties.0.attorney_id') ? 'required' : '' }}>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                    <input type="text" name="parties[0][bar_number]" value="{{ old('parties.0.bar_number') }}" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
-                                </div>
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
+                                <input type="text" name="parties[0][attorney_phone]" value="{{ old('parties.0.attorney_phone') }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md" {{ (old('parties.0.attorney_option') == 'existing' || old('parties.0.attorney_id')) ? 'disabled' : '' }}>
                             </div>
                             <div class="mt-4">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
@@ -317,6 +332,5 @@
         <button type="button" onclick="addParty('applicant')" class="text-blue-600 text-sm hover:text-blue-800 regular-case-btn">+ Add Applicant</button>
         <button type="button" onclick="addParty('respondent')" class="text-blue-600 text-sm hover:text-blue-800 compliance-case-btn" style="display: none;">+ Add Respondent</button>
         <button type="button" onclick="addParty('protestant')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Protestant</button>
-        <button type="button" onclick="addParty('counsel')" class="text-blue-600 text-sm hover:text-blue-800">+ Add Counsel</button>
     </div>
 </div>

@@ -14,7 +14,7 @@
                             <p class="text-xs text-gray-500">{{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}</p>
                         </div>
                         <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span class="text-blue-600 font-semibold text-sm">{{ substr(auth()->user()->name, 0, 2) }}</span>
+                            <span class="text-blue-600 font-semibold text-sm">{{ auth()->user()->initials }}</span>
                         </div>
                     </div>
                 </div>
@@ -28,7 +28,7 @@
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <div class="text-center">
                             <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <span class="text-blue-600 font-bold text-xl">{{ substr(auth()->user()->name, 0, 2) }}</span>
+                                <span class="text-blue-600 font-bold text-xl">{{ auth()->user()->initials }}</span>
                             </div>
                             <h3 class="text-lg font-semibold text-gray-900">{{ auth()->user()->name }}</h3>
                             <p class="text-sm text-gray-600">{{ auth()->user()->email }}</p>

@@ -2,7 +2,13 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                @if(auth()->user()->isHUAdmin() || auth()->user()->isHULawClerk())
+                @if(($scope ?? request('scope')) === 'pending_review')
+                    Pending Review Cases
+                @elseif(($scope ?? request('scope')) === 'active')
+                    Active Cases
+                @elseif(($scope ?? request('scope')) === 'my_cases')
+                    My Cases
+                @elseif(auth()->user()->isHUAdmin() || auth()->user()->isHULawClerk())
                     Filed Pleadings
                 @else
                     My Cases
@@ -19,6 +25,9 @@
             <div class="bg-white shadow rounded-lg overflow-hidden">
                 <div class="p-6 border-b border-gray-200">
                     <form method="GET" action="{{ route('cases.index') }}" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        @if(($scope ?? request('scope')))
+                            <input type="hidden" name="scope" value="{{ $scope ?? request('scope') }}">
+                        @endif
                         <div class="md:col-span-3">
                             <label class="block text-sm font-medium text-gray-700">Case Number</label>
                             <input type="text" name="case_no" value="{{ request('case_no') }}" placeholder="Search by case number" class="mt-1 block w-full border-gray-300 rounded-md">
@@ -51,7 +60,7 @@
                         </div>
                         <div class="md:col-span-1 flex items-end gap-2">
                             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply</button>
-                            <a href="{{ route('cases.index') }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Clear</a>
+                            <a href="{{ route('cases.index', array_filter(['scope' => $scope ?? request('scope')])) }}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Clear</a>
                         </div>
                     </form>
                 </div>
@@ -86,24 +95,21 @@
                                             $query->where('email', auth()->user()->email);
                                         })->first();
 
-                                        if ($isDirectParty) {
+                                        if ($isDirectParty && $isDirectParty->role === 'counsel' && $isDirectParty->client_party_id) {
+                                            $clientParty = $case->parties()->find($isDirectParty->client_party_id);
+                                            $userRole = $clientParty ? 'Attorney for ' . $clientParty->person->full_name : 'Attorney';
+                                        } elseif ($isDirectParty) {
                                             $userRole = ucfirst($isDirectParty->role) . ' (Self)';
                                         } else {
-                                            // Check if attorney representing a party
-                                            $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
-                                            if ($attorney) {
-                                                // Find counsel party record for this attorney
-                                                $counselParty = $case->parties()->where('role', 'counsel')
-                                                    ->whereHas('person', function($query) {
-                                                        $query->where('email', auth()->user()->email);
-                                                    })->first();
+                                            $counselParty = $case->parties()->where('role', 'counsel')
+                                                ->whereHas('person', function($query) {
+                                                    $query->where('email', auth()->user()->email);
+                                                })->first();
 
-                                                if ($counselParty && $counselParty->client_party_id) {
-                                                    // Get the client this attorney represents
-                                                    $clientParty = $case->parties()->find($counselParty->client_party_id);
-                                                    if ($clientParty) {
-                                                        $userRole = 'Attorney for ' . $clientParty->person->full_name;
-                                                    }
+                                            if ($counselParty && $counselParty->client_party_id) {
+                                                $clientParty = $case->parties()->find($counselParty->client_party_id);
+                                                if ($clientParty) {
+                                                    $userRole = 'Attorney for ' . $clientParty->person->full_name;
                                                 }
                                             }
                                         }

@@ -65,8 +65,6 @@ class NotificationService
             $email = $recipient->email;
         } elseif ($recipient instanceof \App\Models\Person) {
             $email = $recipient->email;
-        } elseif ($recipient instanceof \App\Models\Attorney) {
-            $email = $recipient->email;
         }
 
         if ($this->shouldSuppressRecipient($recipient, $email)) {
@@ -157,10 +155,6 @@ class NotificationService
         }
 
         if ($recipient instanceof \App\Models\Person) {
-            return $recipient->email;
-        }
-
-        if ($recipient instanceof \App\Models\Attorney) {
             return $recipient->email;
         }
 

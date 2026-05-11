@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Attorney;
-use App\Models\AttorneyClientRelationship;
+use App\Models\CaseParty;
 use App\Models\CaseModel;
 use App\Models\Person;
 use Illuminate\Http\Request;
@@ -18,24 +17,33 @@ class AttorneyController extends Controller
 
     public function addClient(Request $request, CaseModel $case)
     {
-        $request->validate([
+        $validated = $request->validate([
             'client_person_id' => 'required|exists:persons,id',
             'effective_date' => 'required|date',
             'notes' => 'nullable|string|max:500'
         ]);
 
-        $attorney = Attorney::where('email', auth()->user()->email)->first();
-        if (!$attorney) {
-            return redirect()->back()->with('error', 'You must be registered as an attorney to represent clients.');
+        $attorneyPerson = Person::where('email', auth()->user()->email)->first();
+        if (!$attorneyPerson) {
+            return redirect()->back()->with('error', 'Your account is not linked to a person record.');
         }
 
-        AttorneyClientRelationship::create([
-            'attorney_id' => $attorney->id,
-            'client_person_id' => $request->client_person_id,
+        $clientParty = $case->parties()
+            ->where('person_id', $validated['client_person_id'])
+            ->whereNotIn('role', ['counsel', 'paralegal', 'agent'])
+            ->first();
+
+        if (!$clientParty) {
+            return redirect()->back()->with('error', 'Client is not a party on this case.');
+        }
+
+        CaseParty::firstOrCreate([
             'case_id' => $case->id,
-            'status' => 'active',
-            'effective_date' => $request->effective_date,
-            'notes' => $request->notes
+            'person_id' => $attorneyPerson->id,
+            'role' => 'counsel',
+            'client_party_id' => $clientParty->id,
+        ], [
+            'service_enabled' => true,
         ]);
 
         return redirect()->back()->with('success', 'Client representation added successfully.');
@@ -43,26 +51,22 @@ class AttorneyController extends Controller
 
     public function terminateRepresentation($relationship)
     {
-        $relationship = AttorneyClientRelationship::findOrFail($relationship);
-        
-        $relationship->update([
-            'status' => 'terminated',
-            'termination_date' => now()
-        ]);
+        $relationship = CaseParty::where('role', 'counsel')->findOrFail($relationship);
+        $relationship->delete();
 
         return redirect()->back()->with('success', 'Client representation terminated.');
     }
 
     public function myClients()
     {
-        $attorney = Attorney::where('email', auth()->user()->email)->first();
+        $attorney = Person::where('email', auth()->user()->email)->first();
         if (!$attorney) {
-            return redirect()->back()->with('error', 'Attorney record not found.');
+            return redirect()->back()->with('error', 'Person record not found.');
         }
 
-        $relationships = AttorneyClientRelationship::where('attorney_id', $attorney->id)
-            ->where('status', 'active')
-            ->with(['client', 'case'])
+        $relationships = CaseParty::where('person_id', $attorney->id)
+            ->where('role', 'counsel')
+            ->with(['client.person', 'case'])
             ->get();
             
         return view('attorney.clients', compact('relationships'));
@@ -70,9 +74,9 @@ class AttorneyController extends Controller
 
     public function editProfile()
     {
-        $attorney = Attorney::where('email', Auth::user()->email)->first();
+        $attorney = Person::where('email', Auth::user()->email)->first();
         if (!$attorney) {
-            abort(404, 'Attorney record not found.');
+            abort(404, 'Person record not found.');
         }
         
         return view('attorney.edit-profile', compact('attorney'));
@@ -80,15 +84,14 @@ class AttorneyController extends Controller
 
     public function updateProfile(Request $request)
     {
-        $attorney = Attorney::where('email', Auth::user()->email)->first();
+        $attorney = Person::where('email', Auth::user()->email)->first();
         if (!$attorney) {
-            abort(404, 'Attorney record not found.');
+            abort(404, 'Person record not found.');
         }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50',
             'address_line1' => 'nullable|string|max:500',
             'address_line2' => 'nullable|string|max:500',
             'city' => 'nullable|string|max:100',
@@ -96,25 +99,17 @@ class AttorneyController extends Controller
             'zip' => 'nullable|string|max:10',
         ]);
 
-        $attorney->update($validated);
-
-        $person = Person::where('email', $attorney->email)->first();
-        if ($person) {
-            $nameParts = preg_split('/\s+/', trim((string) $validated['name'])) ?: [];
-            $firstName = $nameParts[0] ?? $person->first_name;
-            $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : ($person->last_name ?? '');
-
-            $person->update([
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'phone_office' => $validated['phone'] ?? null,
-                'address_line1' => $validated['address_line1'] ?? null,
-                'address_line2' => $validated['address_line2'] ?? null,
-                'city' => $validated['city'] ?? null,
-                'state' => $validated['state'] ?? null,
-                'zip' => $validated['zip'] ?? null,
-            ]);
-        }
+        $name = Person::splitDisplayName($validated['name']);
+        $attorney->update([
+            'first_name' => $name['first_name'],
+            'last_name' => $name['last_name'],
+            'phone_office' => $validated['phone'] ?? null,
+            'address_line1' => $validated['address_line1'] ?? null,
+            'address_line2' => $validated['address_line2'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'zip' => $validated['zip'] ?? null,
+        ]);
 
         return redirect()->back()->with('success', 'Profile updated successfully.');
     }
@@ -125,20 +120,30 @@ class AttorneyController extends Controller
             abort(403);
         }
 
-        $attorneys = Attorney::orderBy('name')->paginate(50);
+        $attorneys = Person::counselDirectory()->paginate(50);
         return view('admin.attorneys', compact('attorneys'));
     }
 
-    public function edit(Attorney $attorney)
+    public function edit(Person $attorney)
     {
         if (!auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
-        return response()->json($attorney);
+        return response()->json([
+            'id' => $attorney->id,
+            'name' => $attorney->full_name,
+            'email' => $attorney->email,
+            'phone' => $attorney->phone_office,
+            'address_line1' => $attorney->address_line1,
+            'address_line2' => $attorney->address_line2,
+            'city' => $attorney->city,
+            'state' => $attorney->state,
+            'zip' => $attorney->zip,
+        ]);
     }
 
-    public function update(Request $request, Attorney $attorney)
+    public function update(Request $request, Person $attorney)
     {
         if (!auth()->user()->isHearingUnit()) {
             abort(403);
@@ -146,9 +151,8 @@ class AttorneyController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:attorneys,email,' . $attorney->id,
+            'email' => 'required|email|max:255|unique:persons,email,' . $attorney->id,
             'phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50',
             'address_line1' => 'nullable|string|max:500',
             'address_line2' => 'nullable|string|max:500',
             'city' => 'nullable|string|max:100',
@@ -156,15 +160,31 @@ class AttorneyController extends Controller
             'zip' => 'nullable|string|max:10'
         ]);
 
-        $attorney->update($validated);
+        $name = Person::splitDisplayName($validated['name']);
+        $attorney->update([
+            'type' => 'individual',
+            'first_name' => $name['first_name'],
+            'last_name' => $name['last_name'],
+            'email' => $validated['email'],
+            'phone_office' => $validated['phone'] ?? null,
+            'address_line1' => $validated['address_line1'] ?? null,
+            'address_line2' => $validated['address_line2'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'zip' => $validated['zip'] ?? null,
+        ]);
 
         return response()->json(['success' => true]);
     }
 
-    public function destroy(Attorney $attorney)
+    public function destroy(Person $attorney)
     {
         if (!auth()->user()->isHearingUnit()) {
             abort(403);
+        }
+
+        if ($attorney->caseParties()->exists()) {
+            return back()->with('error', 'Counsel records that are attached to cases cannot be deleted.');
         }
 
         $attorney->delete();

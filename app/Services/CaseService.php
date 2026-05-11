@@ -165,78 +165,93 @@ class CaseService
             'case_id' => $case->id,
             'client_party_id' => $clientParty->id,
             'attorney_id' => $data['attorney_id'] ?? 'null',
-            'attorney_name' => $data['attorney_name'] ?? 'null',
+            'attorney_first_name' => $data['attorney_first_name'] ?? 'null',
+            'attorney_last_name' => $data['attorney_last_name'] ?? 'null',
             'attorney_email' => $data['attorney_email'] ?? 'null'
         ]);
         
-        // Handle existing attorney selection
+        $attorneyPerson = null;
+
+        // Handle existing counsel selection
         if (!empty($data['attorney_id'])) {
-            $attorney = \App\Models\Attorney::find($data['attorney_id']);
-            if ($attorney) {
-                // Create attorney person if doesn't exist
-                $attorneyPerson = Person::where('email', $attorney->email)->first();
-                if (!$attorneyPerson) {
-                    $attorneyPerson = Person::create([
-                        'type' => 'individual',
-                        'first_name' => explode(' ', $attorney->name)[0] ?? '',
-                        'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
-                        'email' => $attorney->email,
-                        'phone_office' => $attorney->phone
-                    ]);
-                }
-                
-                // Create counsel party entry linked to client
-                $counselParty = CaseParty::create([
-                    'case_id' => $case->id,
-                    'person_id' => $attorneyPerson->id,
-                    'role' => 'counsel',
-                    'client_party_id' => $clientParty->id,
-                    'service_enabled' => true
-                ]);
-                $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
-                \Log::info('Created counsel party for existing attorney', ['counsel_party_id' => $counselParty->id]);
-            }
-        }
-        // Handle new attorney creation
-        elseif (!empty($data['attorney_name']) && !empty($data['attorney_email'])) {
-            // Create new attorney record
-            $attorney = \App\Models\Attorney::firstOrCreate(
+            $attorneyPerson = Person::find($data['attorney_id']);
+        } elseif ($this->hasNewAttorneyData($data)) {
+            $name = $this->attorneyNameAttributes($data);
+
+            $attorneyPerson = Person::firstOrCreate(
                 ['email' => $data['attorney_email']],
                 [
-                    'name' => $data['attorney_name'],
-                    'phone' => $data['attorney_phone'] ?? null,
-                    'bar_number' => $data['bar_number'] ?? null,
+                    'type' => 'individual',
+                    'prefix' => $data['attorney_prefix'] ?? null,
+                    'first_name' => $name['first_name'],
+                    'middle_name' => $data['attorney_middle_name'] ?? null,
+                    'last_name' => $name['last_name'],
+                    'suffix' => $data['attorney_suffix'] ?? null,
+                    'title' => $data['attorney_title'] ?? null,
+                    'phone_office' => $data['attorney_phone'] ?? null,
                     'address_line1' => $data['attorney_address_line1'] ?? null,
                     'address_line2' => $data['attorney_address_line2'] ?? null,
                     'city' => $data['attorney_city'] ?? null,
                     'state' => $data['attorney_state'] ?? null,
-                    'zip' => $data['attorney_zip'] ?? null
+                    'zip' => $data['attorney_zip'] ?? null,
                 ]
             );
-            
-            // Create attorney person
-            $attorneyPerson = Person::firstOrCreate(
-                ['email' => $attorney->email],
-                [
-                    'type' => 'individual',
-                    'first_name' => explode(' ', $attorney->name)[0] ?? '',
-                    'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
-                    'email' => $attorney->email,
-                    'phone_office' => $attorney->phone
-                ]
-            );
-            
-            // Create counsel party entry linked to client
-            $counselParty = CaseParty::create([
-                'case_id' => $case->id,
-                'person_id' => $attorneyPerson->id,
-                'role' => 'counsel',
-                'client_party_id' => $clientParty->id,
-                'service_enabled' => true
-            ]);
-            $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
-            \Log::info('Created counsel party for new attorney', ['counsel_party_id' => $counselParty->id]);
+
+            $updates = array_filter([
+                'prefix' => $attorneyPerson->prefix ?: ($data['attorney_prefix'] ?? null),
+                'first_name' => $attorneyPerson->first_name ?: $name['first_name'],
+                'middle_name' => $attorneyPerson->middle_name ?: ($data['attorney_middle_name'] ?? null),
+                'last_name' => $attorneyPerson->last_name ?: $name['last_name'],
+                'suffix' => $attorneyPerson->suffix ?: ($data['attorney_suffix'] ?? null),
+                'title' => $attorneyPerson->title ?: ($data['attorney_title'] ?? null),
+                'phone_office' => $attorneyPerson->phone_office ?: ($data['attorney_phone'] ?? null),
+                'address_line1' => $attorneyPerson->address_line1 ?: ($data['attorney_address_line1'] ?? null),
+                'address_line2' => $attorneyPerson->address_line2 ?: ($data['attorney_address_line2'] ?? null),
+                'city' => $attorneyPerson->city ?: ($data['attorney_city'] ?? null),
+                'state' => $attorneyPerson->state ?: ($data['attorney_state'] ?? null),
+                'zip' => $attorneyPerson->zip ?: ($data['attorney_zip'] ?? null),
+            ], fn ($value) => filled($value));
+
+            if (!empty($updates)) {
+                $attorneyPerson->update($updates);
+            }
         }
+
+        if (!$attorneyPerson || empty($attorneyPerson->email)) {
+            return;
+        }
+
+        $counselParty = CaseParty::firstOrCreate([
+            'case_id' => $case->id,
+            'person_id' => $attorneyPerson->id,
+            'role' => 'counsel',
+            'client_party_id' => $clientParty->id,
+        ], [
+            'service_enabled' => true,
+        ]);
+
+        $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
+        \Log::info('Created counsel party', ['counsel_party_id' => $counselParty->id]);
+    }
+
+    private function hasNewAttorneyData(array $data): bool
+    {
+        $hasStructuredName = !empty($data['attorney_first_name']) && !empty($data['attorney_last_name']);
+        $hasLegacyName = !empty($data['attorney_name']);
+
+        return ($hasStructuredName || $hasLegacyName) && !empty($data['attorney_email']);
+    }
+
+    private function attorneyNameAttributes(array $data): array
+    {
+        if (!empty($data['attorney_first_name']) || !empty($data['attorney_last_name'])) {
+            return [
+                'first_name' => $data['attorney_first_name'] ?? null,
+                'last_name' => $data['attorney_last_name'] ?? null,
+            ];
+        }
+
+        return Person::splitDisplayName($data['attorney_name'] ?? null);
     }
 
     private function createAgentParty(CaseModel $case, array $data, CaseParty $clientParty): void
@@ -782,9 +797,9 @@ class CaseService
                     $notificationCount++;
                 }
             } elseif ($type === 'attorney') {
-                $attorney = \App\Models\Attorney::find($id);
-                if ($attorney) {
-                    $attorneyRecipients[] = $attorney;
+                $counselParty = $case->parties()->with('person')->where('role', 'counsel')->find($id);
+                if ($counselParty?->person) {
+                    $attorneyRecipients[] = $counselParty->person;
                     $notificationCount++;
                 }
             }

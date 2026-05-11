@@ -96,7 +96,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="{{ route('cases.index') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View all cases →</a>
+                        <a href="{{ route('cases.index', ['scope' => 'my_cases']) }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View my cases →</a>
                     </div>
                 </div>
 
@@ -115,7 +115,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="{{ route('cases.index') }}" class="text-orange-600 hover:text-orange-800 text-sm font-medium">Review cases →</a>
+                        <a href="{{ route('cases.index', ['scope' => 'pending_review']) }}" class="text-orange-600 hover:text-orange-800 text-sm font-medium">Review pending cases →</a>
                     </div>
                 </div>
 
@@ -133,7 +133,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <span class="text-green-600 text-sm font-medium"><a href="{{ route('cases.index') }}">View active cases →</a></span>
+                        <span class="text-green-600 text-sm font-medium"><a href="{{ route('cases.index', ['scope' => 'active']) }}">View active cases →</a></span>
                     </div>
                 </div>
                 @endif
@@ -152,7 +152,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
-                        <a href="{{ route('cases.index') }}" class="text-purple-600 hover:text-purple-800 text-sm font-medium">View documents →</a>
+                        <a href="{{ route('documents.index') }}" class="text-purple-600 hover:text-purple-800 text-sm font-medium">View my documents →</a>
                     </div>
                 </div>
             </div>
@@ -382,7 +382,7 @@
                         </div>
                         <div class="p-6">
                             @php
-                                $attorney = \App\Models\Attorney::where('email', auth()->user()->email)->first();
+                                $attorney = \App\Models\Person::where('email', auth()->user()->email)->first();
                                 $clientCount = 0;
                                 $activeClients = collect();
 
@@ -405,9 +405,6 @@
                             @if($attorney)
                                 <div class="mb-4">
                                     <p class="text-sm font-medium text-gray-700">{{ $attorney->name }}</p>
-                                    @if($attorney->bar_number)
-                                        <p class="text-xs text-gray-500">Bar #: {{ $attorney->bar_number }}</p>
-                                    @endif
                                     <p class="text-xs text-gray-500">{{ $attorney->email }}</p>
                                 </div>
 

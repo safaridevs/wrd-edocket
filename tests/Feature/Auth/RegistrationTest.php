@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Person;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,6 +19,13 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        Person::create([
+            'type' => 'individual',
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+        ]);
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',

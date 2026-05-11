@@ -11,6 +11,11 @@
             {{ session('success') }}
         </div>
     @endif
+    @if(session('error'))
+        <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded mb-4">
+            {{ session('error') }}
+        </div>
+    @endif
 
     <div class="bg-white shadow rounded-lg overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200">
@@ -19,17 +24,15 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bar Number</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 @foreach($attorneys as $attorney)
                 <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $attorney->name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $attorney->full_name }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $attorney->email }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $attorney->phone }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $attorney->bar_number }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $attorney->phone_office }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <button onclick="editAttorney({{ $attorney->id }})" class="text-blue-600 hover:text-blue-800 mr-3">Edit</button>
                         <form action="{{ route('admin.attorneys.destroy', $attorney) }}" method="POST" class="inline" onsubmit="return confirm('Delete this attorney?')">
@@ -70,11 +73,6 @@
             <div class="mb-3">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input type="text" id="phone" class="w-full border-gray-300 rounded-md">
-            </div>
-            
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Bar Number</label>
-                <input type="text" id="bar_number" class="w-full border-gray-300 rounded-md">
             </div>
             
             <div class="mb-3">
@@ -119,7 +117,6 @@ async function editAttorney(id) {
     document.getElementById('name').value = attorney.name;
     document.getElementById('email').value = attorney.email;
     document.getElementById('phone').value = attorney.phone || '';
-    document.getElementById('bar_number').value = attorney.bar_number || '';
     document.getElementById('address_line1').value = attorney.address_line1 || '';
     document.getElementById('address_line2').value = attorney.address_line2 || '';
     document.getElementById('city').value = attorney.city || '';
@@ -141,7 +138,6 @@ async function saveAttorney(event) {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
         phone: document.getElementById('phone').value,
-        bar_number: document.getElementById('bar_number').value,
         address_line1: document.getElementById('address_line1').value,
         address_line2: document.getElementById('address_line2').value,
         city: document.getElementById('city').value,

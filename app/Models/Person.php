@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -23,6 +24,26 @@ class Person extends Model
     public function serviceList(): HasMany
     {
         return $this->hasMany(ServiceList::class);
+    }
+
+    public function scopeCounselDirectory(Builder $query): Builder
+    {
+        return $query
+            ->where('type', 'individual')
+            ->whereHas('caseParties', fn (Builder $casePartyQuery) => $casePartyQuery->where('role', 'counsel'))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->orderBy('email');
+    }
+
+    public static function splitDisplayName(?string $name): array
+    {
+        $parts = preg_split('/\s+/', trim((string) $name)) ?: [];
+
+        return [
+            'first_name' => $parts[0] ?? null,
+            'last_name' => count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : null,
+        ];
     }
 
     public function getFullNameAttribute(): string

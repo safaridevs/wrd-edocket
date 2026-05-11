@@ -12,22 +12,22 @@
         <div class="mb-8">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Current Attorney Representations</h2>
             
-            @if($case->attorneyClientRelationships()->active()->count() > 0)
+            @php
+                $counselParties = $case->parties()->where('role', 'counsel')->with(['person', 'clientParty.person'])->get();
+            @endphp
+            @if($counselParties->count() > 0)
                 <div class="space-y-4">
-                    @foreach($case->attorneyClientRelationships()->active()->with(['attorney', 'client'])->get() as $relationship)
+                    @foreach($counselParties as $relationship)
                     <div class="border rounded-lg p-4 bg-gray-50">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h3 class="font-medium text-gray-900">{{ $relationship->attorney->name }}</h3>
-                                <p class="text-sm text-gray-600">{{ $relationship->attorney->law_firm ?? 'Independent Attorney' }}</p>
-                                <p class="text-sm text-gray-600">Bar #: {{ $relationship->attorney->bar_number }}</p>
+                                <h3 class="font-medium text-gray-900">{{ $relationship->person->full_name }}</h3>
                                 <p class="text-sm text-gray-500 mt-2">
-                                    Representing: <span class="font-medium">{{ $relationship->client->name }}</span>
+                                    Representing: <span class="font-medium">{{ $relationship->clientParty?->person?->full_name ?? 'Unknown party' }}</span>
                                 </p>
-                                <p class="text-xs text-gray-500">Effective: {{ $relationship->effective_date->format('M j, Y') }}</p>
                             </div>
                             
-                            @if(auth()->user()->canManageCase($case) || auth()->id() === $relationship->attorney_user_id)
+                            @if(auth()->user()->canWriteCase())
                             <form method="POST" action="{{ route('attorney.terminate-representation', $relationship) }}" 
                                   onsubmit="return confirm('Are you sure you want to terminate this representation?')">
                                 @csrf
@@ -39,11 +39,6 @@
                             @endif
                         </div>
                         
-                        @if($relationship->notes)
-                        <div class="mt-3 p-3 bg-blue-50 rounded">
-                            <p class="text-sm text-blue-800">{{ $relationship->notes }}</p>
-                        </div>
-                        @endif
                     </div>
                     @endforeach
                 </div>
@@ -53,7 +48,7 @@
         </div>
 
         <!-- Add New Representation -->
-        @if(auth()->user()->is_attorney || auth()->user()->canManageCase($case))
+        @if(auth()->user()->isAttorney() || auth()->user()->canWriteCase())
         <div class="border-t pt-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Attorney Representation</h2>
             
@@ -66,9 +61,11 @@
                         <select name="client_person_id" required class="w-full border-gray-300 rounded-md">
                             <option value="">Select client...</option>
                             @foreach($case->parties as $party)
+                            @if(!in_array($party->role, ['counsel', 'paralegal', 'agent']))
                             <option value="{{ $party->person->id }}">
-                                {{ $party->person->name }} ({{ ucfirst($party->role) }})
+                                {{ $party->person->full_name }} ({{ ucfirst($party->role) }})
                             </option>
+                            @endif
                             @endforeach
                         </select>
                         @error('client_person_id')

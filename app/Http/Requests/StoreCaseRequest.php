@@ -47,6 +47,13 @@ class StoreCaseRequest extends FormRequest
         });
     }
 
+    public function messages(): array
+    {
+        return [
+            'parties.*.role.in' => 'The selected party role is not available during case creation.',
+        ];
+    }
+
     private function normalizePhoneNumber($value): ?string
     {
         if (!is_string($value)) {

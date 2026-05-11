@@ -85,7 +85,7 @@
                     <option value="">Choose an attorney...</option>
                     @foreach($attorneys as $attorney)
                         <option value="{{ $attorney->id }}" {{ $party->attorney_id == $attorney->id ? 'selected' : '' }}>
-                            {{ $attorney->name }} ({{ $attorney->email }})
+                            {{ $attorney->full_name }} ({{ $attorney->email }})
                         </option>
                     @endforeach
                 </select>
@@ -97,10 +97,18 @@
                     Add New Attorney
                 </label>
                 <div id="editNewAttorneyFields" class="ml-6 space-y-2 {{ $party->attorney_id ? 'opacity-50' : '' }}">
-                    <input type="text" name="attorney_name" placeholder="Attorney Name" class="block w-full border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                    <input type="email" name="attorney_email" placeholder="Attorney Email" class="block w-full border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+                        <input type="text" name="attorney_prefix" placeholder="Prefix" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                        <input type="text" name="attorney_first_name" placeholder="First Name" class="border-gray-300 rounded-md md:col-span-2" {{ $party->attorney_id ? 'disabled' : '' }}>
+                        <input type="text" name="attorney_middle_name" placeholder="Middle" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                        <input type="text" name="attorney_last_name" placeholder="Last Name" class="border-gray-300 rounded-md md:col-span-2" {{ $party->attorney_id ? 'disabled' : '' }}>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <input type="text" name="attorney_suffix" placeholder="Suffix" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                        <input type="text" name="attorney_title" placeholder="Title" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                        <input type="email" name="attorney_email" placeholder="Attorney Email" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
+                    </div>
                     <input type="text" name="attorney_phone" placeholder="Attorney Phone" class="block w-full border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                    <input type="text" name="bar_number" placeholder="Bar Number" class="block w-full border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
                 </div>
             </div>
         </div>
@@ -173,12 +181,18 @@ function toggleEditAttorneyOption() {
     if (option === 'existing') {
         existingSelect.disabled = false;
         newFields.classList.add('opacity-50');
-        newInputs.forEach(input => input.disabled = true);
+        newInputs.forEach(input => {
+            input.disabled = true;
+            input.required = false;
+        });
     } else if (option === 'new') {
         existingSelect.disabled = true;
         existingSelect.value = '';
         newFields.classList.remove('opacity-50');
-        newInputs.forEach(input => input.disabled = false);
+        newInputs.forEach(input => {
+            input.disabled = false;
+            input.required = ['attorney_first_name', 'attorney_last_name', 'attorney_email', 'attorney_phone'].includes(input.name);
+        });
     }
 }
 

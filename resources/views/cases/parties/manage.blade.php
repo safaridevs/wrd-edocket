@@ -95,17 +95,11 @@
                                                 @endif
                                             </div>
                                             @foreach($party->attorneys as $attorneyParty)
-                                                @php
-                                                    $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                                                @endphp
                                                 <div class="mb-3 last:mb-0 rounded-md bg-white/70 p-3 text-sm text-gray-700">
                                                     <div class="flex items-start justify-between gap-3">
                                                         <div>
                                                             <div class="font-medium">{{ $attorneyParty->person->full_name }}</div>
                                                             <div class="text-gray-600">{{ $attorneyParty->person->email }}</div>
-                                                            @if($attorney && $attorney->bar_number)
-                                                                <div class="text-gray-600">Bar #: {{ $attorney->bar_number }}</div>
-                                                            @endif
                                                             @if($attorneyParty->person->phone_office)
                                                                 <div class="text-gray-600">Phone: {{ $attorneyParty->person->phone_office }}</div>
                                                             @endif
@@ -333,7 +327,7 @@
                                     <select name="attorney_id" class="ml-6 block w-full border-gray-300 rounded-md" disabled>
                                         <option value="">Choose an attorney...</option>
                                         @foreach($attorneys as $attorney)
-                                            <option value="{{ $attorney->id }}">{{ $attorney->name }} ({{ $attorney->email }})</option>
+                                            <option value="{{ $attorney->id }}">{{ $attorney->full_name }} ({{ $attorney->email }})</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -344,10 +338,18 @@
                                         Add New Attorney
                                     </label>
                                     <div id="newAttorneyFields" class="ml-6 space-y-2 opacity-50">
-                                        <input type="text" name="attorney_name" placeholder="Attorney Name" class="block w-full border-gray-300 rounded-md" disabled>
-                                        <input type="email" name="attorney_email" placeholder="Attorney Email" class="block w-full border-gray-300 rounded-md" disabled>
+                                        <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
+                                            <input type="text" name="attorney_prefix" placeholder="Prefix" class="border-gray-300 rounded-md" disabled>
+                                            <input type="text" name="attorney_first_name" placeholder="First Name" class="border-gray-300 rounded-md md:col-span-2" disabled>
+                                            <input type="text" name="attorney_middle_name" placeholder="Middle" class="border-gray-300 rounded-md" disabled>
+                                            <input type="text" name="attorney_last_name" placeholder="Last Name" class="border-gray-300 rounded-md md:col-span-2" disabled>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                            <input type="text" name="attorney_suffix" placeholder="Suffix" class="border-gray-300 rounded-md" disabled>
+                                            <input type="text" name="attorney_title" placeholder="Title" class="border-gray-300 rounded-md" disabled>
+                                            <input type="email" name="attorney_email" placeholder="Attorney Email" class="border-gray-300 rounded-md" disabled>
+                                        </div>
                                         <input type="text" name="attorney_phone" placeholder="Attorney Phone" class="block w-full border-gray-300 rounded-md" disabled>
-                                        <input type="text" name="bar_number" placeholder="Bar Number" class="block w-full border-gray-300 rounded-md" disabled>
                                         <div class="grid grid-cols-1 gap-2">
                                             <input type="text" name="attorney_address_line1" placeholder="Attorney Address Line 1" class="border-gray-300 rounded-md" disabled>
                                             <input type="text" name="attorney_address_line2" placeholder="Attorney Address Line 2" class="border-gray-300 rounded-md" disabled>
@@ -482,12 +484,18 @@
             if (option === 'existing') {
                 existingSelect.disabled = false;
                 newFields.classList.add('opacity-50');
-                newInputs.forEach(input => input.disabled = true);
+                newInputs.forEach(input => {
+                    input.disabled = true;
+                    input.required = false;
+                });
             } else if (option === 'new') {
                 existingSelect.disabled = true;
                 existingSelect.value = '';
                 newFields.classList.remove('opacity-50');
-                newInputs.forEach(input => input.disabled = false);
+                newInputs.forEach(input => {
+                    input.disabled = false;
+                    input.required = ['attorney_first_name', 'attorney_last_name', 'attorney_email', 'attorney_phone'].includes(input.name);
+                });
             }
         }
 
@@ -707,18 +715,13 @@
                                 <h4 class="font-medium text-sm mb-3">Associated Attorneys:</h4>
                                 <div class="space-y-2 max-h-40 overflow-y-auto">
                                     @foreach($attorneyParties as $attorneyParty)
-                                    @php
-                                        $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                                    @endphp
-                                    @if($attorney)
                                     <label class="flex items-center p-2 hover:bg-gray-50 rounded">
-                                        <input type="checkbox" name="notify_recipients[]" value="attorney_{{ $attorney->id }}" class="mr-3">
+                                        <input type="checkbox" name="notify_recipients[]" value="attorney_{{ $attorneyParty->id }}" class="mr-3">
                                         <div class="flex-1">
-                                            <div class="font-medium text-sm">{{ $attorney->name }}</div>
-                                            <div class="text-xs text-gray-500">Attorney • {{ $attorney->email }}</div>
+                                            <div class="font-medium text-sm">{{ $attorneyParty->person->full_name }}</div>
+                                            <div class="text-xs text-gray-500">Attorney • {{ $attorneyParty->person->email }}</div>
                                         </div>
                                     </label>
-                                    @endif
                                     @endforeach
                                 </div>
                             </div>

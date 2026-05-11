@@ -22,7 +22,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-                                <input type="text" name="name" id="name" value="{{ old('name', $attorney->name) }}" 
+                                <input type="text" name="name" id="name" value="{{ old('name', $attorney->full_name) }}"
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 @error('name')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -31,18 +31,9 @@
 
                             <div>
                                 <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
-                                <input type="text" name="phone" id="phone" value="{{ old('phone', $attorney->phone) }}" 
+                                <input type="text" name="phone" id="phone" value="{{ old('phone', $attorney->phone_office) }}"
                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                 @error('phone')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <div>
-                                <label for="bar_number" class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                <input type="text" name="bar_number" id="bar_number" value="{{ old('bar_number', $attorney->bar_number) }}" 
-                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                @error('bar_number')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </div>

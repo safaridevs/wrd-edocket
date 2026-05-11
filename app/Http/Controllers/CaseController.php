@@ -9,6 +9,7 @@ use App\Models\CaseAssignment;
 use App\Models\Document;
 use App\Models\DocumentCorrection;
 use App\Models\OseFileNumber;
+use App\Models\Person;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\CaseStorageService;
@@ -36,39 +37,16 @@ class CaseController extends Controller
             'alu_clerk' => ['alu_clerk'],
         ];
         $currentRole = $user->getCurrentRole();
+        $scope = $request->string('scope')->toString();
+        $query = $this->buildCaseIndexBaseQuery($user, $assignedTypesByRole, $currentRole);
+        $allowedStatuses = $this->getAllowedCaseStatuses($user, $currentRole);
 
-        if ($user->isHearingUnit()) {
-            // HU users see only submitted cases (not drafts)
-            $query = CaseModel::whereNotIn('status', ['draft']);
-            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
-        } elseif ($user->canAssignAttorneys()) {
-            // ALU Manager sees all cases
-            $query = CaseModel::query();
-            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
-        } elseif ($currentRole === 'party') {
-            // Parties, counsel, and paralegals only see cases they are actually on.
-            $query = CaseModel::whereNotIn('status', ['draft'])
-                ->where(function ($caseQuery) use ($user) {
-                    $caseQuery->whereHas('parties', function ($partyQuery) use ($user) {
-                        $partyQuery->whereHas('person', function ($personQuery) use ($user) {
-                            $personQuery->where('email', $user->email);
-                        });
-                    })->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
-                        $assignmentQuery->where('assignment_type', 'alu_paralegal')
-                            ->where('user_id', $user->id);
-                    });
-                });
-            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
-        } elseif (isset($assignedTypesByRole[$currentRole])) {
-            $query = CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
-                $assignmentQuery->where('user_id', $user->id)
-                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
-            })->whereNotIn('status', ['draft']);
-            $allowedStatuses = ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
-        } else {
-            // Other users see only their created cases
-            $query = $user->createdCases();
-            $allowedStatuses = ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        if ($scope === 'my_cases') {
+            $query = $this->buildMyCasesQuery($user, $assignedTypesByRole, $currentRole);
+        } elseif ($scope === 'pending_review') {
+            $query->where('status', 'submitted_to_hu');
+        } elseif ($scope === 'active') {
+            $query->where('status', 'active');
         }
 
         if ($request->filled('status')) {
@@ -124,7 +102,108 @@ class CaseController extends Controller
 
         $allowedTypes = ['aggrieved', 'protested', 'compliance'];
 
-        return view('cases.index', compact('cases', 'allowedStatuses', 'allowedTypes'));
+        return view('cases.index', compact('cases', 'allowedStatuses', 'allowedTypes', 'scope'));
+    }
+
+    private function buildCaseIndexBaseQuery(User $user, array $assignedTypesByRole, string $currentRole)
+    {
+        if ($user->isHearingUnit()) {
+            return CaseModel::whereNotIn('status', ['draft']);
+        }
+
+        if ($user->canAssignAttorneys()) {
+            return CaseModel::query();
+        }
+
+        if ($currentRole === 'party') {
+            return CaseModel::whereNotIn('status', ['draft'])
+                ->where(function ($caseQuery) use ($user) {
+                    $caseQuery->whereHas('parties', function ($partyQuery) use ($user) {
+                        $partyQuery->whereHas('person', function ($personQuery) use ($user) {
+                            $personQuery->where('email', $user->email);
+                        });
+                    })->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
+                        $assignmentQuery->where('assignment_type', 'alu_paralegal')
+                            ->where('user_id', $user->id);
+                    });
+                });
+        }
+
+        if (isset($assignedTypesByRole[$currentRole])) {
+            return CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
+                $assignmentQuery->where('user_id', $user->id)
+                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+            })->whereNotIn('status', ['draft']);
+        }
+
+        return $user->createdCases();
+    }
+
+    private function buildMyCasesQuery(User $user, array $assignedTypesByRole, string $currentRole)
+    {
+        if ($currentRole === 'party') {
+            if ($user->isParalegal()) {
+                return CaseModel::where(function ($caseQuery) use ($user) {
+                    $caseQuery->whereHas('parties', function ($query) use ($user) {
+                        $query->where('role', 'paralegal')
+                            ->whereHas('person', function ($subQuery) use ($user) {
+                                $subQuery->where('email', $user->email);
+                            });
+                    })->orWhereHas('assignments', function ($query) use ($user) {
+                        $query->where('assignment_type', 'alu_paralegal')
+                            ->where('user_id', $user->id);
+                    });
+                })->whereIn('status', ['active', 'submitted_to_hu']);
+            }
+
+            if ($user->isAttorney()) {
+                return CaseModel::whereHas('parties', function ($query) use ($user) {
+                    $query->where('role', 'counsel')
+                        ->whereHas('person', function ($subQuery) use ($user) {
+                            $subQuery->where('email', $user->email);
+                        });
+                })->whereIn('status', ['active', 'submitted_to_hu']);
+            }
+
+            return CaseModel::whereHas('parties', function ($query) use ($user) {
+                $query->whereIn('role', ['applicant', 'protestant', 'aggrieved_party', 'respondent'])
+                    ->whereHas('person', function ($subQuery) use ($user) {
+                        $subQuery->where('email', $user->email);
+                    });
+            })->whereIn('status', ['active', 'submitted_to_hu']);
+        }
+
+        if (isset($assignedTypesByRole[$currentRole])) {
+            return CaseModel::whereHas('assignments', function ($query) use ($assignedTypesByRole, $currentRole, $user) {
+                $query->where('user_id', $user->id)
+                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+            })->whereNotIn('status', ['draft']);
+        }
+
+        if ($user->isHearingUnit()) {
+            return CaseModel::whereHas('assignments', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })->whereNotIn('status', ['draft']);
+        }
+
+        return $user->createdCases();
+    }
+
+    private function getAllowedCaseStatuses(User $user, string $currentRole): array
+    {
+        if ($user->isHearingUnit()) {
+            return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        }
+
+        if ($user->canAssignAttorneys()) {
+            return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        }
+
+        if ($currentRole === 'party' || in_array($currentRole, ['alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk'], true)) {
+            return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        }
+
+        return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
     }
 
     public function create()
@@ -134,7 +213,7 @@ class CaseController extends Controller
         }
 
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
-        $attorneys = \App\Models\Attorney::orderBy('name')->get();
+        $attorneys = Person::counselDirectory()->get();
 
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)
@@ -496,7 +575,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $attorneys = \App\Models\User::whereCurrentRole('alu_atty')->get();
+        $attorneys = \App\Models\User::whereCurrentRole('alu_atty')->orderBy('name')->get();
         return view('cases.assign-attorney', compact('case', 'attorneys'));
     }
 
@@ -531,7 +610,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $experts = \App\Models\User::whereCurrentRole('hydrology_expert')->get();
+        $experts = \App\Models\User::whereCurrentRole('hydrology_expert')->orderBy('name')->get();
         return view('cases.assign-hydrology-expert', compact('case', 'experts'));
     }
 
@@ -568,7 +647,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $clerks = \App\Models\User::whereCurrentRole('alu_clerk')->get();
+        $clerks = \App\Models\User::whereCurrentRole('alu_clerk')->orderBy('name')->get();
         return view('cases.assign-alu-clerk', compact('case', 'clerks'));
     }
 
@@ -603,7 +682,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $wrds = \App\Models\User::whereCurrentRole('wrd')->get();
+        $wrds = \App\Models\User::whereCurrentRole('wrd')->orderBy('name')->get();
         return view('cases.assign-wrd', compact('case', 'wrds'));
     }
 
@@ -754,7 +833,7 @@ class CaseController extends Controller
             ->map(fn($attorneyParty) => strtolower(trim((string) $attorneyParty->person?->email)))
             ->filter()
             ->values();
-        $attorneys = \App\Models\Attorney::orderBy('name')
+        $attorneys = Person::counselDirectory()
             ->get()
             ->reject(fn($attorney) => $selectedEmails->contains(strtolower(trim((string) $attorney->email))))
             ->values();
@@ -772,11 +851,16 @@ class CaseController extends Controller
 
         $validated = $request->validate([
             'attorney_option' => 'nullable|in:existing,new',
-            'attorney_id' => 'nullable|exists:attorneys,id',
+            'attorney_id' => 'nullable|exists:persons,id',
             'attorney_name' => 'nullable|string|max:255',
+            'attorney_prefix' => 'nullable|string|max:10',
+            'attorney_first_name' => 'nullable|string|max:255',
+            'attorney_middle_name' => 'nullable|string|max:255',
+            'attorney_last_name' => 'nullable|string|max:255',
+            'attorney_suffix' => 'nullable|string|max:10',
+            'attorney_title' => 'nullable|string|max:255',
             'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50',
             'address_line1' => 'nullable|string|max:500',
             'address_line2' => 'nullable|string|max:500',
             'city' => 'nullable|string|max:100',
@@ -785,38 +869,11 @@ class CaseController extends Controller
         ]);
 
         try {
-            $attorney = null;
-            if (!empty($validated['attorney_id'])) {
-                $attorney = \App\Models\Attorney::find($validated['attorney_id']);
-            } elseif (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
-                $attorney = \App\Models\Attorney::firstOrCreate(
-                    ['email' => $validated['attorney_email']],
-                    [
-                        'name' => $validated['attorney_name'],
-                        'phone' => $validated['attorney_phone'],
-                        'bar_number' => $validated['bar_number'],
-                        'address_line1' => $validated['address_line1'],
-                        'address_line2' => $validated['address_line2'],
-                        'city' => $validated['city'],
-                        'state' => $validated['state'],
-                        'zip' => $validated['zip']
-                    ]
-                );
-            }
+            $attorneyPerson = $this->resolveCounselPerson($validated);
 
-            if (!$attorney) {
+            if (!$attorneyPerson) {
                 return response()->json(['success' => false, 'error' => 'Select an existing attorney or enter a new one.']);
             }
-
-            $attorneyPerson = \App\Models\Person::firstOrCreate(
-                ['email' => $attorney->email],
-                [
-                    'type' => 'individual',
-                    'first_name' => explode(' ', $attorney->name)[0] ?? '',
-                    'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
-                    'phone_office' => $attorney->phone
-                ]
-            );
 
             \App\Models\CaseParty::firstOrCreate([
                 'case_id' => $case->id,
@@ -830,6 +887,7 @@ class CaseController extends Controller
             \App\Models\ServiceList::firstOrCreate([
                 'case_id' => $case->id,
                 'person_id' => $attorneyPerson->id,
+            ], [
                 'email' => $attorneyPerson->email,
                 'service_method' => 'email',
                 'is_primary' => false
@@ -891,6 +949,80 @@ class CaseController extends Controller
         return response()->json(['success' => true]);
     }
 
+    private function resolveCounselPerson(array $data, string $addressPrefix = ''): ?Person
+    {
+        if (!empty($data['attorney_id'])) {
+            return Person::find($data['attorney_id']);
+        }
+
+        if (!$this->hasNewCounselData($data)) {
+            return null;
+        }
+
+        $name = $this->counselNameAttributes($data);
+        $address = fn (string $field) => $data[$addressPrefix . $field] ?? null;
+
+        $person = Person::firstOrCreate(
+            ['email' => $data['attorney_email']],
+            [
+                'type' => 'individual',
+                'prefix' => $data['attorney_prefix'] ?? null,
+                'first_name' => $name['first_name'],
+                'middle_name' => $data['attorney_middle_name'] ?? null,
+                'last_name' => $name['last_name'],
+                'suffix' => $data['attorney_suffix'] ?? null,
+                'title' => $data['attorney_title'] ?? null,
+                'phone_office' => $data['attorney_phone'] ?? null,
+                'address_line1' => $address('address_line1'),
+                'address_line2' => $address('address_line2'),
+                'city' => $address('city'),
+                'state' => $address('state'),
+                'zip' => $address('zip'),
+            ]
+        );
+
+        $updates = array_filter([
+            'prefix' => $person->prefix ?: ($data['attorney_prefix'] ?? null),
+            'first_name' => $person->first_name ?: $name['first_name'],
+            'middle_name' => $person->middle_name ?: ($data['attorney_middle_name'] ?? null),
+            'last_name' => $person->last_name ?: $name['last_name'],
+            'suffix' => $person->suffix ?: ($data['attorney_suffix'] ?? null),
+            'title' => $person->title ?: ($data['attorney_title'] ?? null),
+            'phone_office' => $person->phone_office ?: ($data['attorney_phone'] ?? null),
+            'address_line1' => $person->address_line1 ?: $address('address_line1'),
+            'address_line2' => $person->address_line2 ?: $address('address_line2'),
+            'city' => $person->city ?: $address('city'),
+            'state' => $person->state ?: $address('state'),
+            'zip' => $person->zip ?: $address('zip'),
+        ], fn ($value) => filled($value));
+
+        if (!empty($updates)) {
+            $person->update($updates);
+        }
+
+        return $person;
+    }
+
+    private function hasNewCounselData(array $data): bool
+    {
+        $hasStructuredName = !empty($data['attorney_first_name']) && !empty($data['attorney_last_name']);
+        $hasLegacyName = !empty($data['attorney_name']);
+
+        return ($hasStructuredName || $hasLegacyName) && !empty($data['attorney_email']);
+    }
+
+    private function counselNameAttributes(array $data): array
+    {
+        if (!empty($data['attorney_first_name']) || !empty($data['attorney_last_name'])) {
+            return [
+                'first_name' => $data['attorney_first_name'] ?? null,
+                'last_name' => $data['attorney_last_name'] ?? null,
+            ];
+        }
+
+        return Person::splitDisplayName($data['attorney_name'] ?? null);
+    }
+
     public function manageParties(CaseModel $case)
     {
         if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
@@ -898,7 +1030,7 @@ class CaseController extends Controller
         }
 
         $case->load(['parties.person', 'serviceList.person']);
-        $attorneys = \App\Models\Attorney::orderBy('name')->get();
+        $attorneys = Person::counselDirectory()->get();
 
         return view('cases.parties.manage', compact('case', 'attorneys'));
     }
@@ -927,11 +1059,16 @@ class CaseController extends Controller
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:50',
             'zip' => 'nullable|string|max:10',
-            'attorney_id' => 'nullable|exists:attorneys,id',
+            'attorney_id' => 'nullable|exists:persons,id',
             'attorney_name' => 'nullable|string|max:255',
+            'attorney_prefix' => 'nullable|string|max:10',
+            'attorney_first_name' => 'nullable|string|max:255',
+            'attorney_middle_name' => 'nullable|string|max:255',
+            'attorney_last_name' => 'nullable|string|max:255',
+            'attorney_suffix' => 'nullable|string|max:10',
+            'attorney_title' => 'nullable|string|max:255',
             'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50',
             'attorney_address_line1' => 'nullable|string|max:500',
             'attorney_address_line2' => 'nullable|string|max:500',
             'attorney_city' => 'nullable|string|max:100',
@@ -977,66 +1114,27 @@ class CaseController extends Controller
             ]);
 
             // Handle attorney representation
-            if ((!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) ||
+            if ($this->hasNewCounselData($validated) ||
                 ($request->has('attorney_id') && !empty($request->attorney_id))) {
-                // Check if selecting existing attorney
-                if ($request->has('attorney_id') && !empty($request->attorney_id)) {
-                    $attorney = \App\Models\Attorney::find($request->attorney_id);
-                    if ($attorney) {
-                        // Create attorney person if doesn't exist
-                        $attorneyPerson = \App\Models\Person::where('email', $attorney->email)->first();
-                        if (!$attorneyPerson) {
-                            $attorneyPerson = \App\Models\Person::create([
-                                'type' => 'individual',
-                                'first_name' => explode(' ', $attorney->name)[0] ?? '',
-                                'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
-                                'email' => $attorney->email,
-                                'phone_office' => $attorney->phone
-                            ]);
-                        }
+                $attorneyPerson = $this->resolveCounselPerson($validated, 'attorney_');
 
-                        // Create counsel party entry linked to client
-                        \App\Models\CaseParty::create([
-                            'case_id' => $case->id,
-                            'person_id' => $attorneyPerson->id,
-                            'role' => 'counsel',
-                            'client_party_id' => $clientParty->id,
-                            'service_enabled' => true
-                        ]);
-                    }
-                }
-
-                // Create new attorney if name and email provided
-                if (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
-                    // Create new attorney
-                    $attorney = \App\Models\Attorney::create([
-                        'name' => $validated['attorney_name'],
-                        'email' => $validated['attorney_email'],
-                        'phone' => $validated['attorney_phone'],
-                        'bar_number' => $validated['bar_number'],
-                        'address_line1' => $validated['attorney_address_line1'] ?? null,
-                        'address_line2' => $validated['attorney_address_line2'] ?? null,
-                        'city' => $validated['attorney_city'] ?? null,
-                        'state' => $validated['attorney_state'] ?? null,
-                        'zip' => $validated['attorney_zip'] ?? null
-                    ]);
-
-                    // Create attorney person
-                    $attorneyPerson = \App\Models\Person::create([
-                        'type' => 'individual',
-                        'first_name' => explode(' ', $attorney->name)[0] ?? '',
-                        'last_name' => explode(' ', $attorney->name, 2)[1] ?? '',
-                        'email' => $attorney->email,
-                        'phone_office' => $attorney->phone
-                    ]);
-
-                    // Create counsel party entry linked to client
-                    \App\Models\CaseParty::create([
+                if ($attorneyPerson) {
+                    \App\Models\CaseParty::firstOrCreate([
                         'case_id' => $case->id,
                         'person_id' => $attorneyPerson->id,
                         'role' => 'counsel',
                         'client_party_id' => $clientParty->id,
+                    ], [
                         'service_enabled' => true
+                    ]);
+
+                    \App\Models\ServiceList::firstOrCreate([
+                        'case_id' => $case->id,
+                        'person_id' => $attorneyPerson->id,
+                    ], [
+                        'email' => $attorneyPerson->email,
+                        'service_method' => 'email',
+                        'is_primary' => false,
                     ]);
                 }
             }
@@ -1064,7 +1162,7 @@ class CaseController extends Controller
         }
 
         $party = $case->parties()->with(['person'])->findOrFail($partyId);
-        $attorneys = \App\Models\Attorney::orderBy('name')->get();
+        $attorneys = Person::counselDirectory()->get();
 
         return view('cases.parties.edit', compact('case', 'party', 'attorneys'))->render();
     }
@@ -1096,9 +1194,14 @@ class CaseController extends Controller
             'state' => 'nullable|string|max:50',
             'zip' => 'nullable|string|max:10',
             'attorney_name' => 'nullable|string|max:255',
+            'attorney_prefix' => 'nullable|string|max:10',
+            'attorney_first_name' => 'nullable|string|max:255',
+            'attorney_middle_name' => 'nullable|string|max:255',
+            'attorney_last_name' => 'nullable|string|max:255',
+            'attorney_suffix' => 'nullable|string|max:10',
+            'attorney_title' => 'nullable|string|max:255',
             'attorney_email' => 'nullable|email|max:255',
             'attorney_phone' => 'nullable|string|max:20',
-            'bar_number' => 'nullable|string|max:50',
         ]);
 
         if ($case->case_type !== 'compliance' && $validated['role'] === 'respondent') {
@@ -1128,21 +1231,6 @@ class CaseController extends Controller
                 'state' => $validated['state'],
                 'zip' => $validated['zip']
             ]);
-
-            // Handle attorney
-            if (!empty($validated['attorney_name']) && !empty($validated['attorney_email'])) {
-                $attorney = \App\Models\Attorney::create([
-                    'name' => $validated['attorney_name'],
-                    'email' => $validated['attorney_email'],
-                    'phone' => $validated['attorney_phone'],
-                    'bar_number' => $validated['bar_number'],
-                    'address_line1' => $validated['attorney_address_line1'] ?? null,
-                    'address_line2' => $validated['attorney_address_line2'] ?? null,
-                    'city' => $validated['attorney_city'] ?? null,
-                    'state' => $validated['attorney_state'] ?? null,
-                    'zip' => $validated['attorney_zip'] ?? null
-                ]);
-            }
 
             // Update party
             $party->update([
@@ -1862,7 +1950,10 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
-        $isOutsideCounsel = $user->isAttorney();
+        $outsideCounselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+            $q->where('email', $user->email);
+        })->first();
+        $isOutsideCounsel = (bool) $outsideCounselParty;
         $isAssignedAluAttorney = $user->isALUAttorney() && $case->assignments()
             ->where('assignment_type', 'alu_atty')
             ->where('user_id', $user->id)
@@ -1872,15 +1963,7 @@ class CaseController extends Controller
             abort(403, 'Only attorneys can add paralegals.');
         }
 
-        if ($isOutsideCounsel) {
-            $isCounsel = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
-                $q->where('email', $user->email);
-            })->exists();
-        } else {
-            $isCounsel = $isAssignedAluAttorney;
-        }
-
-        if (!$isCounsel) {
+        if (!$isOutsideCounsel && !$isAssignedAluAttorney) {
             abort(403, 'You can only add paralegals to cases you are representing.');
         }
 
@@ -1969,7 +2052,7 @@ class CaseController extends Controller
         $paralegalUser = User::firstOrCreate(
             ['email' => $person->email],
             [
-                'name' => $person->full_name ?: trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? '')),
+                'name' => $person->full_name,
                 'password' => Hash::make(Str::random(32)),
                 'role' => 'party',
                 'is_active' => true,
@@ -1982,7 +2065,7 @@ class CaseController extends Controller
 
         if (blank($paralegalUser->name)) {
             $paralegalUser->update([
-                'name' => $person->full_name ?: trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? '')),
+                'name' => $person->full_name,
             ]);
         }
 
@@ -1992,15 +2075,11 @@ class CaseController extends Controller
                 return back()->withErrors(['error' => 'This person is already associated with this case.']);
             }
 
-            $counselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
-                $q->where('email', $user->email);
-            })->first();
-
             \App\Models\CaseParty::create([
                 'case_id' => $case->id,
                 'person_id' => $person->id,
                 'role' => 'paralegal',
-                'client_party_id' => $counselParty->client_party_id,
+                'client_party_id' => $outsideCounselParty->client_party_id,
                 'service_enabled' => true
             ]);
 
@@ -2051,7 +2130,11 @@ class CaseController extends Controller
             ->where('user_id', $user->id)
             ->exists();
 
-        if (!$user->isAttorney() && !$isAssignedAluAttorney) {
+        $isOutsideCounsel = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
+            $q->where('email', $user->email);
+        })->exists();
+
+        if (!$isOutsideCounsel && !$isAssignedAluAttorney) {
             abort(403);
         }
 

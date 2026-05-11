@@ -109,7 +109,7 @@
 
                         @php
                             $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
-                            $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
+                            $hasAttorneyRecord = Auth::user()->isAttorney();
                         @endphp
 
                         @if($hasPersonRecord)
@@ -203,7 +203,7 @@
 
                 @php
                     $hasPersonRecord = \App\Models\Person::where('email', Auth::user()->email)->exists();
-                    $hasAttorneyRecord = \App\Models\Attorney::where('email', Auth::user()->email)->exists();
+                    $hasAttorneyRecord = Auth::user()->isAttorney();
                 @endphp
 
                 @if($hasPersonRecord)

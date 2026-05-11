@@ -37,12 +37,17 @@ class PdfStampingService
             throw new \RuntimeException('Only PDF documents can be e-stamped.');
         }
 
+        $stampedPath = null;
+
         try {
             $originalPath = $this->getDocumentPath($document);
             \Log::info('Original PDF path: ' . $originalPath);
 
-            $stampedPath = $this->createStampedPdf($originalPath, $document, $user);
+            $pageCount = $this->preflightPdf($originalPath);
+            $stampedPath = $this->createStampedPdf($originalPath, $document, $user, $pageCount);
             \Log::info('Stamped PDF created at: ' . $stampedPath);
+
+            $this->validateStampedPdf($stampedPath, $pageCount);
 
             // Replace original with stamped version
             $this->replaceOriginalFile($document, $stampedPath);
@@ -53,14 +58,11 @@ class PdfStampingService
             \Log::error('PDF stamping failed: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
 
-            if (str_contains($e->getMessage(), 'compression technique which is not supported by the free parser')) {
-                throw new \RuntimeException(
-                    'This PDF cannot be e-stamped because it uses an unsupported PDF compression format. Re-save or print the document to PDF and upload the new file, then try stamping again.',
-                    previous: $e
-                );
+            if ($stampedPath && file_exists($stampedPath)) {
+                @unlink($stampedPath);
             }
 
-            throw new \RuntimeException('Unable to e-stamp this PDF. Check the document format and try again.', previous: $e);
+            throw new \RuntimeException($this->mapStampingErrorMessage($e), previous: $e);
         }
     }
 
@@ -77,15 +79,40 @@ class PdfStampingService
         throw new \Exception('Document file not found: ' . $document->storage_uri);
     }
 
-    private function createStampedPdf(string $originalPath, Document $document, User $user): string
+    private function preflightPdf(string $originalPath): int
+    {
+        if (!file_exists($originalPath) || !is_readable($originalPath)) {
+            throw new \RuntimeException('The source PDF could not be read from storage.');
+        }
+
+        if (filesize($originalPath) === 0) {
+            throw new \RuntimeException('The source PDF is empty.');
+        }
+
+        $pdf = new Fpdi();
+
+        try {
+            $pageCount = $pdf->setSourceFile($originalPath);
+        } catch (\Exception $e) {
+            throw new \RuntimeException('The uploaded PDF failed preflight validation and cannot be stamped automatically.', previous: $e);
+        }
+
+        if ($pageCount < 1) {
+            throw new \RuntimeException('The uploaded PDF has no pages to stamp.');
+        }
+
+        return $pageCount;
+    }
+
+    private function createStampedPdf(string $originalPath, Document $document, User $user, int $pageCount): string
     {
         $pdf = new Fpdi();
         $pdf->SetAutoPageBreak(false);
 
         try {
             // Import existing PDF
-            $pageCount = $pdf->setSourceFile($originalPath);
-            \Log::info('PDF has ' . $pageCount . ' pages');
+            $actualPageCount = $pdf->setSourceFile($originalPath);
+            \Log::info('PDF has ' . $actualPageCount . ' pages');
 
             for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
                 // Get page dimensions from imported page
@@ -124,6 +151,29 @@ class PdfStampingService
         return $stampedPath;
     }
 
+    private function validateStampedPdf(string $stampedPath, int $expectedPageCount): void
+    {
+        if (!file_exists($stampedPath) || !is_readable($stampedPath)) {
+            throw new \RuntimeException('The stamped PDF output could not be read for validation.');
+        }
+
+        if (filesize($stampedPath) === 0) {
+            throw new \RuntimeException('The stamped PDF output is empty.');
+        }
+
+        $pdf = new Fpdi();
+
+        try {
+            $actualPageCount = $pdf->setSourceFile($stampedPath);
+        } catch (\Exception $e) {
+            throw new \RuntimeException('The stamped PDF failed validation after creation.', previous: $e);
+        }
+
+        if ($actualPageCount !== $expectedPageCount) {
+            throw new \RuntimeException("The stamped PDF page count changed unexpectedly ({$expectedPageCount} expected, {$actualPageCount} actual).");
+        }
+    }
+
     private function addStampToPage(Fpdi $pdf, Document $document, User $user, array $pageSize): void
     {
         // Use points directly (TCPDF native units)
@@ -139,7 +189,7 @@ class PdfStampingService
 
         $stampDate = $document->uploaded_at->format('D n/j/y');
         $stampTime = $document->uploaded_at->format('g:i A');
-        $initials = $user->initials ?? strtoupper(substr($user->name, 0, 2));
+        $initials = $user->initials ?? 'HU';
 
         $stampText = "Electronically Filed\n{$stampDate} @ {$stampTime}\nOSE HEARING UNIT/{$initials}";
         
@@ -169,17 +219,53 @@ class PdfStampingService
     private function replaceOriginalFile(Document $document, string $stampedPath): void
     {
         $disk = Storage::disk('public')->exists($document->storage_uri) ? 'public' : 'private';
+        $originalContents = Storage::disk($disk)->get($document->storage_uri);
 
-        // Replace the original file
-        Storage::disk($disk)->put($document->storage_uri, file_get_contents($stampedPath));
-
-        // Clean up temp file
-        unlink($stampedPath);
+        try {
+            Storage::disk($disk)->put($document->storage_uri, file_get_contents($stampedPath));
+        } catch (\Exception $e) {
+            Storage::disk($disk)->put($document->storage_uri, $originalContents);
+            throw new \RuntimeException('The stamped PDF was created, but replacing the original file failed.', previous: $e);
+        } finally {
+            if (file_exists($stampedPath)) {
+                @unlink($stampedPath);
+            }
+        }
 
         // Update document size
         $newSize = Storage::disk($disk)->size($document->storage_uri);
         $document->update(['size_bytes' => $newSize]);
 
         \Log::info('File replaced. New size: ' . $newSize . ' bytes');
+    }
+
+    private function mapStampingErrorMessage(\Throwable $e): string
+    {
+        $message = $e->getMessage();
+        $messageLower = strtolower($message);
+
+        if (str_contains($messageLower, 'compression technique which is not supported by the free parser')) {
+            return 'This PDF cannot be e-stamped because it uses an unsupported PDF compression format. Re-save or print the document to PDF and upload the new file, then try stamping again.';
+        }
+
+        if (str_contains($messageLower, 'encrypted') || str_contains($messageLower, 'password')) {
+            return 'This PDF appears to be encrypted or password protected and cannot be e-stamped automatically.';
+        }
+
+        if (str_contains($messageLower, 'empty')) {
+            return 'This PDF appears to be empty and cannot be e-stamped.';
+        }
+
+        if (
+            str_contains($messageLower, 'preflight')
+            || str_contains($messageLower, 'validation')
+            || str_contains($messageLower, 'cross-reference')
+            || str_contains($messageLower, 'xref')
+            || str_contains($messageLower, 'trailer')
+        ) {
+            return 'This PDF failed validation and cannot be e-stamped automatically. Re-save or print the document to PDF and upload the new file, then try again.';
+        }
+
+        return 'Unable to e-stamp this PDF. Check the document format and try again.';
     }
 }

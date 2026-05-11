@@ -11,18 +11,12 @@
                 <p class="font-medium text-blue-900 mb-2">Currently Represented By:</p>
                 <div class="space-y-2">
                     @foreach($party->attorneys as $attorneyParty)
-                        @php
-                            $attorney = \App\Models\Attorney::where('email', $attorneyParty->person->email)->first();
-                        @endphp
                         <div class="flex items-start justify-between gap-3 rounded bg-white/70 p-3">
                             <div>
                                 <p class="text-sm">{{ $attorneyParty->person->full_name }}</p>
                                 <p class="text-xs text-gray-600">{{ $attorneyParty->person->email }}</p>
                                 @if($attorneyParty->person->phone_office)
                                     <p class="text-xs text-gray-600">{{ $attorneyParty->person->phone_office }}</p>
-                                @endif
-                                @if($attorney && $attorney->bar_number)
-                                    <p class="text-xs text-gray-600">Bar: {{ $attorney->bar_number }}</p>
                                 @endif
                             </div>
                             <button onclick="removeAttorney({{ $party->id }}, {{ $attorneyParty->id }})" type="button" class="shrink-0 text-red-600 hover:text-red-800 text-sm">
@@ -62,8 +56,7 @@
                             <option value="">Choose an attorney...</option>
                             @foreach($attorneys as $attorney)
                                 <option value="{{ $attorney->id }}">
-                                    {{ $attorney->name }} - {{ $attorney->email }}
-                                    @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                    {{ $attorney->full_name }} - {{ $attorney->email }}
                                 </option>
                             @endforeach
                         @else
@@ -78,13 +71,19 @@
                         Add New Attorney
                     </label>
                     <div id="newAttorneyFields" class="mt-2 space-y-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" name="attorney_name" placeholder="Attorney Name *" class="border-gray-300 rounded-md text-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-6 gap-2">
+                            <input type="text" name="attorney_prefix" placeholder="Prefix" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="attorney_first_name" placeholder="First Name *" class="border-gray-300 rounded-md text-sm sm:col-span-2">
+                            <input type="text" name="attorney_middle_name" placeholder="Middle" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="attorney_last_name" placeholder="Last Name *" class="border-gray-300 rounded-md text-sm sm:col-span-2">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input type="text" name="attorney_suffix" placeholder="Suffix" class="border-gray-300 rounded-md text-sm">
+                            <input type="text" name="attorney_title" placeholder="Title" class="border-gray-300 rounded-md text-sm">
                             <input type="email" name="attorney_email" placeholder="Attorney Email *" class="border-gray-300 rounded-md text-sm">
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div>
                             <input type="text" name="attorney_phone" placeholder="Phone" class="border-gray-300 rounded-md text-sm">
-                            <input type="text" name="bar_number" placeholder="Bar Number" class="border-gray-300 rounded-md text-sm">
                         </div>
                         <div class="space-y-2">
                             <input type="text" name="address_line1" placeholder="Address Line 1" class="block w-full border-gray-300 rounded-md text-sm">
@@ -124,6 +123,7 @@ window.toggleAttorneyFields = function() {
         newFields?.classList.add('opacity-50');
         newInputs.forEach(input => {
             input.disabled = true;
+            input.required = false;
             input.classList.add('bg-gray-100');
         });
     } else if (option === 'new') {
@@ -133,6 +133,7 @@ window.toggleAttorneyFields = function() {
         newFields?.classList.remove('opacity-50');
         newInputs.forEach(input => {
             input.disabled = false;
+            input.required = ['attorney_first_name', 'attorney_last_name', 'attorney_email', 'attorney_phone'].includes(input.name);
             input.classList.remove('bg-gray-100');
         });
     }

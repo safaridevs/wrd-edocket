@@ -35,11 +35,10 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Check if email exists in Person or Attorney tables
+        // Check if email exists in the case contact directory.
         $person = \App\Models\Person::where('email', $request->email)->first();
-        $attorney = \App\Models\Attorney::where('email', $request->email)->first();
         
-        if (!$person && !$attorney) {
+        if (!$person) {
             return back()->withErrors([
                 'email' => 'This email is not associated with any case. Only parties and attorneys involved in cases can register.'
             ])->withInput();

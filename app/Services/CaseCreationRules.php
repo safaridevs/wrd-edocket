@@ -7,6 +7,7 @@ use Illuminate\Validation\Validator;
 class CaseCreationRules
 {
     private const PHONE_RULE = ['regex:/^\d{3}-\d{3}-\d{4}$/', 'max:12'];
+    private const CREATE_PARTY_ROLES = ['applicant', 'protestant', 'respondent'];
 
     public function validationRules(?string $caseType): array
     {
@@ -15,12 +16,12 @@ class CaseCreationRules
             'caption' => 'required|string|max:1000',
             'wrd_office' => 'required|in:albuquerque,santa_fe',
             'parties' => 'required|array|min:1',
-            'parties.*.role' => 'required|in:applicant,protestant,aggrieved_party,intervenor,respondent',
+            'parties.*.role' => 'required|in:' . implode(',', self::CREATE_PARTY_ROLES),
             'parties.*.type' => 'required|in:individual,company',
             'parties.*.representation' => 'nullable|in:self,attorney',
             'parties.*.representation_mode' => 'nullable|in:attorney,agent,none',
             'parties.*.attorney_option' => 'nullable|in:existing,new,no_attorney_yet',
-            'parties.*.attorney_id' => 'nullable|exists:attorneys,id',
+            'parties.*.attorney_id' => 'nullable|exists:persons,id',
             'parties.*.prefix' => 'nullable|string|max:10',
             'parties.*.first_name' => 'nullable|string|max:255',
             'parties.*.middle_name' => 'nullable|string|max:255',
@@ -38,9 +39,14 @@ class CaseCreationRules
             'parties.*.state' => 'nullable|string|max:50',
             'parties.*.zip' => 'nullable|string|max:10',
             'parties.*.attorney_name' => 'nullable|string|max:255',
+            'parties.*.attorney_prefix' => 'nullable|string|max:10',
+            'parties.*.attorney_first_name' => 'nullable|string|max:255',
+            'parties.*.attorney_middle_name' => 'nullable|string|max:255',
+            'parties.*.attorney_last_name' => 'nullable|string|max:255',
+            'parties.*.attorney_suffix' => 'nullable|string|max:10',
+            'parties.*.attorney_title' => 'nullable|string|max:255',
             'parties.*.attorney_email' => 'nullable|email|max:255',
             'parties.*.attorney_phone' => ['nullable', 'string', ...self::PHONE_RULE],
-            'parties.*.bar_number' => 'nullable|string|max:50',
             'parties.*.attorney_address_line1' => 'nullable|string|max:500',
             'parties.*.attorney_address_line2' => 'nullable|string|max:500',
             'parties.*.attorney_city' => 'nullable|string|max:100',
@@ -118,6 +124,10 @@ class CaseCreationRules
                 $validator->errors()->add("parties.{$index}.role", 'Respondent role is only allowed for compliance action cases.');
             }
 
+            if ($caseType === 'compliance' && in_array($role, ['applicant', 'protestant'], true)) {
+                $validator->errors()->add("parties.{$index}.role", 'Compliance action cases can only include respondents during case creation.');
+            }
+
             if ($type === 'individual' && (empty($party['first_name']) || empty($party['last_name']))) {
                 $validator->errors()->add("parties.{$index}.first_name", 'First name and last name are required for individuals.');
             }
@@ -141,7 +151,9 @@ class CaseCreationRules
 
             if ($needsAttorney) {
                 $hasExistingAttorney = !empty($party['attorney_id']);
-                $hasNewAttorney = !empty($party['attorney_name']) && !empty($party['attorney_email']);
+                $hasStructuredAttorneyName = !empty($party['attorney_first_name']) && !empty($party['attorney_last_name']);
+                $hasLegacyAttorneyName = !empty($party['attorney_name']);
+                $hasNewAttorney = ($hasStructuredAttorneyName || $hasLegacyAttorneyName) && !empty($party['attorney_email']);
                 $hasNoAttorneyYet = $type === 'company' && $attorneyOption === 'no_attorney_yet';
 
                 if ($type !== 'company' && $attorneyOption === 'no_attorney_yet') {
@@ -149,7 +161,15 @@ class CaseCreationRules
                 }
 
                 if (!$hasExistingAttorney && !$hasNewAttorney && !$hasNoAttorneyYet) {
-                    $validator->errors()->add("parties.{$index}.attorney_name", 'Please select an existing attorney or provide new attorney name and email.');
+                    $validator->errors()->add("parties.{$index}.attorney_first_name", 'Please select an existing attorney or provide new attorney first name, last name, and email.');
+                }
+
+                if ($attorneyOption === 'new' && empty($party['attorney_first_name']) && empty($party['attorney_name'])) {
+                    $validator->errors()->add("parties.{$index}.attorney_first_name", 'Attorney first name is required.');
+                }
+
+                if ($attorneyOption === 'new' && empty($party['attorney_last_name']) && empty($party['attorney_name'])) {
+                    $validator->errors()->add("parties.{$index}.attorney_last_name", 'Attorney last name is required.');
                 }
 
                 if ($attorneyOption === 'new' && empty($party['attorney_phone'])) {

@@ -417,6 +417,13 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function getAllowedCreatePartyRoles() {
+            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
+            return selectedCaseType === 'compliance'
+                ? ['respondent']
+                : ['applicant', 'protestant'];
+        }
+
         function updatePartyRoleOptions() {
             const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
             const complianceRoles = document.querySelectorAll('.compliance-role');
@@ -600,6 +607,27 @@
                 const checked = group.some((field) => field.checked);
                 if (!checked) {
                     group[0].reportValidity();
+                    return false;
+                }
+            }
+
+            if (stepEl.querySelector('#parties-list') && !validateCreatePartyRoles()) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function validateCreatePartyRoles() {
+            const allowedRoles = getAllowedCreatePartyRoles();
+            const roleFields = document.querySelectorAll('#parties-list [name^="parties["][name$="[role]"]');
+
+            for (const field of roleFields) {
+                if (!allowedRoles.includes(field.value)) {
+                    alert('One or more party roles are not available for the selected case type.');
+                    if (field.type !== 'hidden' && typeof field.focus === 'function') {
+                        field.focus();
+                    }
                     return false;
                 }
             }
@@ -839,6 +867,11 @@
         }
 
         function addParty(role) {
+            if (!getAllowedCreatePartyRoles().includes(role)) {
+                alert('That party role is not available for the selected case type.');
+                return;
+            }
+
             const roleTitle = role.charAt(0).toUpperCase() + role.slice(1);
             document.getElementById('parties-list').insertAdjacentHTML('beforeend', `
                 <div class="border rounded-lg p-4 bg-gray-50">
@@ -976,8 +1009,7 @@
                                     <option value="">Choose an attorney...</option>
                                     @foreach($attorneys as $attorney)
                                         <option value="{{ $attorney->id }}">
-                                            {{ $attorney->name }} - {{ $attorney->email }}
-                                            @if($attorney->bar_number) (Bar: {{ $attorney->bar_number }}) @endif
+                                            {{ $attorney->full_name }} - {{ $attorney->email }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -989,25 +1021,41 @@
                                     Add New Attorney
                                 </label>
                                 <div id="new-attorney-${partyCount}">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700">Attorney Name *</label>
-                                            <input type="text" name="parties[${partyCount}][attorney_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                            <label class="block text-sm font-medium text-gray-700">Prefix</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_prefix]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700">First Name *</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_first_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Middle</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_middle_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="block text-sm font-medium text-gray-700">Last Name *</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_last_name]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Suffix</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_suffix]" class="mt-1 block w-full border-gray-300 rounded-md">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Title</label>
+                                            <input type="text" name="parties[${partyCount}][attorney_title]" class="mt-1 block w-full border-gray-300 rounded-md">
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700">Attorney Email *</label>
                                             <input type="email" name="parties[${partyCount}][attorney_email]" class="mt-1 block w-full border-gray-300 rounded-md">
                                         </div>
                                     </div>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
-                                            <input type="text" name="parties[${partyCount}][attorney_phone]" required inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700">Bar Number</label>
-                                            <input type="text" name="parties[${partyCount}][bar_number]" class="mt-1 block w-full border-gray-300 rounded-md">
-                                        </div>
+                                    <div class="mt-4">
+                                        <label class="block text-sm font-medium text-gray-700">Attorney Phone *</label>
+                                        <input type="text" name="parties[${partyCount}][attorney_phone]" inputmode="tel" pattern="\\d{3}-\\d{3}-\\d{4}" placeholder="555-555-5555" oninput="formatPhoneInput(this)" class="mt-1 block w-full border-gray-300 rounded-md">
                                     </div>
                                     <div class="mt-4">
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Address</label>
@@ -1204,7 +1252,7 @@
                     if (newAttorneyOption) {
                         const newAttorneyDiv = document.getElementById(`new-attorney-${index}`);
                         if (newAttorneyDiv) {
-                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_name]"], input[name*="[attorney_email]"], input[name*="[attorney_phone]"]').forEach(input => {
+                            newAttorneyDiv.querySelectorAll('input[name*="[attorney_first_name]"], input[name*="[attorney_last_name]"], input[name*="[attorney_email]"], input[name*="[attorney_phone]"]').forEach(input => {
                                 if (!input.disabled) input.required = true;
                             });
                         }
@@ -1321,8 +1369,8 @@
                 if (newFields) newFields.classList.remove('opacity-50');
                 if (newInputs) newInputs.forEach(input => {
                     input.disabled = false;
-                    // Make attorney name, email, and phone required for new attorney
-                    if (input.name.includes('[attorney_name]') || input.name.includes('[attorney_email]') || input.name.includes('[attorney_phone]')) {
+                    // Make core attorney person/contact fields required for new attorney.
+                    if (input.name.includes('[attorney_first_name]') || input.name.includes('[attorney_last_name]') || input.name.includes('[attorney_email]') || input.name.includes('[attorney_phone]')) {
                         input.required = needsAttorneyDetails;
                     }
                 });

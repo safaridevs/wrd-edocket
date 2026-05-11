@@ -26,6 +26,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('my-documents', [DocumentController::class, 'myDocuments'])->name('documents.index');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
@@ -73,23 +74,14 @@ Route::middleware('auth')->group(function () {
 Route::get('api/lookup-person/{email}', function($email) {
     try {
         $person = \App\Models\Person::where('email', $email)->first();
-        $attorney = \App\Models\Attorney::where('email', $email)->first();
         
         if ($person) {
-            $name = trim($person->first_name . ' ' . $person->last_name);
-            
+            $isCounsel = $person->caseParties()->where('role', 'counsel')->exists();
+
             return response()->json([
                 'found' => true,
-                'name' => $name,
-                'type' => 'person'
-            ]);
-        }
-        
-        if ($attorney) {
-            return response()->json([
-                'found' => true,
-                'name' => $attorney->name,
-                'type' => 'attorney'
+                'name' => $person->full_name,
+                'type' => $isCounsel ? 'attorney' : 'person'
             ]);
         }
         
