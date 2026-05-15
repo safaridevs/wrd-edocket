@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('my-documents', [DocumentController::class, 'myDocuments'])->name('documents.index');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('/profile/legal-service', [ProfileController::class, 'updateLegalServiceProfile'])->name('profile.legal-service.update');
 
     
     // E-Docket Routes

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Person;
-use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -42,14 +42,37 @@ class PartyContactController extends Controller
         ]);
 
         DB::transaction(function () use ($person, $validated) {
-            $person->update($validated);
+            $before = $person->only(array_keys($validated));
+            $person->fill($validated);
+            $after = $person->only(array_keys($validated));
+
+            $changes = collect($after)
+                ->filter(fn ($value, string $field) => (string) ($before[$field] ?? '') !== (string) ($value ?? ''))
+                ->map(fn ($value, string $field) => [
+                    'before' => $before[$field] ?? null,
+                    'after' => $value,
+                ])
+                ->all();
+
+            if ($changes === []) {
+                return;
+            }
+
+            $person->save();
 
             $user = Auth::user();
+            $userNameChange = null;
             if ($person->email === $user->email) {
-                $user->update([
-                    'name' => $person->full_name,
-                ]);
+                $userNameChange = $user->name !== $person->full_name
+                    ? ['before' => $user->name, 'after' => $person->full_name]
+                    : null;
+
+                if ($userNameChange) {
+                    $user->update(['name' => $person->full_name]);
+                }
             }
+
+            AuditService::logLegalServiceProfileUpdated($user, $person->id, $changes, $userNameChange);
         });
 
         return redirect()->back()->with('success', 'Contact information updated successfully.');

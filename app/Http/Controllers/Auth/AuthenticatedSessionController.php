@@ -44,56 +44,25 @@ class AuthenticatedSessionController extends Controller
     protected function attemptLdapLogin(array $credentials)
     {
         try {
-            $appUtils = app('ApplicationUtils');
-            $connection = new \LdapRecord\Connection([
-                'hosts' => [config('ldap.connections.default.hosts.0')],
-                'username' => $appUtils->handleProperty(env('LDAP_USERNAME')),
-                'password' => $appUtils->handleProperty(env('LDAP_PASSWORD')),
-                'port' => config('ldap.connections.default.port'),
-                'base_dn' => config('ldap.connections.default.base_dn'),
-                'timeout' => config('ldap.connections.default.timeout'),
-                'use_ssl' => config('ldap.connections.default.use_ssl'),
-                'use_tls' => config('ldap.connections.default.use_tls'),
-            ]);
+            $connection = new \LdapRecord\Connection($this->ldapConnectionConfig());
             
             $connection->connect();
             
-            // Search for user by email or sAMAccountName
-            $query = $connection->query()->where('objectClass', '=', 'user');
-            
-            if (filter_var($credentials['email'], FILTER_VALIDATE_EMAIL)) {
-                // Input is email format
-                $query->where('mail', '=', $credentials['email']);
-            } else {
-                // Input is likely sAMAccountName
-                $query->where('sAMAccountName', '=', $credentials['email']);
-            }
-            
-            $ldapUser = $query->first();
+            $identifier = trim((string) $credentials['email']);
+            $ldapUser = $this->findLdapUser($connection, $identifier);
                 
             if (!$ldapUser) {
-                \Log::info('LDAP user not found: ' . $credentials['email']);
+                \Log::info('LDAP user not found: ' . $identifier);
                 return false;
             }
             
-            // Test authentication with user's DN
-            $authConnection = new \LdapRecord\Connection([
-                'hosts' => [config('ldap.connections.default.hosts.0')],
-                'username' => $ldapUser['dn'],
-                'password' => $credentials['password'],
-                'port' => config('ldap.connections.default.port'),
-                'base_dn' => config('ldap.connections.default.base_dn'),
-                'timeout' => config('ldap.connections.default.timeout'),
-                'use_ssl' => config('ldap.connections.default.use_ssl'),
-                'use_tls' => config('ldap.connections.default.use_tls'),
-            ]);
-            
-            $authConnection->connect();
-            \Log::info('LDAP authentication successful');
+            if (!$this->bindLdapUser($ldapUser, $credentials['password'], $identifier)) {
+                return false;
+            }
             
             // Create/find local user by email or sAMAccountName
-            $email = $ldapUser['mail'][0] ?? null;
-            $samAccountName = $ldapUser['sAMAccountName'][0] ?? null;
+            $email = $this->ldapFirst($ldapUser, 'mail') ?: $this->ldapFirst($ldapUser, 'userPrincipalName');
+            $samAccountName = $this->ldapFirst($ldapUser, 'sAMAccountName');
             
             // Find user by email first, then by sAMAccountName if not found
             $user = null;
@@ -106,17 +75,26 @@ class AuthenticatedSessionController extends Controller
             
             if (!$user && $email) {
                 $user = User::create([
-                    'name' => $ldapUser['cn'][0] ?? 'LDAP User',
+                    'name' => $this->ldapFirst($ldapUser, 'displayName') ?: $this->ldapFirst($ldapUser, 'cn') ?: $samAccountName ?: 'LDAP User',
                     'email' => $email,
                     'sam_account_name' => $samAccountName,
                     'password' => Hash::make('ldap_user'),
                     'role' => 'interested_party',
-                    'title' => $ldapUser['title'][0] ?? null,
+                    'title' => $this->ldapFirst($ldapUser, 'title'),
                     'is_ldap_user' => true,
                 ]);
             } elseif ($user && !$user->sam_account_name && $samAccountName) {
                 // Update existing user with sAMAccountName if missing
                 $user->update(['sam_account_name' => $samAccountName]);
+            }
+
+            if (!$user) {
+                \Log::error('LDAP authentication succeeded but no local user could be resolved.', [
+                    'identifier' => $identifier,
+                    'dn' => $this->ldapDn($ldapUser),
+                ]);
+
+                return false;
             }
             
             Auth::login($user);
@@ -127,6 +105,99 @@ class AuthenticatedSessionController extends Controller
         }
         
         return false;
+    }
+
+    protected function ldapConnectionConfig(array $overrides = []): array
+    {
+        return array_merge([
+            'hosts' => config('ldap.connections.default.hosts'),
+            'username' => config('ldap.connections.default.username'),
+            'password' => config('ldap.connections.default.password'),
+            'port' => config('ldap.connections.default.port'),
+            'base_dn' => config('ldap.connections.default.base_dn'),
+            'timeout' => config('ldap.connections.default.timeout'),
+            'use_ssl' => config('ldap.connections.default.use_ssl'),
+            'use_tls' => config('ldap.connections.default.use_tls'),
+            'options' => config('ldap.connections.default.options', []),
+        ], $overrides);
+    }
+
+    protected function findLdapUser(\LdapRecord\Connection $connection, string $identifier): mixed
+    {
+        $attributes = filter_var($identifier, FILTER_VALIDATE_EMAIL)
+            ? ['mail', 'userPrincipalName']
+            : ['sAMAccountName', 'userPrincipalName', 'mail'];
+
+        foreach ($attributes as $attribute) {
+            $user = $connection->query()
+                ->where('objectClass', '=', 'user')
+                ->where($attribute, '=', $identifier)
+                ->first();
+
+            if ($user) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
+    protected function bindLdapUser(mixed $ldapUser, string $password, string $identifier): bool
+    {
+        $bindNames = array_filter(array_unique([
+            $this->ldapDn($ldapUser),
+            $this->ldapFirst($ldapUser, 'userPrincipalName'),
+            $identifier,
+        ]));
+
+        foreach ($bindNames as $bindName) {
+            try {
+                (new \LdapRecord\Connection($this->ldapConnectionConfig([
+                    'username' => $bindName,
+                    'password' => $password,
+                ])))->connect();
+
+                \Log::info('LDAP authentication successful');
+
+                return true;
+            } catch (\Exception $e) {
+                \Log::warning('LDAP bind attempt failed: ' . $e->getMessage(), [
+                    'bind_name' => $bindName,
+                ]);
+            }
+        }
+
+        return false;
+    }
+
+    protected function ldapFirst(mixed $ldapUser, string $attribute): ?string
+    {
+        if ($ldapUser instanceof \LdapRecord\Models\Model) {
+            return $ldapUser->getFirstAttribute($attribute);
+        }
+
+        if (!is_array($ldapUser)) {
+            return null;
+        }
+
+        $value = $ldapUser[$attribute] ?? $ldapUser[strtolower($attribute)] ?? null;
+
+        if (is_array($value)) {
+            return $value[0] ?? null;
+        }
+
+        return $value;
+    }
+
+    protected function ldapDn(mixed $ldapUser): ?string
+    {
+        if ($ldapUser instanceof \LdapRecord\Models\Model) {
+            return $ldapUser->getDn();
+        }
+
+        return is_array($ldapUser)
+            ? ($ldapUser['dn'] ?? $this->ldapFirst($ldapUser, 'distinguishedName'))
+            : null;
     }
 
 

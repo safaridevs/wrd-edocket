@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
 use App\Models\Person;
-use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,13 +55,36 @@ class PersonController extends Controller
         ]);
 
         DB::transaction(function () use ($person, $validated, $user) {
-            $person->update($validated);
+            $before = $person->only(array_keys($validated));
+            $person->fill($validated);
+            $after = $person->only(array_keys($validated));
 
-            if ($person->email === $user->email) {
-                $user->update([
-                    'name' => $person->full_name,
-                ]);
+            $changes = collect($after)
+                ->filter(fn ($value, string $field) => (string) ($before[$field] ?? '') !== (string) ($value ?? ''))
+                ->map(fn ($value, string $field) => [
+                    'before' => $before[$field] ?? null,
+                    'after' => $value,
+                ])
+                ->all();
+
+            if ($changes === []) {
+                return;
             }
+
+            $person->save();
+
+            $userNameChange = null;
+            if ($person->email === $user->email) {
+                $userNameChange = $user->name !== $person->full_name
+                    ? ['before' => $user->name, 'after' => $person->full_name]
+                    : null;
+
+                if ($userNameChange) {
+                    $user->update(['name' => $person->full_name]);
+                }
+            }
+
+            AuditService::logLegalServiceProfileUpdated($user, $person->id, $changes, $userNameChange);
         });
 
         return redirect()->route('cases.show', $case)->with('success', 'Person updated successfully.');

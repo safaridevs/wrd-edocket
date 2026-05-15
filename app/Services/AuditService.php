@@ -68,4 +68,13 @@ class AuditService
             'new_title' => $newTitle
         ]);
     }
+
+    public static function logLegalServiceProfileUpdated(User $user, int $personId, array $changes, ?array $userNameChange = null): void
+    {
+        AuditLog::log('update_legal_service_profile', $user, null, array_filter([
+            'person_id' => $personId,
+            'changes' => $changes,
+            'synced_user_name' => $userNameChange,
+        ], fn ($value) => $value !== null && $value !== []));
+    }
 }
