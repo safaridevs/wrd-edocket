@@ -49,12 +49,16 @@ class RegisteredUserController extends Controller
                 'email' => 'This email is not associated with any case. Only parties and attorneys involved in cases can register.'
             ])->withInput();
         }
+
+        $role = $person->caseParties()->where('role', 'counsel')->exists()
+            ? 'external_attorney'
+            : 'party';
         
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'party',
+            'role' => $role,
         ]);
 
         event(new Registered($user));

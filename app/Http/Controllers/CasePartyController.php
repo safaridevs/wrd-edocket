@@ -82,11 +82,16 @@ class CasePartyController extends Controller
             return back()->with('error', 'This person is already assigned to this case with the same role.');
         }
 
+        if ($validated['role'] === 'counsel' && CaseParty::wrdRepresentativeAssignmentForEmail($case, $person->email)) {
+            return back()->with('error', "{$person->full_name} is already assigned to represent WRD in this case and cannot also represent a private party.");
+        }
+
         CaseParty::create([
             'case_id' => $case->id,
             'person_id' => $person->id,
             'role' => $validated['role'],
-            'service_enabled' => true
+            'service_enabled' => true,
+            'representation_capacity' => $validated['role'] === 'counsel' ? CaseParty::CAPACITY_PRIVATE_COUNSEL : null,
         ]);
 
         return back()->with('success', 'Party added successfully.');

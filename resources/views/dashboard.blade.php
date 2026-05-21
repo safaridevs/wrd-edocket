@@ -54,8 +54,20 @@
                                         'alu_clerk' => ['alu_clerk'],
                                     ];
 
-                                    if (auth()->user()->getCurrentRole() === 'party') {
-                                        if (auth()->user()->isParalegal()) {
+                                    if (in_array(auth()->user()->getCurrentRole(), ['party', 'external_attorney'], true)) {
+                                        if (auth()->user()->isExternalAttorney()) {
+                                            $myCases = \App\Models\CaseModel::whereNotIn('status', ['draft'])
+                                                ->where(function($caseQuery) {
+                                                    $caseQuery->whereHas('parties', function($query) {
+                                                        $query->whereHas('person', function($subQuery) {
+                                                            $subQuery->where('email', auth()->user()->email);
+                                                        });
+                                                    })->orWhereHas('assignments', function($query) {
+                                                        $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                                              ->where('user_id', auth()->id());
+                                                    });
+                                                })->count();
+                                        } elseif (auth()->user()->isParalegal()) {
                                             $myCases = \App\Models\CaseModel::where(function($caseQuery) {
                                                 $caseQuery->whereHas('parties', function($query) {
                                                     $query->where('role', 'paralegal')
@@ -68,11 +80,16 @@
                                                 });
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         } elseif (auth()->user()->isAttorney()) {
-                                            $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                                $query->where('role', 'counsel')
-                                                      ->whereHas('person', function($subQuery) {
-                                                          $subQuery->where('email', auth()->user()->email);
-                                                      });
+                                            $myCases = \App\Models\CaseModel::where(function($caseQuery) {
+                                                $caseQuery->whereHas('parties', function($query) {
+                                                    $query->where('role', 'counsel')
+                                                          ->whereHas('person', function($subQuery) {
+                                                              $subQuery->where('email', auth()->user()->email);
+                                                          });
+                                                })->orWhereHas('assignments', function($query) {
+                                                    $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                                          ->where('user_id', auth()->id());
+                                                });
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         } else {
                                             $myCases = \App\Models\CaseModel::whereHas('parties', function($query) {
@@ -175,8 +192,23 @@
                                     'alu_clerk' => ['alu_clerk'],
                                 ];
 
-                                if (auth()->user()->getCurrentRole() === 'party') {
-                                    if (auth()->user()->isParalegal()) {
+                                if (in_array(auth()->user()->getCurrentRole(), ['party', 'external_attorney'], true)) {
+                                    if (auth()->user()->isExternalAttorney()) {
+                                        $recentCases = \App\Models\CaseModel::whereNotIn('status', ['draft'])
+                                          ->where(function($caseQuery) {
+                                              $caseQuery->whereHas('parties', function($query) {
+                                                  $query->whereHas('person', function($subQuery) {
+                                                      $subQuery->where('email', auth()->user()->email);
+                                                  });
+                                              })->orWhereHas('assignments', function($query) {
+                                                  $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                                        ->where('user_id', auth()->id());
+                                              });
+                                          })
+                                          ->with('parties.person', 'oseFileNumbers')
+                                          ->withCount('documents')
+                                          ->latest()->take(5)->get();
+                                    } elseif (auth()->user()->isParalegal()) {
                                         $recentCases = \App\Models\CaseModel::where(function($caseQuery) {
                                             $caseQuery->whereHas('parties', function($query) {
                                                 $query->where('role', 'paralegal')
@@ -192,11 +224,16 @@
                                           ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     } elseif (auth()->user()->isAttorney()) {
-                                        $recentCases = \App\Models\CaseModel::whereHas('parties', function($query) {
-                                            $query->where('role', 'counsel')
-                                                  ->whereHas('person', function($subQuery) {
-                                                      $subQuery->where('email', auth()->user()->email);
-                                                  });
+                                        $recentCases = \App\Models\CaseModel::where(function($caseQuery) {
+                                            $caseQuery->whereHas('parties', function($query) {
+                                                $query->where('role', 'counsel')
+                                                      ->whereHas('person', function($subQuery) {
+                                                          $subQuery->where('email', auth()->user()->email);
+                                                      });
+                                            })->orWhereHas('assignments', function($query) {
+                                                $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                                      ->where('user_id', auth()->id());
+                                            });
                                         })->whereIn('status', ['active', 'submitted_to_hu'])
                                           ->with('parties.person', 'oseFileNumbers')
                                           ->withCount('documents')

@@ -161,6 +161,7 @@ class User extends Authenticatable
     public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
     public function isHULawClerk(): bool { return $this->getCurrentRole() === 'hu_clerk'; }
     public function isUnaffiliated(): bool { return $this->getCurrentRole() === 'interested_party'; }
+    public function isExternalAttorney(): bool { return $this->getCurrentRole() === 'external_attorney'; }
     public function isSystemAdmin(): bool { return $this->getCurrentRole() === 'admin'; }
     public function isHearingUnit(): bool { return in_array($this->getCurrentRole(), ['hu_admin', 'hu_clerk']); }
 
@@ -197,13 +198,13 @@ class User extends Authenticatable
 
     public function canFileToCase(): bool
     {
-        return $this->getCurrentRole() === 'party' || $this->isAttorney() || $this->isALUAttorney();
+        return in_array($this->getCurrentRole(), ['party', 'external_attorney'], true) || $this->isAttorney() || $this->isALUAttorney();
     }
 
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party', 'external_attorney']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -229,6 +230,10 @@ class User extends Authenticatable
             return $case->status === 'active' && $this->canAccessCase($case);
         }
 
+        if ($this->isExternalAttorney()) {
+            return $case->status === 'active' && $this->canAccessCase($case);
+        }
+
         if ($this->isAttorney() || $this->isALUAttorney() || $this->isParalegal()) {
             return $case->status === 'active' && $this->canAccessCase($case);
         }
@@ -244,7 +249,7 @@ class User extends Authenticatable
     public function canAccessCase(CaseModel $case): bool
     {
         // Non-party roles (staff) can access all cases
-        if (!in_array($this->getCurrentRole(), ['party', 'interested_party'])) {
+        if (!in_array($this->getCurrentRole(), ['party', 'interested_party', 'external_attorney'])) {
             return true;
         }
 
@@ -261,6 +266,13 @@ class User extends Authenticatable
             ->exists();
 
         if ($isAssignedParalegal) return true;
+
+        $isAssignedWrdRepresentative = $case->assignments()
+            ->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+            ->where('user_id', $this->id)
+            ->exists();
+
+        if ($isAssignedWrdRepresentative) return true;
 
         // Check if attorney represents any client in this case
         if ($this->isAttorney()) {
@@ -344,7 +356,22 @@ class User extends Authenticatable
 
     public function canUpdateOwnContact(): bool
     {
-        return in_array($this->getCurrentRole(), ['party', 'interested_party', 'attorney']) || $this->canModifyPersons();
+        return in_array($this->getCurrentRole(), ['party', 'interested_party', 'external_attorney', 'attorney']) || $this->canModifyPersons();
+    }
+
+    public function scopeWhereAnyCurrentRole(Builder $query, array $roles): Builder
+    {
+        $normalizedRoles = array_map(fn ($role) => $this->normalizeRole((string) $role), $roles);
+
+        return $query->where(function (Builder $roleQuery) use ($normalizedRoles) {
+            foreach ($normalizedRoles as $role) {
+                $roleQuery->orWhere(function (Builder $singleRoleQuery) use ($role) {
+                    $singleRoleQuery->whereHas('roleRelation', function (Builder $relationQuery) use ($role) {
+                        $relationQuery->where('name', $role);
+                    })->orWhere('role', $role);
+                });
+            }
+        });
     }
 
     public function getPermissions(): array

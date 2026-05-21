@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCaseRequest;
 use App\Models\AuditLog;
 use App\Models\CaseModel;
 use App\Models\CaseAssignment;
+use App\Models\CaseParty;
 use App\Models\Document;
 use App\Models\DocumentCorrection;
 use App\Models\OseFileNumber;
@@ -115,7 +116,7 @@ class CaseController extends Controller
             return CaseModel::query();
         }
 
-        if ($currentRole === 'party') {
+        if (in_array($currentRole, ['party', 'external_attorney'], true)) {
             return CaseModel::whereNotIn('status', ['draft'])
                 ->where(function ($caseQuery) use ($user) {
                     $caseQuery->whereHas('parties', function ($partyQuery) use ($user) {
@@ -123,7 +124,7 @@ class CaseController extends Controller
                             $personQuery->where('email', $user->email);
                         });
                     })->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
-                        $assignmentQuery->where('assignment_type', 'alu_paralegal')
+                        $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'alu_atty', 'alu_attorney'])
                             ->where('user_id', $user->id);
                     });
                 });
@@ -141,7 +142,21 @@ class CaseController extends Controller
 
     private function buildMyCasesQuery(User $user, array $assignedTypesByRole, string $currentRole)
     {
-        if ($currentRole === 'party') {
+        if (in_array($currentRole, ['party', 'external_attorney'], true)) {
+            if ($user->isExternalAttorney()) {
+                return CaseModel::whereNotIn('status', ['draft'])
+                    ->where(function ($caseQuery) use ($user) {
+                        $caseQuery->whereHas('parties', function ($query) use ($user) {
+                            $query->whereHas('person', function ($subQuery) use ($user) {
+                                $subQuery->where('email', $user->email);
+                            });
+                        })->orWhereHas('assignments', function ($query) use ($user) {
+                            $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                ->where('user_id', $user->id);
+                        });
+                    });
+            }
+
             if ($user->isParalegal()) {
                 return CaseModel::where(function ($caseQuery) use ($user) {
                     $caseQuery->whereHas('parties', function ($query) use ($user) {
@@ -157,11 +172,16 @@ class CaseController extends Controller
             }
 
             if ($user->isAttorney()) {
-                return CaseModel::whereHas('parties', function ($query) use ($user) {
-                    $query->where('role', 'counsel')
-                        ->whereHas('person', function ($subQuery) use ($user) {
-                            $subQuery->where('email', $user->email);
-                        });
+                return CaseModel::where(function ($caseQuery) use ($user) {
+                    $caseQuery->whereHas('parties', function ($query) use ($user) {
+                        $query->where('role', 'counsel')
+                            ->whereHas('person', function ($subQuery) use ($user) {
+                                $subQuery->where('email', $user->email);
+                            });
+                    })->orWhereHas('assignments', function ($query) use ($user) {
+                        $query->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                            ->where('user_id', $user->id);
+                    });
                 })->whereIn('status', ['active', 'submitted_to_hu']);
             }
 
@@ -199,7 +219,7 @@ class CaseController extends Controller
             return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
-        if ($currentRole === 'party' || in_array($currentRole, ['alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk'], true)) {
+        if (in_array($currentRole, ['party', 'external_attorney', 'alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk'], true)) {
             return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
@@ -236,6 +256,10 @@ class CaseController extends Controller
         \Log::info('Party validation data:', ['parties' => $validated['parties']]);
 
         try {
+            if ($message = $this->requestHasWrdRepresentativeCounselConflict($validated)) {
+                return back()->withInput()->withErrors(['assigned_attorneys' => $message]);
+            }
+
             $case = $this->caseService->createCase($validated, Auth::user(), $request);
 
             // Handle ALU attorney assignments
@@ -275,6 +299,40 @@ class CaseController extends Controller
         }
     }
 
+    private function requestHasWrdRepresentativeCounselConflict(array $validated): ?string
+    {
+        $assignedAttorneyIds = $validated['assigned_attorneys'] ?? [];
+        if (empty($assignedAttorneyIds) || empty($validated['parties'])) {
+            return null;
+        }
+
+        $assignedEmails = User::whereIn('id', $assignedAttorneyIds)
+            ->get(['name', 'email'])
+            ->mapWithKeys(fn (User $user) => [strtolower(trim((string) $user->email)) => $user->name])
+            ->filter(fn ($name, $email) => $email !== '');
+
+        if ($assignedEmails->isEmpty()) {
+            return null;
+        }
+
+        foreach ($validated['parties'] as $partyData) {
+            $counselEmail = null;
+
+            if (!empty($partyData['attorney_id'])) {
+                $counselEmail = Person::whereKey($partyData['attorney_id'])->value('email');
+            } elseif (!empty($partyData['attorney_email'])) {
+                $counselEmail = $partyData['attorney_email'];
+            }
+
+            $counselEmail = strtolower(trim((string) $counselEmail));
+            if ($counselEmail !== '' && $assignedEmails->has($counselEmail)) {
+                return "{$assignedEmails[$counselEmail]} is selected as a WRD representative and also entered as private counsel in this case.";
+            }
+        }
+
+        return null;
+    }
+
     public function show(CaseModel $case)
     {
         // HU users cannot see draft cases
@@ -282,12 +340,14 @@ class CaseController extends Controller
             abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
         }
 
-        // Parties and attorneys cannot see draft cases
-        if (Auth::user()->getCurrentRole() === 'party' && $case->status === 'draft') {
+        $restrictedCaseRoles = ['party', 'interested_party', 'external_attorney'];
+
+        // Parties and external participants cannot see draft cases
+        if (in_array(Auth::user()->getCurrentRole(), $restrictedCaseRoles, true) && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to parties and attorneys.');
         }
 
-        if (Auth::user()->getCurrentRole() === 'party' && !Auth::user()->canAccessCase($case)) {
+        if (in_array(Auth::user()->getCurrentRole(), $restrictedCaseRoles, true) && !Auth::user()->canAccessCase($case)) {
             abort(403, 'You can only access cases you are associated with.');
         }
 
@@ -575,7 +635,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $attorneys = \App\Models\User::whereCurrentRole('alu_atty')->orderBy('name')->get();
+        $attorneys = \App\Models\User::whereAnyCurrentRole(['alu_atty', 'external_attorney'])->orderBy('name')->get();
         return view('cases.assign-attorney', compact('case', 'attorneys'));
     }
 
@@ -589,6 +649,17 @@ class CaseController extends Controller
             'attorney_ids' => 'required|array|min:1',
             'attorney_ids.*' => 'exists:users,id'
         ]);
+
+        $attorneys = User::whereIn('id', $validated['attorney_ids'])->get();
+        foreach ($attorneys as $attorney) {
+            if ($conflict = CaseParty::privateCounselForEmail($case, $attorney->email)) {
+                $clientName = $conflict->clientParty?->person?->full_name ?? 'a party';
+
+                return back()->withErrors([
+                    'attorney_ids' => "{$attorney->name} is already private counsel for {$clientName} in this case and cannot also represent WRD."
+                ])->withInput();
+            }
+        }
 
         $case->assignments()->whereIn('assignment_type', ['alu_attorney', 'alu_atty'])->delete();
 
@@ -735,7 +806,7 @@ class CaseController extends Controller
                 abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
             }
 
-            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+            if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
                 abort(403, 'You can only upload documents to active cases you are associated with.');
             }
 
@@ -746,7 +817,7 @@ class CaseController extends Controller
 
         $userRole = Auth::user()->getCurrentRole();
 
-        if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney()) {
+        if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney()) {
             $documentTypes = \App\Models\DocumentType::forRole($userRole)
                 ->where('category', 'party_upload')
                 ->orderBy('name')->get();
@@ -765,7 +836,7 @@ class CaseController extends Controller
                 abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
             }
 
-            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+            if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
                 abort(403, 'You can only upload documents to active cases you are associated with.');
             }
 
@@ -875,13 +946,21 @@ class CaseController extends Controller
                 return response()->json(['success' => false, 'error' => 'Select an existing attorney or enter a new one.']);
             }
 
+            if (CaseParty::wrdRepresentativeAssignmentForEmail($case, $attorneyPerson->email)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => "{$attorneyPerson->full_name} is already assigned to represent WRD in this case and cannot also represent a private party."
+                ]);
+            }
+
             \App\Models\CaseParty::firstOrCreate([
                 'case_id' => $case->id,
                 'person_id' => $attorneyPerson->id,
                 'role' => 'counsel',
                 'client_party_id' => $party->id,
             ], [
-                'service_enabled' => true
+                'service_enabled' => true,
+                'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
             ]);
 
             \App\Models\ServiceList::firstOrCreate([
@@ -1119,13 +1198,20 @@ class CaseController extends Controller
                 $attorneyPerson = $this->resolveCounselPerson($validated, 'attorney_');
 
                 if ($attorneyPerson) {
+                    if (CaseParty::wrdRepresentativeAssignmentForEmail($case, $attorneyPerson->email)) {
+                        return back()->withInput()->withErrors([
+                            'attorney_id' => "{$attorneyPerson->full_name} is already assigned to represent WRD in this case and cannot also represent a private party."
+                        ]);
+                    }
+
                     \App\Models\CaseParty::firstOrCreate([
                         'case_id' => $case->id,
                         'person_id' => $attorneyPerson->id,
                         'role' => 'counsel',
                         'client_party_id' => $clientParty->id,
                     ], [
-                        'service_enabled' => true
+                        'service_enabled' => true,
+                        'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
                     ]);
 
                     \App\Models\ServiceList::firstOrCreate([
@@ -1283,7 +1369,7 @@ class CaseController extends Controller
                 abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
             }
 
-            if (Auth::user()->getCurrentRole() === 'party' || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
+            if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
                 abort(403, 'You can only upload documents to active cases you are associated with.');
             }
 
@@ -1954,7 +2040,7 @@ class CaseController extends Controller
             $q->where('email', $user->email);
         })->first();
         $isOutsideCounsel = (bool) $outsideCounselParty;
-        $isAssignedAluAttorney = $user->isALUAttorney() && $case->assignments()
+        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isExternalAttorney()) && $case->assignments()
             ->where('assignment_type', 'alu_atty')
             ->where('user_id', $user->id)
             ->exists();
@@ -2125,7 +2211,7 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
-        $isAssignedAluAttorney = $user->isALUAttorney() && $case->assignments()
+        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isExternalAttorney()) && $case->assignments()
             ->where('assignment_type', 'alu_atty')
             ->where('user_id', $user->id)
             ->exists();

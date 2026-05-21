@@ -13,14 +13,19 @@
                     @csrf
                     
                     <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Attorneys</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select ALU Attorneys / WRD Contract Attorneys</label>
                         <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
                             @foreach($attorneys as $attorney)
                                 <label class="flex items-center">
                                     <input type="checkbox" name="attorney_ids[]" value="{{ $attorney->id }}" 
                                            {{ $case->aluAttorneys->contains($attorney->id) ? 'checked' : '' }}
                                            class="rounded border-gray-300 text-blue-600 mr-2">
-                                    <span class="text-sm">{{ $attorney->getDisplayName() }} ({{ $attorney->initials }})</span>
+                                    <span class="text-sm">
+                                        {{ $attorney->getDisplayName() }} ({{ $attorney->initials }})
+                                        @if($attorney->isExternalAttorney())
+                                            <span class="text-xs text-indigo-600">Contract</span>
+                                        @endif
+                                    </span>
                                 </label>
                             @endforeach
                         </div>

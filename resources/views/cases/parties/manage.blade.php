@@ -199,7 +199,12 @@
                             <div class="space-y-2">
                                 @foreach($case->aluAttorneys as $attorney)
                                 <div class="rounded-lg border border-blue-100 bg-blue-50 p-3">
-                                    <div class="font-medium text-gray-900">{{ $attorney->getDisplayName() }}</div>
+                                    <div class="font-medium text-gray-900">
+                                        {{ $attorney->getDisplayName() }}
+                                        @if($attorney->isExternalAttorney())
+                                            <span class="ml-2 text-xs font-normal text-indigo-700">WRD contract representative</span>
+                                        @endif
+                                    </div>
                                     <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
                                 </div>
                                 @endforeach

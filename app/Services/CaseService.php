@@ -221,6 +221,10 @@ class CaseService
             return;
         }
 
+        if (CaseParty::wrdRepresentativeAssignmentForEmail($case, $attorneyPerson->email)) {
+            throw new \InvalidArgumentException("{$attorneyPerson->full_name} is already assigned to represent WRD in this case and cannot also represent a private party.");
+        }
+
         $counselParty = CaseParty::firstOrCreate([
             'case_id' => $case->id,
             'person_id' => $attorneyPerson->id,
@@ -228,6 +232,7 @@ class CaseService
             'client_party_id' => $clientParty->id,
         ], [
             'service_enabled' => true,
+            'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
         ]);
 
         $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');

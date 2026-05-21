@@ -112,6 +112,13 @@
                                                     $userRole = 'Attorney for ' . $clientParty->person->full_name;
                                                 }
                                             }
+
+                                            if (!$userRole && $case->assignments()
+                                                ->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+                                                ->where('user_id', auth()->id())
+                                                ->exists()) {
+                                                $userRole = 'WRD representative';
+                                            }
                                         }
                                     @endphp
                                     @if($userRole)

@@ -37,6 +37,10 @@ class AttorneyController extends Controller
             return redirect()->back()->with('error', 'Client is not a party on this case.');
         }
 
+        if (CaseParty::wrdRepresentativeAssignmentForEmail($case, $attorneyPerson->email)) {
+            return redirect()->back()->with('error', 'You are already assigned to represent WRD in this case and cannot also represent a private party.');
+        }
+
         CaseParty::firstOrCreate([
             'case_id' => $case->id,
             'person_id' => $attorneyPerson->id,
@@ -44,6 +48,7 @@ class AttorneyController extends Controller
             'client_party_id' => $clientParty->id,
         ], [
             'service_enabled' => true,
+            'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
         ]);
 
         return redirect()->back()->with('success', 'Client representation added successfully.');

@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CaseParty extends Model
 {
+    public const CAPACITY_PRIVATE_COUNSEL = 'private_counsel';
+
     protected $fillable = [
-        'case_id', 'person_id', 'role', 'service_enabled', 'client_party_id'
+        'case_id', 'person_id', 'role', 'service_enabled', 'client_party_id', 'representation_capacity'
     ];
 
     protected $casts = [
@@ -50,6 +52,48 @@ class CaseParty extends Model
         $organization = strtoupper(trim((string) ($this->person->organization ?? '')));
 
         return $this->person?->type === 'company' && $organization === 'WATER RIGHTS DIVISION';
+    }
+
+    public function isPrivateCounsel(): bool
+    {
+        return $this->role === 'counsel'
+            && ($this->representation_capacity === self::CAPACITY_PRIVATE_COUNSEL || $this->representation_capacity === null);
+    }
+
+    public static function privateCounselForEmail(CaseModel $case, ?string $email): ?self
+    {
+        $email = strtolower(trim((string) $email));
+
+        if ($email === '') {
+            return null;
+        }
+
+        return $case->parties()
+            ->where('role', 'counsel')
+            ->where(function ($query) {
+                $query->where('representation_capacity', self::CAPACITY_PRIVATE_COUNSEL)
+                    ->orWhereNull('representation_capacity');
+            })
+            ->whereHas('person', function ($query) use ($email) {
+                $query->whereRaw('LOWER(email) = ?', [$email]);
+            })
+            ->first();
+    }
+
+    public static function wrdRepresentativeAssignmentForEmail(CaseModel $case, ?string $email): ?CaseAssignment
+    {
+        $email = strtolower(trim((string) $email));
+
+        if ($email === '') {
+            return null;
+        }
+
+        return $case->assignments()
+            ->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+            ->whereHas('user', function ($query) use ($email) {
+                $query->whereRaw('LOWER(email) = ?', [$email]);
+            })
+            ->first();
     }
 
 }
