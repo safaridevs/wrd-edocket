@@ -995,7 +995,7 @@
                         </select>
                         <span class="text-sm">-</span>
                         <input type="text" name="ose_numbers[${oseCount}][file_no_to]" placeholder="12350" class="border-gray-300 rounded-md w-20 text-sm">
-                        <button type="button" onclick="hideToSection(${oseCount})" class="text-red-600 text-xs ml-1">✕</button>
+                        <button type="button" onclick="hideToSection(${oseCount})" class="text-red-600 text-xs ml-1" aria-label="Remove range">x</button>
                     </div>
                     <button id="add-to-${oseCount}" type="button" onclick="showToSection(${oseCount})" class="text-blue-600 text-xs">+ Add Range</button>
                 </div>

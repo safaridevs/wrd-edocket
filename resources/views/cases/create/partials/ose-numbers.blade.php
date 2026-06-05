@@ -22,7 +22,7 @@
                 </select>
                 <span class="text-sm">-</span>
                 <input type="text" name="ose_numbers[0][file_no_to]" placeholder="12350" value="{{ old('ose_numbers.0.file_no_to') }}" class="border-gray-300 rounded-md w-20 text-sm">
-                <button type="button" onclick="hideToSection(0)" class="text-red-600 text-xs ml-1">âœ•</button>
+                <button type="button" onclick="hideToSection(0)" class="text-red-600 text-xs ml-1" aria-label="Remove range">x</button>
             </div>
             <button id="add-to-0" type="button" onclick="showToSection(0)" class="text-blue-600 text-xs {{ old('ose_numbers.0.file_no_to') ? 'hidden' : '' }}">+ Add Range</button>
         </div>
