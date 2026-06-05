@@ -144,6 +144,7 @@ Route::middleware('auth')->group(function () {
     
     // Admin routes
     Route::get('admin/users', [AdminController::class, 'users'])->middleware('permission:manage_users')->name('admin.users');
+    Route::post('admin/users', [AdminController::class, 'storeUser'])->middleware('permission:manage_users')->name('admin.users.store');
     Route::patch('admin/users/{user}/role', [AdminController::class, 'updateUserRole'])->middleware('permission:manage_users')->name('admin.users.role');
     Route::get('admin/notifications', [AdminController::class, 'notificationDelivery'])->middleware('permission:manage_users')->name('admin.notifications');
     Route::get('admin/document-types', [AdminController::class, 'documentTypes'])->name('admin.document-types');

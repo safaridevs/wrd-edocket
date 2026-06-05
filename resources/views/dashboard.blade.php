@@ -52,6 +52,7 @@
                                         'wrd' => ['wrd'],
                                         'hydrology_expert' => ['hydrology_expert'],
                                         'alu_clerk' => ['alu_clerk'],
+                                        'alu_paralegal' => ['alu_clerk', 'alu_paralegal'],
                                     ];
 
                                     if (in_array(auth()->user()->getCurrentRole(), ['party', 'external_attorney'], true)) {
@@ -190,6 +191,7 @@
                                     'wrd' => ['wrd'],
                                     'hydrology_expert' => ['hydrology_expert'],
                                     'alu_clerk' => ['alu_clerk'],
+                                    'alu_paralegal' => ['alu_clerk', 'alu_paralegal'],
                                 ];
 
                                 if (in_array(auth()->user()->getCurrentRole(), ['party', 'external_attorney'], true)) {

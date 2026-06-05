@@ -36,6 +36,7 @@ class CaseController extends Controller
             'wrd' => ['wrd'],
             'hydrology_expert' => ['hydrology_expert'],
             'alu_clerk' => ['alu_clerk'],
+            'alu_paralegal' => ['alu_clerk', 'alu_paralegal'],
         ];
         $currentRole = $user->getCurrentRole();
         $scope = $request->string('scope')->toString();
@@ -219,7 +220,7 @@ class CaseController extends Controller
             return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
-        if (in_array($currentRole, ['party', 'external_attorney', 'alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk'], true)) {
+        if (in_array($currentRole, ['party', 'external_attorney', 'alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk', 'alu_paralegal'], true)) {
             return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
@@ -274,7 +275,7 @@ class CaseController extends Controller
                 }
             }
 
-            // Handle ALU clerk assignments
+            // Handle ALU clerk/paralegal assignments
             if (isset($validated['assigned_clerks']) && !empty($validated['assigned_clerks'])) {
                 foreach ($validated['assigned_clerks'] as $clerkId) {
                     CaseAssignment::create([
@@ -718,7 +719,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $clerks = \App\Models\User::whereCurrentRole('alu_clerk')->orderBy('name')->get();
+        $clerks = \App\Models\User::whereAnyCurrentRole(['alu_clerk', 'alu_paralegal'])->orderBy('name')->get();
         return view('cases.assign-alu-clerk', compact('case', 'clerks'));
     }
 
@@ -744,7 +745,7 @@ class CaseController extends Controller
             ]);
         }
 
-        return redirect()->route('cases.show', $case)->with('success', 'ALU Clerks assigned successfully.');
+        return redirect()->route('cases.show', $case)->with('success', 'ALU clerks/paralegals assigned successfully.');
     }
 
     public function assignWrdForm(CaseModel $case)
@@ -802,8 +803,8 @@ class CaseController extends Controller
     public function uploadDocuments(CaseModel $case)
     {
         if (!Auth::user()->canUploadDocumentsToCase($case)) {
-            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
-                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
+                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
             }
 
             if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
@@ -832,8 +833,8 @@ class CaseController extends Controller
     public function storeDocuments(Request $request, CaseModel $case)
     {
         if (!Auth::user()->canUploadDocumentsToCase($case)) {
-            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
-                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
+                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
             }
 
             if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
@@ -852,7 +853,8 @@ class CaseController extends Controller
             'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.other.*.type' => 'required|string',
-            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:204800'
+            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:204800',
+            'notification_message' => 'nullable|string|max:5000',
         ]);
 
         try {
@@ -880,8 +882,34 @@ class CaseController extends Controller
             if ($hasFiles) {
                 \Log::info('Starting document upload for case: ' . $case->id);
 
+                $existingDocumentIds = $case->documents()->pluck('id');
                 $this->caseService->handleDocumentUploads($case, $request, Auth::user());
                 $case->refresh(); // Refresh to get updated documents
+                $newDocuments = $case->documents()
+                    ->whereNotIn('id', $existingDocumentIds)
+                    ->get();
+
+                if (Auth::user()->isHearingUnit() && $newDocuments->isNotEmpty()) {
+                    $case->documents()
+                        ->whereIn('id', $newDocuments->pluck('id'))
+                        ->update([
+                            'approved' => true,
+                            'approved_by_user_id' => auth()->id(),
+                            'approved_at' => now(),
+                            'rejected_reason' => null,
+                        ]);
+
+                    $newDocuments = $case->documents()
+                        ->whereIn('id', $newDocuments->pluck('id'))
+                        ->get();
+                }
+
+                $this->notifyDocumentUploadRecipients(
+                    $case,
+                    $newDocuments,
+                    Auth::user(),
+                    $request->input('notification_message')
+                );
 
                 \Log::info('Document upload completed. Case now has ' . $case->documents->count() . ' documents');
             } else {
@@ -889,7 +917,11 @@ class CaseController extends Controller
                 return back()->withErrors(['error' => 'No files were selected for upload.']);
             }
 
-            return redirect()->route('cases.show', $case)->with('success', 'Documents uploaded successfully.');
+            $successMessage = Auth::user()->isHearingUnit()
+                ? 'Documents issued and service-list notifications sent.'
+                : 'Documents uploaded successfully.';
+
+            return redirect()->route('cases.show', $case)->with('success', $successMessage);
 
         } catch (\Exception $e) {
             \Log::error('Document upload failed: ' . $e->getMessage());
@@ -1365,8 +1397,8 @@ class CaseController extends Controller
     public function storeDocument(Request $request, CaseModel $case)
     {
         if (!Auth::user()->canUploadDocumentsToCase($case)) {
-            if (Auth::user()->getCurrentRole() === 'alu_clerk' && $case->status === 'active') {
-                abort(403, 'ALU clerks cannot upload documents after a case becomes active.');
+            if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
+                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
             }
 
             if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
@@ -1384,7 +1416,8 @@ class CaseController extends Controller
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'custom_title' => 'required|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
-            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800'
+            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800',
+            'notification_message' => 'nullable|string|max:5000',
         ]);
 
         try {
@@ -1428,6 +1461,7 @@ class CaseController extends Controller
             $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
 
             $uploadedCount = 0;
+            $uploadedDocuments = collect();
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
                     $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
@@ -1455,25 +1489,137 @@ class CaseController extends Controller
                         'pleading_type' => $validated['pleading_type'] ?? 'none'
                     ];
 
+                    if (Auth::user()->isHearingUnit()) {
+                        $documentData['approved'] = true;
+                        $documentData['approved_by_user_id'] = auth()->id();
+                        $documentData['approved_at'] = now();
+                        $documentData['rejected_reason'] = null;
+                    }
+
                     if ($documentType && $documentType->is_pleading && isset($validated['pleading_type']) && $validated['pleading_type'] !== 'none') {
                         $documentData['pleading_type'] = $validated['pleading_type'];
                     } else {
                         $documentData['pleading_type'] = 'none';
                     }
 
-                    \App\Models\Document::create($documentData);
+                    $uploadedDocuments->push(\App\Models\Document::create($documentData));
                     $uploadedCount++;
                 }
             }
 
-            $message = $uploadedCount === 1
-                ? 'Document uploaded successfully and is pending HU acceptance.'
-                : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.";
+            $this->notifyDocumentUploadRecipients(
+                $case,
+                $uploadedDocuments,
+                Auth::user(),
+                $validated['notification_message'] ?? null
+            );
+
+            $message = Auth::user()->isHearingUnit()
+                ? ($uploadedCount === 1
+                    ? 'Document issued and service-list notifications sent.'
+                    : "{$uploadedCount} documents issued and service-list notifications sent.")
+                : ($uploadedCount === 1
+                    ? 'Document uploaded successfully and is pending HU acceptance.'
+                    : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.");
             return redirect()->route('cases.documents.manage', $case)->with('success', $message);
 
         } catch (\Exception $e) {
             return back()->withInput()->withErrors(['error' => 'Failed to upload documents: ' . $e->getMessage()]);
         }
+    }
+
+    private function notifyDocumentUploadRecipients(CaseModel $case, \Illuminate\Support\Collection $documents, User $uploader, ?string $customMessage = null): void
+    {
+        if ($documents->isEmpty()) {
+            return;
+        }
+
+        $notificationService = app(\App\Services\NotificationService::class);
+        $documentList = $documents
+            ->map(fn (Document $document) => '- ' . ($document->custom_title ?: $document->doc_type_label))
+            ->implode("\n");
+
+        if ($uploader->isHearingUnit()) {
+            $message = "The Hearing Unit has issued or filed document(s) in case {$case->case_no}.\n\nDocuments:\n{$documentList}";
+
+            if (trim((string) $customMessage) !== '') {
+                $message .= "\n\nAdditional message from the Hearing Unit:\n" . trim((string) $customMessage);
+            }
+
+            $message .= "\n\nView case: " . route('cases.show', $case);
+
+            foreach ($this->serviceNotificationEmails($case) as $email) {
+                $notificationService->notifyEmailAddress(
+                    $email,
+                    'issuance',
+                    "Case {$case->case_no}: Order or Notice Issued",
+                    $message,
+                    $case
+                );
+            }
+
+            return;
+        }
+
+        $huUsers = User::whereAnyCurrentRole(['hu_admin', 'hu_clerk'])
+            ->where('is_active', true)
+            ->where('id', '!=', $uploader->id)
+            ->get()
+            ->all();
+
+        if (empty($huUsers)) {
+            return;
+        }
+
+        $message = "{$uploader->name} has filed document(s) in case {$case->case_no}.\n\nDocuments:\n{$documentList}\n\nReview case documents: " . route('cases.documents.manage', $case);
+
+        $notificationService->notifyMultiple(
+            $huUsers,
+            'new_filing',
+            "Case {$case->case_no}: New Filing Uploaded",
+            $message,
+            $case
+        );
+    }
+
+    private function serviceNotificationEmails(CaseModel $case): array
+    {
+        $case->loadMissing(['serviceList.person', 'assignments.user']);
+        $emails = [];
+
+        foreach ($case->serviceList as $serviceEntry) {
+            if (strtoupper(trim((string) ($serviceEntry->person?->organization ?? ''))) === 'WATER RIGHTS DIVISION') {
+                continue;
+            }
+
+            $this->addNotificationEmail($emails, $serviceEntry->email ?: $serviceEntry->person?->email);
+        }
+
+        foreach ($case->assignments as $assignment) {
+            if (!in_array($assignment->assignment_type, ['alu_clerk', 'alu_paralegal', 'alu_atty', 'alu_attorney', 'wrd'], true)) {
+                continue;
+            }
+
+            $this->addNotificationEmail($emails, $assignment->user?->email);
+        }
+
+        return array_values($emails);
+    }
+
+    private function addNotificationEmail(array &$emails, ?string $email): void
+    {
+        $normalizedEmail = strtolower(trim((string) $email));
+
+        if ($normalizedEmail !== '') {
+            $emails[$normalizedEmail] = $normalizedEmail;
+        }
+    }
+
+    private function isHuIssuedDocument(Document $document): bool
+    {
+        $document->loadMissing('uploader.roleRelation');
+
+        return (bool) $document->approved && (bool) $document->uploader?->isHearingUnit();
     }
 
     public function approveDocument(CaseModel $case, $documentId)
@@ -1483,6 +1629,10 @@ class CaseController extends Controller
         }
 
         $document = $case->documents()->findOrFail($documentId);
+
+        if ($this->isHuIssuedDocument($document)) {
+            return response()->json(['success' => false, 'error' => 'HU-issued documents are already issued and do not require acceptance.']);
+        }
 
         // Check case status - allow submitted_to_hu and active
         if (!in_array($case->status, ['submitted_to_hu', 'active'])) {
@@ -1523,6 +1673,10 @@ class CaseController extends Controller
         ]);
 
         $document = $case->documents()->findOrFail($documentId);
+        if ($this->isHuIssuedDocument($document)) {
+            return response()->json(['success' => false, 'error' => 'HU-issued documents cannot be rejected.'], 422);
+        }
+
         $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
         if (!$summary) {
             return response()->json(['success' => false, 'error' => 'A correction summary is required.'], 422);
@@ -1579,6 +1733,10 @@ class CaseController extends Controller
         ]);
 
         $document = $case->documents()->findOrFail($documentId);
+        if ($this->isHuIssuedDocument($document)) {
+            return response()->json(['success' => false, 'error' => 'HU-issued documents do not use the correction workflow.'], 422);
+        }
+
         $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
         if (!$summary) {
             return response()->json(['success' => false, 'error' => 'A correction summary is required.'], 422);
@@ -1725,6 +1883,10 @@ class CaseController extends Controller
         }
 
         $document = $case->documents()->findOrFail($documentId);
+
+        if ($this->isHuIssuedDocument($document)) {
+            return response()->json(['success' => false, 'error' => 'HU-issued documents do not need to be stamped.']);
+        }
 
         $isAcceptedPleading = in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']);
         $canStamp = $document->approved && ($case->status === 'active' || $isAcceptedPleading);

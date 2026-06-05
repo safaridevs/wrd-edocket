@@ -261,7 +261,7 @@ class CaseModel extends Model
         $currentRole = method_exists($user, 'getCurrentRole') ? $user->getCurrentRole() : $user->role;
 
         // ALU and HU staff can always upload
-        if (in_array($currentRole, ['alu_clerk', 'alu_mgr', 'hu_admin', 'hu_clerk'])) {
+        if (in_array($currentRole, ['alu_clerk', 'alu_paralegal', 'alu_mgr', 'hu_admin', 'hu_clerk'])) {
             return true;
         }
 

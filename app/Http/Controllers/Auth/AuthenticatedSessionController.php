@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -96,10 +97,18 @@ class AuthenticatedSessionController extends Controller
 
                 return false;
             }
+
+            if (!$user->is_active) {
+                throw ValidationException::withMessages([
+                    'email' => 'This account is inactive. Please contact an administrator.',
+                ]);
+            }
             
             Auth::login($user);
             return true;
             
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Log::error('LDAP authentication failed: ' . $e->getMessage());
         }

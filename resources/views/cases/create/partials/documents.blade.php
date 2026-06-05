@@ -104,8 +104,20 @@
 
                         <div>
                             <label for="createDocumentFiles" class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
-                            <input type="file" id="createDocumentFiles" multiple accept=".pdf" class="block w-full rounded-md border-gray-300" onchange="validateFiles(this)">
-                            <p class="mt-2 text-xs text-gray-500">Select multiple files. Supported format: PDF (Max: 200MB each)</p>
+                            <input type="file" id="createDocumentFiles" multiple accept=".pdf" class="sr-only" data-no-dropzone="true" onchange="validateFiles(this); renderCreateDocumentFiles();">
+                            <div id="createDocumentDropzone" role="button" tabindex="0" class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center transition hover:border-blue-400 hover:bg-blue-50">
+                                <div class="flex flex-col items-center gap-2">
+                                    <svg class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 16V4m0 0 4 4m-4-4-4 4M4 16.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1.5"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800"><span class="text-blue-700">Choose files</span> or drag and drop here</p>
+                                        <p class="mt-1 text-xs text-gray-500">PDF files only, max 200MB each</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <p id="createDocumentFileError" class="mt-2 hidden text-xs text-red-600"></p>
+                            <div id="createDocumentFileList" class="mt-2 hidden rounded-md border border-gray-200 bg-white text-sm text-gray-700"></div>
                         </div>
                     </div>
 

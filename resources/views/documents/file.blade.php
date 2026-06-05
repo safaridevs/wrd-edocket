@@ -62,6 +62,16 @@
                         </p>
                     </div>
 
+                    @if(auth()->user()->isHearingUnit())
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Notification Message</label>
+                        <textarea name="notification_message" rows="4" maxlength="5000"
+                                  class="block w-full border-gray-300 rounded-md"
+                                  placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                    </div>
+                    @endif
+
                     <!-- Document Type -->
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>

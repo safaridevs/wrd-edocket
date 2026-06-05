@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CaseModel;
 use App\Models\Document;
 use App\Models\DocumentType;
+use App\Models\User;
 use App\Services\DocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,7 +43,8 @@ class DocumentController extends Controller
 
         $validated = $request->validate([
             'document' => 'required|file|mimes:pdf|max:204800',
-            'doc_type' => ['required', 'string', Rule::in($documentTypes->pluck('code')->all())]
+            'doc_type' => ['required', 'string', Rule::in($documentTypes->pluck('code')->all())],
+            'notification_message' => 'nullable|string|max:5000',
         ], [
             'document.required' => 'Please select a document to upload.',
             'document.mimes' => 'Document must be a PDF file.',
@@ -71,7 +73,27 @@ class DocumentController extends Controller
                 'none' // Party documents are not pleading documents
             );
 
-            return redirect()->route('cases.show', $case)->with('success', 'Document uploaded successfully and is pending HU acceptance.');
+            if (Auth::user()->isHearingUnit()) {
+                $document->update([
+                    'approved' => true,
+                    'approved_by_user_id' => auth()->id(),
+                    'approved_at' => now(),
+                    'rejected_reason' => null,
+                ]);
+                $document->refresh();
+            }
+
+            if (Auth::user()->isHearingUnit()) {
+                $this->notifyServiceListOfHuIssuance($case, $document, $validated['notification_message'] ?? null);
+            } else {
+                $this->notifyHearingUnitOfFiling($case, $document, Auth::user());
+            }
+
+            $message = Auth::user()->isHearingUnit()
+                ? 'Document issued successfully.'
+                : 'Document uploaded successfully and is pending HU acceptance.';
+
+            return redirect()->route('cases.show', $case)->with('success', $message);
         } catch (\Exception $e) {
             return back()->withErrors(['document' => 'Upload failed: ' . $e->getMessage()])->withInput();
         }
@@ -123,6 +145,85 @@ class DocumentController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+    }
+
+    private function notifyHearingUnitOfFiling(CaseModel $case, Document $document, User $uploader): void
+    {
+        if ($uploader->isHearingUnit()) {
+            return;
+        }
+
+        $huUsers = User::whereAnyCurrentRole(['hu_admin', 'hu_clerk'])
+            ->where('is_active', true)
+            ->where('id', '!=', $uploader->id)
+            ->get()
+            ->all();
+
+        if (empty($huUsers)) {
+            return;
+        }
+
+        app(\App\Services\NotificationService::class)->notifyMultiple(
+            $huUsers,
+            'new_filing',
+            "Case {$case->case_no}: New Filing Uploaded",
+            "{$uploader->name} has filed a document in case {$case->case_no}.\n\nDocument:\n- {$document->doc_type_label}\n\nReview case documents: " . route('cases.documents.manage', $case),
+            $case
+        );
+    }
+
+    private function notifyServiceListOfHuIssuance(CaseModel $case, Document $document, ?string $customMessage = null): void
+    {
+        $message = "The Hearing Unit has issued or filed a document in case {$case->case_no}.\n\nDocument:\n- {$document->doc_type_label}";
+
+        if (trim((string) $customMessage) !== '') {
+            $message .= "\n\nAdditional message from the Hearing Unit:\n" . trim((string) $customMessage);
+        }
+
+        $message .= "\n\nView case: " . route('cases.show', $case);
+
+        foreach ($this->serviceNotificationEmails($case) as $email) {
+            app(\App\Services\NotificationService::class)->notifyEmailAddress(
+                $email,
+                'issuance',
+                "Case {$case->case_no}: Order or Notice Issued",
+                $message,
+                $case
+            );
+        }
+    }
+
+    private function serviceNotificationEmails(CaseModel $case): array
+    {
+        $case->loadMissing(['serviceList.person', 'assignments.user']);
+        $emails = [];
+
+        foreach ($case->serviceList as $serviceEntry) {
+            if (strtoupper(trim((string) ($serviceEntry->person?->organization ?? ''))) === 'WATER RIGHTS DIVISION') {
+                continue;
+            }
+
+            $this->addNotificationEmail($emails, $serviceEntry->email ?: $serviceEntry->person?->email);
+        }
+
+        foreach ($case->assignments as $assignment) {
+            if (!in_array($assignment->assignment_type, ['alu_clerk', 'alu_paralegal', 'alu_atty', 'alu_attorney', 'wrd'], true)) {
+                continue;
+            }
+
+            $this->addNotificationEmail($emails, $assignment->user?->email);
+        }
+
+        return array_values($emails);
+    }
+
+    private function addNotificationEmail(array &$emails, ?string $email): void
+    {
+        $normalizedEmail = strtolower(trim((string) $email));
+
+        if ($normalizedEmail !== '') {
+            $emails[$normalizedEmail] = $normalizedEmail;
+        }
     }
 }
 

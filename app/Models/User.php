@@ -120,6 +120,7 @@ class User extends Authenticatable
 
         $roleMap = [
             'alu_clerk' => 'alu',
+            'alu_paralegal' => 'alu',
             'alu_atty' => 'alu',
             'alu_mgr' => 'alu',
             'hu_admin' => 'hu',
@@ -156,6 +157,7 @@ class User extends Authenticatable
     public function isWRAPDirector(): bool { return $this->getCurrentRole() === 'wrap_dir'; }
     public function isALUManagingAtty(): bool { return $this->getCurrentRole() === 'alu_mgr'; }
     public function isALULawClerk(): bool { return $this->getCurrentRole() === 'alu_clerk'; }
+    public function isALUParalegal(): bool { return $this->getCurrentRole() === 'alu_paralegal'; }
     public function isALUAttorney(): bool { return $this->getCurrentRole() === 'alu_atty'; }
     public function isHydrologyExpert(): bool { return $this->getCurrentRole() === 'hydrology_expert'; }
     public function isHUAdmin(): bool { return $this->getCurrentRole() === 'hu_admin'; }
@@ -168,7 +170,7 @@ class User extends Authenticatable
     // Permission methods
     public function canCreateCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal']);
     }
 
     public function canReadCase(): bool
@@ -178,7 +180,7 @@ class User extends Authenticatable
 
     public function canWriteCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAcceptFilings(): bool
@@ -204,7 +206,7 @@ class User extends Authenticatable
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_atty', 'party', 'external_attorney']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'party', 'external_attorney']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -222,7 +224,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if ($this->getCurrentRole() === 'alu_clerk') {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal'])) {
             return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu']);
         }
 
@@ -243,7 +245,7 @@ class User extends Authenticatable
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'party']) || $this->isAttorney();
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'party']) || $this->isAttorney();
     }
 
     public function canAccessCase(CaseModel $case): bool
@@ -289,17 +291,17 @@ class User extends Authenticatable
 
     public function canManageUsers(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignAttorneys(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
     }
 
     public function attorneyRecord()
@@ -336,7 +338,7 @@ class User extends Authenticatable
 
     public function canAssignHydrologyExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignParalegal(): bool
@@ -346,7 +348,7 @@ class User extends Authenticatable
 
     public function canTransmitMaterials(): bool
     {
-        return in_array($this->getCurrentRole(), ['wrd', 'wrap_dir', 'alu_clerk']);
+        return in_array($this->getCurrentRole(), ['wrd', 'wrap_dir', 'alu_clerk', 'alu_paralegal']);
     }
 
     public function canModifyPersons(): bool

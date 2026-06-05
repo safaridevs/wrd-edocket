@@ -201,6 +201,20 @@ function enhanceFileInputs(root = document) {
     root.querySelectorAll?.('input[type="file"]').forEach(enhanceFileInput);
 }
 
+function resetFileInput(input) {
+    if (!(input instanceof HTMLInputElement) || input.type !== 'file') {
+        return;
+    }
+
+    input.value = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+window.eDocketFileUploads = {
+    enhance: enhanceFileInputs,
+    reset: resetFileInput,
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     enhanceFileInputs();
 

@@ -123,6 +123,7 @@
                 }
             });
 
+            initializeCreateDocumentDropzone();
             initializeWizard();
         });
 
@@ -171,9 +172,10 @@
             }
             titleInput.value = '';
             titleInput.dataset.lastSuggestedTitle = '';
-            filesInput.value = '';
+            resetCreateDocumentFiles(filesInput);
             syncCreateDocumentTitle();
             modal.classList.remove('hidden');
+            window.eDocketFileUploads?.enhance(modal);
         }
 
         function hideCreateDocumentModal() {
@@ -190,7 +192,142 @@
                 titleInput.value = '';
                 titleInput.dataset.lastSuggestedTitle = '';
             }
-            if (filesInput) filesInput.value = '';
+            if (filesInput) resetCreateDocumentFiles(filesInput);
+        }
+
+        function resetCreateDocumentFiles(filesInput) {
+            if (!filesInput) {
+                return;
+            }
+
+            filesInput.value = '';
+            renderCreateDocumentFiles();
+        }
+
+        function initializeCreateDocumentDropzone() {
+            const input = document.getElementById('createDocumentFiles');
+            const dropzone = document.getElementById('createDocumentDropzone');
+
+            if (!input || !dropzone || dropzone.dataset.initialized === 'true') {
+                return;
+            }
+
+            dropzone.dataset.initialized = 'true';
+            dropzone.addEventListener('click', () => input.click());
+            dropzone.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    input.click();
+                }
+            });
+
+            ['dragenter', 'dragover'].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    dropzone.classList.add('border-blue-500', 'bg-blue-50');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach((eventName) => {
+                dropzone.addEventListener(eventName, (event) => {
+                    event.preventDefault();
+                    dropzone.classList.remove('border-blue-500', 'bg-blue-50');
+                });
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                setCreateDocumentFiles(event.dataTransfer?.files);
+            });
+        }
+
+        function setCreateDocumentFiles(incomingFiles) {
+            const input = document.getElementById('createDocumentFiles');
+            const error = document.getElementById('createDocumentFileError');
+
+            if (!input) {
+                return;
+            }
+
+            const files = Array.from(incomingFiles || []);
+            const acceptedFiles = files.filter((file) => file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf');
+            const rejectedCount = files.length - acceptedFiles.length;
+
+            if (error) {
+                error.textContent = rejectedCount ? `${rejectedCount} file(s) were not PDF files.` : '';
+                error.classList.toggle('hidden', rejectedCount === 0);
+            }
+
+            if (!acceptedFiles.length) {
+                renderCreateDocumentFiles();
+                return;
+            }
+
+            const dataTransfer = new DataTransfer();
+            Array.from(input.files || []).forEach((file) => dataTransfer.items.add(file));
+            acceptedFiles.forEach((file) => dataTransfer.items.add(file));
+            input.files = dataTransfer.files;
+            validateFiles(input);
+            renderCreateDocumentFiles();
+        }
+
+        function renderCreateDocumentFiles() {
+            const input = document.getElementById('createDocumentFiles');
+            const list = document.getElementById('createDocumentFileList');
+
+            if (!input || !list) {
+                return;
+            }
+
+            const files = Array.from(input.files || []);
+            list.innerHTML = '';
+            list.classList.toggle('hidden', files.length === 0);
+
+            files.forEach((file, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 last:border-b-0';
+
+                const info = document.createElement('div');
+                info.className = 'min-w-0';
+                info.innerHTML = `<p class="truncate font-medium text-gray-800"></p><p class="text-xs text-gray-500">${formatCreateDocumentFileSize(file.size)}</p>`;
+                info.querySelector('p').textContent = file.name;
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'shrink-0 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50';
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', () => removeCreateDocumentFile(index));
+
+                row.appendChild(info);
+                row.appendChild(removeButton);
+                list.appendChild(row);
+            });
+        }
+
+        function removeCreateDocumentFile(indexToRemove) {
+            const input = document.getElementById('createDocumentFiles');
+
+            if (!input) {
+                return;
+            }
+
+            const dataTransfer = new DataTransfer();
+            Array.from(input.files || [])
+                .filter((_, index) => index !== indexToRemove)
+                .forEach((file) => dataTransfer.items.add(file));
+            input.files = dataTransfer.files;
+            renderCreateDocumentFiles();
+        }
+
+        function formatCreateDocumentFileSize(bytes) {
+            if (!Number.isFinite(bytes)) {
+                return '';
+            }
+
+            if (bytes < 1024 * 1024) {
+                return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+            }
+
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
         }
 
         function getCreateDocumentModalSummary(group) {

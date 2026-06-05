@@ -143,11 +143,13 @@
 
 
 
-                        <strong class="mt-3 block">Assigned ALU Clerks:</strong>
+                        <strong class="mt-3 block">Assigned ALU Clerks / Paralegals:</strong>
                         <div class="text-sm mt-1">
                             @if($case->aluClerks->count() > 0)
                                 @foreach($case->aluClerks as $clerk)
-                                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">{{ $clerk->getDisplayName() }}</span>
+                                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">
+                                        {{ $clerk->getDisplayName() }}@if($clerk->isALUParalegal()) (Paralegal) @endif
+                                    </span>
                                 @endforeach
                             @else
                                 <span class="text-gray-500">Not assigned</span>
@@ -657,7 +659,7 @@
                             @if($email !== '' && !$renderedServiceEmails->contains($email))
                                 <div class="py-2 border-b">
                                     <div class="font-medium">{{ $clerk->getDisplayName() }}</div>
-                                    <div class="text-sm text-gray-600">{{ $clerk->email }} • ALU Clerk</div>
+                                    <div class="text-sm text-gray-600">{{ $clerk->email }} • {{ $clerk->isALUParalegal() ? 'ALU Paralegal' : 'ALU Clerk' }}</div>
                                 </div>
                                 @php $renderedServiceEmails->push($email); @endphp
                             @endif
@@ -806,6 +808,7 @@
                     @php
                         $latestDocCorrection = $doc->correctionCycles->firstWhere('status', 'open')
                             ?? $doc->correctionCycles->firstWhere('status', 'resubmitted');
+                        $isHuIssued = $doc->approved && $doc->uploader?->isHearingUnit();
                     @endphp
                     <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
                          data-doc-type="{{ $doc->doc_type }}"
@@ -818,7 +821,9 @@
                                     @if($doc->stamped)
                                         <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">📋 E-Stamped</span>
                                     @endif
-                                    @if($doc->approved)
+                                    @if($isHuIssued)
+                                        <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
+                                    @elseif($doc->approved)
                                         <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                     @endif
                                     @if(in_array($doc->pleading_type, ['request_to_docket', 'request_pre_hearing']))
@@ -1833,6 +1838,16 @@
                                        class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
                                 <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
                             </div>
+
+                            @if(auth()->user()->isHearingUnit())
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Notification Message</label>
+                                <textarea name="notification_message" rows="4" maxlength="5000"
+                                          class="block w-full border-gray-300 rounded-md"
+                                          placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
+                                <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                            </div>
+                            @endif
 
                         </div>
 

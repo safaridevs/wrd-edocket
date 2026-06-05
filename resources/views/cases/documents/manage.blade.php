@@ -138,7 +138,13 @@
                                             </div>
                                             <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{{ $document->doc_type_label }}</span>
 
-                                            @if($document->approved)
+                                            @php
+                                                $isHuIssued = $document->approved && $document->uploader?->isHearingUnit();
+                                            @endphp
+
+                                            @if($isHuIssued)
+                                                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
+                                            @elseif($document->approved)
                                                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                             @elseif($document->rejected_reason)
                                                 <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">✗ Rejected</span>
@@ -301,7 +307,7 @@
                                                     title="View document first to enable this button">
                                                 Request Fix
                                             </button>
-                                        @elseif($document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
+                                        @elseif(!$isHuIssued && $document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
                                             <button onclick="stampDocument({{ $document->id }})"
                                                     class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
                                                 📋 Stamp
@@ -313,7 +319,7 @@
                                             </button>
                                         @endif
 
-                                        @if($hasNamingIssue || $hasFileIssue)
+                                        @if(!$isHuIssued && ($hasNamingIssue || $hasFileIssue))
                                             <button onclick="requestFix({{ $document->id }})"
                                                     class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
                                                 Request Fix
@@ -490,6 +496,16 @@
                                        class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
                                 <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
                             </div>
+
+                            @if(auth()->user()->isHearingUnit())
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Notification Message</label>
+                                <textarea name="notification_message" rows="4" maxlength="5000"
+                                          class="block w-full border-gray-300 rounded-md"
+                                          placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
+                                <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                            </div>
+                            @endif
 
                         </div>
 
