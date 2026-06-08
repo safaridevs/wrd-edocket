@@ -2045,7 +2045,7 @@
             const newFields = document.getElementById('newParalegalFields');
             const newFieldInputs = newFields ? newFields.querySelectorAll('input, textarea, select') : [];
 
-            const useExisting = existingRadio && existingRadio.checked && existingSection && !existingSection.classList.contains('hidden');
+            const useExisting = !!(existingRadio && existingRadio.checked);
 
             if (existingSection) {
                 existingSection.classList.toggle('hidden', !useExisting);
