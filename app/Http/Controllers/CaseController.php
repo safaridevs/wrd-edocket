@@ -844,6 +844,10 @@ class CaseController extends Controller
             abort(403);
         }
 
+        $otherDocumentFileRule = Auth::user()->isHearingUnit()
+            ? 'required|file|mimes:pdf|max:204800'
+            : 'required|file|mimes:pdf,doc,docx|max:204800';
+
         // Validate the form structure
         $request->validate([
             'documents.application.*' => 'nullable|file|mimes:pdf|max:204800',
@@ -853,8 +857,12 @@ class CaseController extends Controller
             'documents.protest_letter.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.supporting.*' => 'nullable|file|mimes:pdf|max:204800',
             'documents.other.*.type' => 'required|string',
-            'documents.other.*.file.*' => 'required|file|mimes:pdf,doc,docx|max:204800',
+            'documents.other.*.file.*' => $otherDocumentFileRule,
             'notification_message' => 'nullable|string|max:5000',
+        ], [
+            'documents.other.*.file.*.mimes' => Auth::user()->isHearingUnit()
+                ? 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
+                : 'Documents must be PDF, DOC, or DOCX files.',
         ]);
 
         try {
@@ -890,26 +898,60 @@ class CaseController extends Controller
                     ->get();
 
                 if (Auth::user()->isHearingUnit() && $newDocuments->isNotEmpty()) {
-                    $case->documents()
-                        ->whereIn('id', $newDocuments->pluck('id'))
-                        ->update([
-                            'approved' => true,
-                            'approved_by_user_id' => auth()->id(),
-                            'approved_at' => now(),
-                            'rejected_reason' => null,
-                        ]);
+                    $stampingFailures = [];
+
+                    foreach ($newDocuments as $document) {
+                        try {
+                            app(\App\Services\PdfStampingService::class)->stampDocument($document, $case);
+                            $document->update([
+                                'approved' => false,
+                                'approved_by_user_id' => null,
+                                'approved_at' => null,
+                                'rejected_reason' => null,
+                            ]);
+                        } catch (\Throwable $e) {
+                            \Log::warning('HU document uploaded but automatic PDF stamping failed', [
+                                'case_id' => $case->id,
+                                'document_id' => $document->id,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            $document->update([
+                                'approved' => false,
+                                'approved_by_user_id' => null,
+                                'approved_at' => null,
+                                'rejected_reason' => null,
+                                'stamped' => false,
+                                'stamp_text' => null,
+                                'stamped_at' => null,
+                            ]);
+
+                            $stampingFailures[] = ($document->custom_title ?: $document->original_filename) . ': ' . $e->getMessage();
+                        }
+
+                        if (trim((string) $request->input('notification_message')) !== '') {
+                            session()->put($this->huIssueMessageSessionKey($document), trim((string) $request->input('notification_message')));
+                        }
+                    }
 
                     $newDocuments = $case->documents()
                         ->whereIn('id', $newDocuments->pluck('id'))
                         ->get();
+
+                    if (!empty($stampingFailures)) {
+                        return redirect()->route('cases.documents.manage', $case)
+                            ->withErrors(['error' => $this->huStampingFailureMessage($stampingFailures)]);
+                    }
                 }
 
-                $this->notifyDocumentUploadRecipients(
-                    $case,
-                    $newDocuments,
-                    Auth::user(),
-                    $request->input('notification_message')
-                );
+                if (!Auth::user()->isHearingUnit()) {
+                    $this->notifyDocumentUploadRecipients(
+                        $case,
+                        $newDocuments,
+                        Auth::user(),
+                        $request->input('notification_message')
+                    );
+                }
 
                 \Log::info('Document upload completed. Case now has ' . $case->documents->count() . ' documents');
             } else {
@@ -918,10 +960,11 @@ class CaseController extends Controller
             }
 
             $successMessage = Auth::user()->isHearingUnit()
-                ? 'Documents issued and service-list notifications sent.'
+                ? 'Stamped preview generated. Review the PDF, then click Issue & Notify to send it to the service list.'
                 : 'Documents uploaded successfully.';
 
-            return redirect()->route('cases.show', $case)->with('success', $successMessage);
+            return redirect()->route(Auth::user()->isHearingUnit() ? 'cases.documents.manage' : 'cases.show', $case)
+                ->with('success', $successMessage);
 
         } catch (\Exception $e) {
             \Log::error('Document upload failed: ' . $e->getMessage());
@@ -1195,6 +1238,12 @@ class CaseController extends Controller
             // Create or find person
             $person = \App\Models\Person::where('email', $validated['email'])->first();
 
+            if ($person && $case->parties()->where('person_id', $person->id)->exists()) {
+                return back()->withInput()->withErrors([
+                    'email' => "{$person->full_name} is already associated with this case.",
+                ]);
+            }
+
             if (!$person) {
                 $person = \App\Models\Person::create([
                     'type' => $validated['type'],
@@ -1269,6 +1318,12 @@ class CaseController extends Controller
             return redirect()->route('cases.parties.manage', $case)->with('success', 'Party added successfully.');
 
         } catch (\Exception $e) {
+            \Log::error('Failed to add party from manage parties page', [
+                'case_id' => $case->id,
+                'email' => $validated['email'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
             return back()->withInput()->withErrors(['error' => 'Failed to add party: ' . $e->getMessage()]);
         }
     }
@@ -1279,7 +1334,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $party = $case->parties()->with(['person'])->findOrFail($partyId);
+        $party = $case->parties()->with(['person', 'attorneys.person'])->findOrFail($partyId);
         $attorneys = Person::counselDirectory()->get();
 
         return view('cases.parties.edit', compact('case', 'party', 'attorneys'))->render();
@@ -1412,12 +1467,22 @@ class CaseController extends Controller
             ->pluck('code')
             ->toArray();
 
+        $documentFileRule = Auth::user()->isHearingUnit()
+            ? 'required|file|mimes:pdf|max:204800'
+            : 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800';
+
         $validated = $request->validate([
             'doc_type' => 'required|in:' . implode(',', $validDocTypes),
             'custom_title' => 'required|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
-            'document.*' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800',
+            'document' => 'required|array|min:1',
+            'document.*' => $documentFileRule,
             'notification_message' => 'nullable|string|max:5000',
+        ], [
+            'document.required' => 'Select at least one document to upload.',
+            'document.*.mimes' => Auth::user()->isHearingUnit()
+                ? 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
+                : 'Documents must be PDF, DOC, DOCX, JPG, JPEG, or PNG files.',
         ]);
 
         try {
@@ -1462,6 +1527,7 @@ class CaseController extends Controller
 
             $uploadedCount = 0;
             $uploadedDocuments = collect();
+            $stampingFailures = [];
             foreach ($files as $index => $file) {
                 if ($file && $file->isValid()) {
                     $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
@@ -1490,9 +1556,9 @@ class CaseController extends Controller
                     ];
 
                     if (Auth::user()->isHearingUnit()) {
-                        $documentData['approved'] = true;
-                        $documentData['approved_by_user_id'] = auth()->id();
-                        $documentData['approved_at'] = now();
+                        $documentData['approved'] = false;
+                        $documentData['approved_by_user_id'] = null;
+                        $documentData['approved_at'] = null;
                         $documentData['rejected_reason'] = null;
                     }
 
@@ -1502,25 +1568,64 @@ class CaseController extends Controller
                         $documentData['pleading_type'] = 'none';
                     }
 
-                    $uploadedDocuments->push(\App\Models\Document::create($documentData));
+                    $document = \App\Models\Document::create($documentData);
+
+                    if (Auth::user()->isHearingUnit()) {
+                        try {
+                            app(\App\Services\PdfStampingService::class)->stampDocument($document, $case);
+                            $document->refresh();
+                        } catch (\Throwable $e) {
+                            \Log::warning('HU document uploaded but automatic PDF stamping failed', [
+                                'case_id' => $case->id,
+                                'document_id' => $document->id,
+                                'error' => $e->getMessage(),
+                            ]);
+
+                            $document->update([
+                                'approved' => false,
+                                'approved_by_user_id' => null,
+                                'approved_at' => null,
+                                'rejected_reason' => null,
+                                'stamped' => false,
+                                'stamp_text' => null,
+                                'stamped_at' => null,
+                            ]);
+
+                            $stampingFailures[] = ($document->custom_title ?: $document->original_filename) . ': ' . $e->getMessage();
+                        }
+
+                        if (trim((string) ($validated['notification_message'] ?? '')) !== '') {
+                            session()->put($this->huIssueMessageSessionKey($document), trim((string) $validated['notification_message']));
+                        }
+                    }
+
+                    $uploadedDocuments->push($document);
                     $uploadedCount++;
                 }
             }
 
-            $this->notifyDocumentUploadRecipients(
-                $case,
-                $uploadedDocuments,
-                Auth::user(),
-                $validated['notification_message'] ?? null
-            );
+            if (!Auth::user()->isHearingUnit()) {
+                $this->notifyDocumentUploadRecipients(
+                    $case,
+                    $uploadedDocuments,
+                    Auth::user(),
+                    $validated['notification_message'] ?? null
+                );
+            }
 
             $message = Auth::user()->isHearingUnit()
                 ? ($uploadedCount === 1
-                    ? 'Document issued and service-list notifications sent.'
-                    : "{$uploadedCount} documents issued and service-list notifications sent.")
+                    ? 'Stamped preview generated. Review the PDF, then click Issue & Notify to send it to the service list.'
+                    : "{$uploadedCount} stamped previews generated. Review each PDF, then click Issue & Notify to send service-list notifications.")
                 : ($uploadedCount === 1
                     ? 'Document uploaded successfully and is pending HU acceptance.'
                     : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.");
+
+            if (Auth::user()->isHearingUnit() && !empty($stampingFailures)) {
+                return redirect()->route('cases.documents.manage', $case)
+                    ->withErrors(['error' => $this->huStampingFailureMessage($stampingFailures)]);
+            }
+
             return redirect()->route('cases.documents.manage', $case)->with('success', $message);
 
         } catch (\Exception $e) {
@@ -1620,6 +1725,83 @@ class CaseController extends Controller
         $document->loadMissing('uploader.roleRelation');
 
         return (bool) $document->approved && (bool) $document->uploader?->isHearingUnit();
+    }
+
+    private function isPendingHuIssue(Document $document): bool
+    {
+        $document->loadMissing('uploader.roleRelation');
+
+        return !$document->approved
+            && !$document->rejected_reason
+            && (bool) $document->stamped
+            && (bool) $document->uploader?->isHearingUnit();
+    }
+
+    private function isPendingHuUpload(Document $document): bool
+    {
+        $document->loadMissing('uploader.roleRelation');
+
+        return !$document->approved
+            && !$document->rejected_reason
+            && !$document->stamped
+            && (bool) $document->uploader?->isHearingUnit();
+    }
+
+    private function huStampingFailureMessage(array $failures): string
+    {
+        $prefix = count($failures) === 1
+            ? 'The file was saved, but automatic electronic stamping failed: '
+            : 'The files were saved, but automatic electronic stamping failed for: ';
+
+        return $prefix
+            . implode('; ', $failures)
+            . ' No notification was sent. Re-save or print the PDF to a new PDF, then upload the corrected file or try Retry Stamp from the document management page.';
+    }
+
+    private function huIssueMessageSessionKey(Document $document): string
+    {
+        return "hu_issue_message_{$document->id}";
+    }
+
+    public function issueStampedDocument(Request $request, CaseModel $case, $documentId)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'notification_message' => 'nullable|string|max:5000',
+        ]);
+
+        $document = $case->documents()->with('uploader.roleRelation')->findOrFail($documentId);
+
+        if (!$this->isPendingHuIssue($document)) {
+            return back()->withErrors(['error' => 'Only pending HU stamped previews can be issued.']);
+        }
+
+        $document->update([
+            'approved' => true,
+            'approved_by_user_id' => auth()->id(),
+            'approved_at' => now(),
+            'rejected_reason' => null,
+        ]);
+
+        $customMessage = trim((string) ($validated['notification_message'] ?? ''));
+        if ($customMessage === '') {
+            $customMessage = session()->pull($this->huIssueMessageSessionKey($document), '');
+        } else {
+            session()->forget($this->huIssueMessageSessionKey($document));
+        }
+
+        $this->notifyDocumentUploadRecipients(
+            $case,
+            collect([$document->refresh()]),
+            auth()->user(),
+            $customMessage
+        );
+
+        return redirect()->route('cases.documents.manage', $case)
+            ->with('success', 'Stamped document issued and service-list notifications sent.');
     }
 
     public function approveDocument(CaseModel $case, $documentId)
@@ -1888,13 +2070,14 @@ class CaseController extends Controller
             return response()->json(['success' => false, 'error' => 'HU-issued documents do not need to be stamped.']);
         }
 
+        $isPendingHuUpload = $this->isPendingHuUpload($document);
         $isAcceptedPleading = in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']);
-        $canStamp = $document->approved && ($case->status === 'active' || $isAcceptedPleading);
+        $canStamp = $isPendingHuUpload || ($document->approved && ($case->status === 'active' || $isAcceptedPleading));
 
         // In active cases, any accepted document can be stamped.
         // Before a case is active, stamping remains limited to accepted pleading documents.
         if (!$canStamp) {
-            return response()->json(['success' => false, 'error' => 'Only accepted documents in active cases, or accepted pleading documents, can be stamped']);
+            return response()->json(['success' => false, 'error' => 'Only pending HU uploads, accepted documents in active cases, or accepted pleading documents, can be stamped']);
         }
 
         if ($document->stamped) {
@@ -1910,11 +2093,90 @@ class CaseController extends Controller
                 return response()->json(['success' => false, 'error' => 'Unable to e-stamp this PDF. Check the document format and try again.']);
             }
 
+            if ($isPendingHuUpload) {
+                $document->update([
+                    'approved' => false,
+                    'approved_by_user_id' => null,
+                    'approved_at' => null,
+                    'rejected_reason' => null,
+                ]);
+            }
+
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             \Log::error('Document stamping failed: ' . $e->getMessage());
-            return response()->json(['success' => false, 'error' => 'Failed to stamp document: ' . $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => $e->getMessage()]);
         }
+    }
+
+    public function replacePendingHuDocument(Request $request, CaseModel $case, $documentId)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $document = $case->documents()->with('uploader.roleRelation')->findOrFail($documentId);
+
+        if (!$this->isPendingHuUpload($document)) {
+            return back()->withErrors(['error' => 'Only HU uploads that still need stamping can be replaced here.']);
+        }
+
+        $validated = $request->validate([
+            'document' => 'required|file|mimes:pdf|max:204800',
+        ], [
+            'document.required' => 'Choose a corrected PDF to upload.',
+            'document.mimes' => 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.',
+        ]);
+
+        $file = $validated['document'];
+        $oldStorageUri = $document->storage_uri;
+        $storageFolder = $this->caseStorageService->getCaseStorageFolder($case);
+        $documentType = \App\Models\DocumentType::where('code', $document->doc_type)->first();
+        $displayType = $documentType ? $documentType->name : ucfirst(str_replace('_', ' ', $document->doc_type));
+        $titleOrType = $document->custom_title ?: $displayType;
+        $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
+        $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
+        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+
+        $document->update([
+            'original_filename' => $originalFilename,
+            'stored_filename' => $storedFilename,
+            'mime' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'checksum' => md5_file($file->getRealPath()),
+            'storage_uri' => $path,
+            'uploaded_by_user_id' => auth()->id(),
+            'uploaded_at' => now(),
+            'approved' => false,
+            'approved_by_user_id' => null,
+            'approved_at' => null,
+            'rejected_reason' => null,
+            'stamped' => false,
+            'stamp_text' => null,
+            'stamped_at' => null,
+        ]);
+
+        if ($oldStorageUri && $oldStorageUri !== $path && Storage::disk('public')->exists($oldStorageUri)) {
+            Storage::disk('public')->delete($oldStorageUri);
+        }
+
+        try {
+            app(\App\Services\PdfStampingService::class)->stampDocument($document->refresh(), $case);
+        } catch (\Throwable $e) {
+            \Log::warning('Replacement HU PDF uploaded but automatic PDF stamping failed', [
+                'case_id' => $case->id,
+                'document_id' => $document->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('cases.documents.manage', $case)
+                ->withErrors(['error' => $this->huStampingFailureMessage([
+                    ($document->custom_title ?: $document->original_filename) . ': ' . $e->getMessage(),
+                ])]);
+        }
+
+        return redirect()->route('cases.documents.manage', $case)
+            ->with('success', 'Corrected PDF uploaded and stamped. Review the preview, then click Issue & Notify to send it to the service list.');
     }
 
     private function createDocumentCorrection(CaseModel $case, Document $document, User $user, string $type, string $summary, array $items): DocumentCorrection

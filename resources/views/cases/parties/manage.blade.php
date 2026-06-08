@@ -1,3 +1,58 @@
+@php
+    $stateOptions = [
+        'AL' => 'Alabama',
+        'AK' => 'Alaska',
+        'AZ' => 'Arizona',
+        'AR' => 'Arkansas',
+        'CA' => 'California',
+        'CO' => 'Colorado',
+        'CT' => 'Connecticut',
+        'DE' => 'Delaware',
+        'FL' => 'Florida',
+        'GA' => 'Georgia',
+        'HI' => 'Hawaii',
+        'ID' => 'Idaho',
+        'IL' => 'Illinois',
+        'IN' => 'Indiana',
+        'IA' => 'Iowa',
+        'KS' => 'Kansas',
+        'KY' => 'Kentucky',
+        'LA' => 'Louisiana',
+        'ME' => 'Maine',
+        'MD' => 'Maryland',
+        'MA' => 'Massachusetts',
+        'MI' => 'Michigan',
+        'MN' => 'Minnesota',
+        'MS' => 'Mississippi',
+        'MO' => 'Missouri',
+        'MT' => 'Montana',
+        'NE' => 'Nebraska',
+        'NV' => 'Nevada',
+        'NH' => 'New Hampshire',
+        'NJ' => 'New Jersey',
+        'NM' => 'New Mexico',
+        'NY' => 'New York',
+        'NC' => 'North Carolina',
+        'ND' => 'North Dakota',
+        'OH' => 'Ohio',
+        'OK' => 'Oklahoma',
+        'OR' => 'Oregon',
+        'PA' => 'Pennsylvania',
+        'RI' => 'Rhode Island',
+        'SC' => 'South Carolina',
+        'SD' => 'South Dakota',
+        'TN' => 'Tennessee',
+        'TX' => 'Texas',
+        'UT' => 'Utah',
+        'VT' => 'Vermont',
+        'VA' => 'Virginia',
+        'WA' => 'Washington',
+        'WV' => 'West Virginia',
+        'WI' => 'Wisconsin',
+        'WY' => 'Wyoming',
+    ];
+@endphp
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
@@ -18,6 +73,29 @@
                 <h3 class="text-lg font-medium mb-2">{{ $case->case_no }}</h3>
                 <p class="text-sm text-gray-600">{{ $case->caption }}</p>
             </div>
+
+            @if(session('success'))
+                <div class="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                    {{ session('success') }}
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            @if($errors->any())
+                <div class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                    <div class="font-medium">Unable to save party.</div>
+                    <ul class="mt-2 list-disc pl-5 space-y-1">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
             <!-- Current Parties -->
             <div class="bg-white shadow rounded-lg p-6">
@@ -291,8 +369,8 @@
 
                             <div class="grid grid-cols-3 gap-2">
                                 <input type="email" name="email" placeholder="Email *" required class="border-gray-300 rounded-md">
-                                <input type="text" name="phone_mobile" placeholder="Mobile Phone" class="border-gray-300 rounded-md">
-                                <input type="text" name="phone_office" placeholder="Office Phone" class="border-gray-300 rounded-md">
+                                <input type="text" name="phone_mobile" placeholder="555-555-5555" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" oninput="formatPhoneInput(this)" class="border-gray-300 rounded-md">
+                                <input type="text" name="phone_office" placeholder="555-555-5555" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" oninput="formatPhoneInput(this)" class="border-gray-300 rounded-md">
                             </div>
 
                             <div>
@@ -302,7 +380,11 @@
                                     <input type="text" name="address_line2" placeholder="Address Line 2" class="block w-full border-gray-300 rounded-md">
                                     <div class="grid grid-cols-3 gap-2">
                                         <input type="text" name="city" placeholder="City" class="border-gray-300 rounded-md">
-                                        <input type="text" name="state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md">
+                                        <select name="state" class="border-gray-300 rounded-md">
+                                            @foreach($stateOptions as $code => $label)
+                                                <option value="{{ $code }}" {{ old('state', 'NM') === $code ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>
+                                            @endforeach
+                                        </select>
                                         <input type="text" name="zip" placeholder="ZIP" class="border-gray-300 rounded-md">
                                     </div>
                                 </div>
@@ -354,13 +436,17 @@
                                             <input type="text" name="attorney_title" placeholder="Title" class="border-gray-300 rounded-md" disabled>
                                             <input type="email" name="attorney_email" placeholder="Attorney Email" class="border-gray-300 rounded-md" disabled>
                                         </div>
-                                        <input type="text" name="attorney_phone" placeholder="Attorney Phone" class="block w-full border-gray-300 rounded-md" disabled>
+                                        <input type="text" name="attorney_phone" placeholder="555-555-5555" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" oninput="formatPhoneInput(this)" class="block w-full border-gray-300 rounded-md" disabled>
                                         <div class="grid grid-cols-1 gap-2">
                                             <input type="text" name="attorney_address_line1" placeholder="Attorney Address Line 1" class="border-gray-300 rounded-md" disabled>
                                             <input type="text" name="attorney_address_line2" placeholder="Attorney Address Line 2" class="border-gray-300 rounded-md" disabled>
                                             <div class="grid grid-cols-3 gap-2">
                                                 <input type="text" name="attorney_city" placeholder="City" class="border-gray-300 rounded-md" disabled>
-                                                <input type="text" name="attorney_state" placeholder="State" maxlength="2" class="border-gray-300 rounded-md" disabled>
+                                                <select name="attorney_state" class="border-gray-300 rounded-md" disabled>
+                                                    @foreach($stateOptions as $code => $label)
+                                                        <option value="{{ $code }}" {{ old('attorney_state', 'NM') === $code ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>
+                                                    @endforeach
+                                                </select>
                                                 <input type="text" name="attorney_zip" placeholder="ZIP" class="border-gray-300 rounded-md" disabled>
                                             </div>
                                         </div>
@@ -484,7 +570,7 @@
             const option = document.querySelector('input[name="attorney_option"]:checked')?.value;
             const existingSelect = document.querySelector('select[name="attorney_id"]');
             const newFields = document.getElementById('newAttorneyFields');
-            const newInputs = newFields?.querySelectorAll('input');
+            const newInputs = newFields?.querySelectorAll('input, select');
 
             if (option === 'existing') {
                 existingSelect.disabled = false;
@@ -502,6 +588,27 @@
                     input.required = ['attorney_first_name', 'attorney_last_name', 'attorney_email', 'attorney_phone'].includes(input.name);
                 });
             }
+        }
+
+        function formatPhoneInput(input) {
+            if (!input) {
+                return;
+            }
+
+            const digits = input.value.replace(/\D/g, '').slice(0, 10);
+            const parts = [];
+
+            if (digits.length > 0) {
+                parts.push(digits.slice(0, 3));
+            }
+            if (digits.length >= 4) {
+                parts.push(digits.slice(3, 6));
+            }
+            if (digits.length >= 7) {
+                parts.push(digits.slice(6, 10));
+            }
+
+            input.value = parts.join('-');
         }
 
         function editParty(partyId) {
@@ -613,7 +720,7 @@
             const option = modal.querySelector('input[name="attorney_option"]:checked')?.value;
             const existingSelect = modal.querySelector('select[name="attorney_id"]');
             const newFields = modal.querySelector('#newAttorneyFields');
-            const newInputs = newFields ? newFields.querySelectorAll('input') : [];
+            const newInputs = newFields ? newFields.querySelectorAll('input, select') : [];
 
             if (option === 'existing') {
                 if (existingSelect) {
@@ -645,10 +752,23 @@
             assignAttorney(partyId, formData);
         }
 
-        function removeAttorney(partyId, counselPartyId = null) {
-            const message = counselPartyId
-                ? 'Are you sure you want to remove this attorney from the party?'
-                : 'Are you sure you want to remove attorney representation for this party?';
+        function removeAttorney(partyId, counselPartyId = null, attorneyCount = null, partyType = null, partyName = 'this party') {
+            const isLastAttorney = Number(attorneyCount) === 1;
+
+            if (isLastAttorney && partyType === 'company') {
+                alert(`${partyName} is an entity and must keep at least one attorney. Add another attorney before removing this one.`);
+                return;
+            }
+
+            let message = counselPartyId
+                ? 'Remove this attorney from the party?'
+                : 'Remove attorney representation for this party?';
+
+            if (isLastAttorney) {
+                message = `Removing this attorney will make ${partyName} self-represented. Continue?`;
+            } else if (Number(attorneyCount) > 1) {
+                message = `Remove this attorney from ${partyName}? Other attorneys will remain assigned.`;
+            }
 
             if (confirm(message)) {
                 fetch(`/cases/{{ $case->id }}/parties/${partyId}/attorney`, {

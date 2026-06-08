@@ -790,6 +790,7 @@
                     </select>
                     <select id="statusFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Status</option>
+                        <option value="needs-stamp">Needs HU Stamp</option>
                         <option value="pending">Pending</option>
                         <option value="accepted">Accepted</option>
                         <option value="stamped">E-Stamped</option>
@@ -809,10 +810,12 @@
                         $latestDocCorrection = $doc->correctionCycles->firstWhere('status', 'open')
                             ?? $doc->correctionCycles->firstWhere('status', 'resubmitted');
                         $isHuIssued = $doc->approved && $doc->uploader?->isHearingUnit();
+                        $isPendingHuIssue = !$doc->approved && !$doc->rejected_reason && $doc->stamped && $doc->uploader?->isHearingUnit();
+                        $isPendingHuUpload = !$doc->approved && !$doc->rejected_reason && !$doc->stamped && $doc->uploader?->isHearingUnit();
                     @endphp
                     <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
                          data-doc-type="{{ $doc->doc_type }}"
-                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : 'pending')) }}"
+                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : ($isPendingHuUpload ? 'needs-stamp' : 'pending'))) }}"
                          data-filename="{{ strtolower($doc->original_filename) }}">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3">
@@ -821,7 +824,11 @@
                                     @if($doc->stamped)
                                         <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">📋 E-Stamped</span>
                                     @endif
-                                    @if($isHuIssued)
+                                    @if($isPendingHuUpload)
+                                        <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs HU Stamp</span>
+                                    @elseif($isPendingHuIssue)
+                                        <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending HU Issue</span>
+                                    @elseif($isHuIssued)
                                         <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
                                     @elseif($doc->approved)
                                         <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
@@ -844,17 +851,23 @@
                             </div>
                         </div>
                         <div class="flex space-x-2">
-                            <a href="{{ route('documents.preview', $doc) }}" target="_blank" class="text-gray-600 hover:text-gray-800 text-sm" title="Preview" @if(!$doc->approved) onclick="return confirmPendingDocumentAction()" @endif>
+                            <a href="{{ route('documents.preview', $doc) }}" target="_blank" class="text-gray-600 hover:text-gray-800 text-sm" title="Preview" @if(!$doc->approved && !$isPendingHuIssue && !$isPendingHuUpload) onclick="return confirmPendingDocumentAction()" @endif>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
                             </a>
-                            <a href="{{ route('documents.download', $doc) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Download" @if(!$doc->approved) onclick="return confirmPendingDocumentAction()" @endif>
+                            <a href="{{ route('documents.download', $doc) }}" class="text-blue-600 hover:text-blue-800 text-sm" title="Download" @if(!$doc->approved && !$isPendingHuIssue && !$isPendingHuUpload) onclick="return confirmPendingDocumentAction()" @endif>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                                 </svg>
                             </a>
+
+                            @if(($isPendingHuIssue || $isPendingHuUpload) && auth()->user()->isHearingUnit())
+                            <a href="{{ route('cases.documents.manage', $case) }}" class="{{ $isPendingHuUpload ? 'text-orange-700 hover:text-orange-900' : 'text-amber-700 hover:text-amber-900' }} text-sm" title="{{ $isPendingHuUpload ? 'Retry Stamp' : 'Issue & Notify' }}">
+                                {{ $isPendingHuUpload ? 'Retry Stamp' : 'Issue' }}
+                            </a>
+                            @endif
 
                             @if(auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))
                             <button onclick="deleteDocument({{ $doc->id }})" class="text-red-600 hover:text-red-800 text-sm" title="Delete">
@@ -1794,7 +1807,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
@@ -1834,9 +1847,15 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
-                                <input type="file" name="document[]" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple
+                                <input type="file" name="document[]" required accept="{{ auth()->user()->isHearingUnit() ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' }}" multiple
                                        class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
-                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    @if(auth()->user()->isHearingUnit())
+                                        Upload PDF orders or notices. The system will apply the electronic stamp and return a preview before notifications are sent.
+                                    @else
+                                        Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)
+                                    @endif
+                                </p>
                             </div>
 
                             @if(auth()->user()->isHearingUnit())
@@ -1845,7 +1864,7 @@
                                 <textarea name="notification_message" rows="4" maxlength="5000"
                                           class="block w-full border-gray-300 rounded-md"
                                           placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
-                                <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                                <p class="text-xs text-gray-500 mt-1">This message is saved for the service-list notification and can be reviewed before final issuance.</p>
                             </div>
                             @endif
 
@@ -1856,7 +1875,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
+                                {{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}
                             </button>
                         </div>
                     </form>

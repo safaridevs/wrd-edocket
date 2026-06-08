@@ -140,9 +140,15 @@
 
                                             @php
                                                 $isHuIssued = $document->approved && $document->uploader?->isHearingUnit();
+                                                $isPendingHuIssue = !$document->approved && !$document->rejected_reason && $document->stamped && $document->uploader?->isHearingUnit();
+                                                $isPendingHuUpload = !$document->approved && !$document->rejected_reason && !$document->stamped && $document->uploader?->isHearingUnit();
                                             @endphp
 
-                                            @if($isHuIssued)
+                                            @if($isPendingHuUpload)
+                                                <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs HU Stamp</span>
+                                            @elseif($isPendingHuIssue)
+                                                <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending HU Issue</span>
+                                            @elseif($isHuIssued)
                                                 <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
                                             @elseif($document->approved)
                                                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
@@ -176,7 +182,7 @@
                                                 </span>
                                             @endif
 
-                                            @if($document->doc_type === 'notice_publication' && !$document->approved)
+                                            @if($document->doc_type === 'notice_publication' && !$document->approved && !$isPendingHuIssue && !$isPendingHuUpload)
                                                 <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded" title="Notice of Publication requires approval">
                                                     ❌ Requires Review
                                                 </span>
@@ -268,6 +274,53 @@
                                                 <strong>❌ File Issue:</strong> Document file is missing or corrupted and needs to be re-uploaded.
                                             </div>
                                         @endif
+
+                                        @if($isPendingHuUpload)
+                                            <div class="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                                                <div class="text-sm font-semibold text-orange-900">Electronic stamp still needed</div>
+                                                <p class="mt-1 text-sm text-orange-800">The PDF was saved, but the automatic stamp did not complete. No service-list notification has been sent.</p>
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    <a href="{{ route('documents.preview', $document) }}" target="_blank" class="text-blue-700 hover:text-blue-900 text-sm bg-white px-3 py-1.5 rounded border border-blue-200">
+                                                        Preview Original PDF
+                                                    </a>
+                                                    <button onclick="stampDocument({{ $document->id }})"
+                                                            class="text-white text-sm bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded">
+                                                        Retry Stamp
+                                                    </button>
+                                                </div>
+                                                <form method="POST" action="{{ route('cases.documents.replace-hu-upload', [$case, $document]) }}" enctype="multipart/form-data" class="mt-3 rounded-md border border-orange-200 bg-white p-3">
+                                                    @csrf
+                                                    <label class="block text-xs font-medium text-orange-900 mb-1">Upload corrected PDF</label>
+                                                    <div class="flex flex-col gap-2 md:flex-row md:items-center">
+                                                        <input type="file" name="document" required accept=".pdf" class="block w-full text-sm border-orange-200 rounded-md">
+                                                        <button type="submit" class="text-white text-sm bg-orange-600 hover:bg-orange-700 px-3 py-1.5 rounded whitespace-nowrap">
+                                                            Replace & Stamp
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                                <p class="mt-2 text-xs text-orange-700">If Retry Stamp fails again, re-save or print the source document to a new PDF and upload it here.</p>
+                                            </div>
+                                        @elseif($isPendingHuIssue)
+                                            <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                                <div class="text-sm font-semibold text-amber-900">Stamped preview ready for HU review</div>
+                                                <p class="mt-1 text-sm text-amber-800">Open the stamped PDF preview. Service-list notifications will not be sent until you click Issue & Notify.</p>
+                                                <form method="POST" action="{{ route('cases.documents.issue-stamped', [$case, $document]) }}" class="mt-3 space-y-3">
+                                                    @csrf
+                                                    <div>
+                                                        <label class="block text-xs font-medium text-amber-900 mb-1">Additional notification message</label>
+                                                        <textarea name="notification_message" rows="3" maxlength="5000" class="block w-full border-amber-200 rounded-md text-sm" placeholder="Optional conference links, instructions, deadlines, or other message.">{{ session("hu_issue_message_{$document->id}") }}</textarea>
+                                                    </div>
+                                                    <div class="flex flex-wrap gap-2">
+                                                        <a href="{{ route('documents.preview', $document) }}" target="_blank" class="text-blue-700 hover:text-blue-900 text-sm bg-white px-3 py-1.5 rounded border border-blue-200">
+                                                            Preview Stamped PDF
+                                                        </a>
+                                                        <button type="submit" class="text-white text-sm bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded" onclick="return confirm('Issue this stamped document and notify the service list?')">
+                                                            Issue & Notify
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -285,7 +338,18 @@
                                     @endif
 
                                     @if(in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
-                                        @if(!$document->approved && !$document->rejected_reason)
+                                        @if($isPendingHuUpload)
+                                            <button onclick="stampDocument({{ $document->id }})"
+                                                    class="text-orange-700 hover:text-orange-900 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
+                                                Retry Stamp
+                                            </button>
+                                        @elseif($isPendingHuIssue)
+                                            <a href="{{ route('documents.preview', $document) }}" target="_blank"
+                                               onclick="markDocumentAsViewed({{ $document->id }})"
+                                               class="text-blue-700 hover:text-blue-900 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
+                                                Preview Stamped PDF
+                                            </a>
+                                        @elseif(!$document->approved && !$document->rejected_reason)
                                             <button onclick="approveDocument({{ $document->id }})"
                                                     id="approve-btn-{{ $document->id }}"
                                                     disabled
@@ -319,7 +383,7 @@
                                             </button>
                                         @endif
 
-                                        @if(!$isHuIssued && ($hasNamingIssue || $hasFileIssue))
+                                        @if(!$isHuIssued && !$isPendingHuIssue && !$isPendingHuUpload && ($hasNamingIssue || $hasFileIssue))
                                             <button onclick="requestFix({{ $document->id }})"
                                                     class="text-orange-600 hover:text-orange-800 text-sm bg-orange-50 px-3 py-1 rounded whitespace-nowrap">
                                                 Request Fix
@@ -452,7 +516,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}</h3>
+                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
                         <div class="space-y-4">
@@ -492,9 +556,15 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
-                                <input type="file" name="document[]" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple
+                                <input type="file" name="document[]" required accept="{{ auth()->user()->isHearingUnit() ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' }}" multiple
                                        class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
-                                <p class="text-xs text-gray-500 mt-1">Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)</p>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    @if(auth()->user()->isHearingUnit())
+                                        Upload PDF orders or notices. The system will apply the electronic stamp and return a preview before notifications are sent.
+                                    @else
+                                        Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)
+                                    @endif
+                                </p>
                             </div>
 
                             @if(auth()->user()->isHearingUnit())
@@ -503,7 +573,7 @@
                                 <textarea name="notification_message" rows="4" maxlength="5000"
                                           class="block w-full border-gray-300 rounded-md"
                                           placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
-                                <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                                <p class="text-xs text-gray-500 mt-1">This message is saved for the service-list notification and can be reviewed before final issuance.</p>
                             </div>
                             @endif
 
@@ -514,7 +584,7 @@
                                 Cancel
                             </button>
                             <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->getCurrentRole() === 'hu_admin' ? 'Issue Order or Notice' : 'File Document' }}
+                                {{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}
                             </button>
                         </div>
                     </form>

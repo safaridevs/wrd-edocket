@@ -1,3 +1,60 @@
+@php
+    $stateOptions = [
+        'AL' => 'Alabama',
+        'AK' => 'Alaska',
+        'AZ' => 'Arizona',
+        'AR' => 'Arkansas',
+        'CA' => 'California',
+        'CO' => 'Colorado',
+        'CT' => 'Connecticut',
+        'DE' => 'Delaware',
+        'FL' => 'Florida',
+        'GA' => 'Georgia',
+        'HI' => 'Hawaii',
+        'ID' => 'Idaho',
+        'IL' => 'Illinois',
+        'IN' => 'Indiana',
+        'IA' => 'Iowa',
+        'KS' => 'Kansas',
+        'KY' => 'Kentucky',
+        'LA' => 'Louisiana',
+        'ME' => 'Maine',
+        'MD' => 'Maryland',
+        'MA' => 'Massachusetts',
+        'MI' => 'Michigan',
+        'MN' => 'Minnesota',
+        'MS' => 'Mississippi',
+        'MO' => 'Missouri',
+        'MT' => 'Montana',
+        'NE' => 'Nebraska',
+        'NV' => 'Nevada',
+        'NH' => 'New Hampshire',
+        'NJ' => 'New Jersey',
+        'NM' => 'New Mexico',
+        'NY' => 'New York',
+        'NC' => 'North Carolina',
+        'ND' => 'North Dakota',
+        'OH' => 'Ohio',
+        'OK' => 'Oklahoma',
+        'OR' => 'Oregon',
+        'PA' => 'Pennsylvania',
+        'RI' => 'Rhode Island',
+        'SC' => 'South Carolina',
+        'SD' => 'South Dakota',
+        'TN' => 'Tennessee',
+        'TX' => 'Texas',
+        'UT' => 'Utah',
+        'VT' => 'Vermont',
+        'VA' => 'Virginia',
+        'WA' => 'Washington',
+        'WV' => 'West Virginia',
+        'WI' => 'Wisconsin',
+        'WY' => 'Wyoming',
+    ];
+
+    $hasAttorneyRepresentation = $party->attorneys->isNotEmpty();
+@endphp
+
 <form id="editPartyForm" onsubmit="updateParty(event, {{ $party->id }})">
     @csrf
     @method('PUT')
@@ -42,8 +99,8 @@
 
         <div class="grid grid-cols-3 gap-2">
             <input type="email" name="email" placeholder="Email *" value="{{ $party->person->email }}" required class="border-gray-300 rounded-md">
-            <input type="text" name="phone_mobile" placeholder="Mobile Phone" value="{{ $party->person->phone_mobile }}" class="border-gray-300 rounded-md">
-            <input type="text" name="phone_office" placeholder="Office Phone" value="{{ $party->person->phone_office }}" class="border-gray-300 rounded-md">
+            <input type="text" name="phone_mobile" placeholder="555-555-5555" value="{{ $party->person->phone_mobile }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" oninput="formatPhoneInput(this)" class="border-gray-300 rounded-md">
+            <input type="text" name="phone_office" placeholder="555-555-5555" value="{{ $party->person->phone_office }}" inputmode="tel" pattern="\d{3}-\d{3}-\d{4}" oninput="formatPhoneInput(this)" class="border-gray-300 rounded-md">
         </div>
 
         <div>
@@ -53,7 +110,11 @@
                 <input type="text" name="address_line2" placeholder="Address Line 2" value="{{ $party->person->address_line2 }}" class="block w-full border-gray-300 rounded-md">
                 <div class="grid grid-cols-3 gap-2">
                     <input type="text" name="city" placeholder="City" value="{{ $party->person->city }}" class="border-gray-300 rounded-md">
-                    <input type="text" name="state" placeholder="State" value="{{ $party->person->state }}" maxlength="2" class="border-gray-300 rounded-md">
+                    <select name="state" class="border-gray-300 rounded-md">
+                        @foreach($stateOptions as $code => $label)
+                            <option value="{{ $code }}" {{ old('state', $party->person->state ?: 'NM') === $code ? 'selected' : '' }}>{{ $code }} - {{ $label }}</option>
+                        @endforeach
+                    </select>
                     <input type="text" name="zip" placeholder="ZIP" value="{{ $party->person->zip }}" class="border-gray-300 rounded-md">
                 </div>
             </div>
@@ -62,54 +123,15 @@
         <!-- Representation -->
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Representation</label>
-            <div class="space-y-2">
-                <label class="flex items-center">
-                    <input type="radio" name="representation" value="self" {{ $party->representation === 'self' ? 'checked' : '' }} class="mr-2" onchange="toggleEditRepresentation()">
+            <div class="space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3 opacity-75">
+                <label class="flex items-center text-sm text-gray-700">
+                    <input type="radio" value="self" {{ !$hasAttorneyRepresentation ? 'checked' : '' }} class="mr-2" disabled>
                     Self-Represented
                 </label>
-                <label class="flex items-center">
-                    <input type="radio" name="representation" value="attorney" {{ $party->representation === 'attorney' ? 'checked' : '' }} class="mr-2" onchange="toggleEditRepresentation()">
+                <label class="flex items-center text-sm text-gray-700">
+                    <input type="radio" value="attorney" {{ $hasAttorneyRepresentation ? 'checked' : '' }} class="mr-2" disabled>
                     Attorney Representation
                 </label>
-            </div>
-        </div>
-
-        <!-- Attorney Fields -->
-        <div id="editAttorneyFields" class="{{ $party->representation !== 'attorney' ? 'hidden' : '' }} space-y-4">
-            <div class="space-y-2">
-                <label class="flex items-center">
-                    <input type="radio" name="attorney_option" value="existing" {{ $party->attorney_id ? 'checked' : '' }} class="mr-2" onchange="toggleEditAttorneyOption()">
-                    Select Existing Attorney
-                </label>
-                <select name="attorney_id" class="ml-6 block w-full border-gray-300 rounded-md" {{ !$party->attorney_id ? 'disabled' : '' }}>
-                    <option value="">Choose an attorney...</option>
-                    @foreach($attorneys as $attorney)
-                        <option value="{{ $attorney->id }}" {{ $party->attorney_id == $attorney->id ? 'selected' : '' }}>
-                            {{ $attorney->full_name }} ({{ $attorney->email }})
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="space-y-2">
-                <label class="flex items-center">
-                    <input type="radio" name="attorney_option" value="new" {{ !$party->attorney_id ? 'checked' : '' }} class="mr-2" onchange="toggleEditAttorneyOption()">
-                    Add New Attorney
-                </label>
-                <div id="editNewAttorneyFields" class="ml-6 space-y-2 {{ $party->attorney_id ? 'opacity-50' : '' }}">
-                    <div class="grid grid-cols-1 md:grid-cols-6 gap-2">
-                        <input type="text" name="attorney_prefix" placeholder="Prefix" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                        <input type="text" name="attorney_first_name" placeholder="First Name" class="border-gray-300 rounded-md md:col-span-2" {{ $party->attorney_id ? 'disabled' : '' }}>
-                        <input type="text" name="attorney_middle_name" placeholder="Middle" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                        <input type="text" name="attorney_last_name" placeholder="Last Name" class="border-gray-300 rounded-md md:col-span-2" {{ $party->attorney_id ? 'disabled' : '' }}>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <input type="text" name="attorney_suffix" placeholder="Suffix" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                        <input type="text" name="attorney_title" placeholder="Title" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                        <input type="email" name="attorney_email" placeholder="Attorney Email" class="border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                    </div>
-                    <input type="text" name="attorney_phone" placeholder="Attorney Phone" class="block w-full border-gray-300 rounded-md" {{ $party->attorney_id ? 'disabled' : '' }}>
-                </div>
             </div>
         </div>
     </div>
@@ -158,41 +180,6 @@ function toggleEditPartyType(select) {
     } else {
         individualFields.classList.add('hidden');
         companyFields.classList.remove('hidden');
-    }
-}
-
-function toggleEditRepresentation() {
-    const attorneyFields = document.getElementById('editAttorneyFields');
-    const attorneySelected = document.querySelector('input[name="representation"][value="attorney"]:checked');
-
-    if (attorneySelected) {
-        attorneyFields.classList.remove('hidden');
-    } else {
-        attorneyFields.classList.add('hidden');
-    }
-}
-
-function toggleEditAttorneyOption() {
-    const option = document.querySelector('input[name="attorney_option"]:checked')?.value;
-    const existingSelect = document.querySelector('select[name="attorney_id"]');
-    const newFields = document.getElementById('editNewAttorneyFields');
-    const newInputs = newFields?.querySelectorAll('input');
-
-    if (option === 'existing') {
-        existingSelect.disabled = false;
-        newFields.classList.add('opacity-50');
-        newInputs.forEach(input => {
-            input.disabled = true;
-            input.required = false;
-        });
-    } else if (option === 'new') {
-        existingSelect.disabled = true;
-        existingSelect.value = '';
-        newFields.classList.remove('opacity-50');
-        newInputs.forEach(input => {
-            input.disabled = false;
-            input.required = ['attorney_first_name', 'attorney_last_name', 'attorney_email', 'attorney_phone'].includes(input.name);
-        });
     }
 }
 

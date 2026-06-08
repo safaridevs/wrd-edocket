@@ -45,7 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/{case}/file-document', [DocumentController::class, 'fileForm'])->name('documents.file');
     Route::post('cases/{case}/file-document', [DocumentController::class, 'store'])->name('documents.file.store');
     Route::get('cases/{case}/upload-documents', [CaseController::class, 'uploadDocuments'])->name('cases.documents.upload');
-    Route::post('cases/{case}/upload-documents', [CaseController::class, 'storeDocuments'])->name('cases.documents.store');
+    Route::post('cases/{case}/upload-documents', [CaseController::class, 'storeDocuments'])->name('cases.documents.bulk-store');
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])->middleware('permission:apply_stamp')->name('documents.approve');
     
     Route::get('cases/{case}/persons/{person}/edit', [PersonController::class, 'edit'])->name('cases.persons.edit');
@@ -68,6 +68,8 @@ Route::middleware('auth')->group(function () {
 
     Route::post('cases/{case}/documents/{document}/request-fix', [CaseController::class, 'requestDocumentFix'])->name('cases.documents.request-fix');
     Route::post('cases/{case}/documents/{document}/stamp', [CaseController::class, 'stampDocument'])->name('cases.documents.stamp');
+    Route::post('cases/{case}/documents/{document}/replace-hu-upload', [CaseController::class, 'replacePendingHuDocument'])->name('cases.documents.replace-hu-upload');
+    Route::post('cases/{case}/documents/{document}/issue-stamped', [CaseController::class, 'issueStampedDocument'])->name('cases.documents.issue-stamped');
     Route::delete('cases/{case}/documents/{document}', [CaseController::class, 'destroyDocument'])->name('cases.documents.destroy');
 });
 

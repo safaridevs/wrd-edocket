@@ -8,7 +8,13 @@
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="mb-6">
                     <h3 class="text-lg font-medium">Upload Case Documents</h3>
-                    <p class="text-sm text-gray-600 mt-1">Upload required documents for case {{ $case->case_no }}. Only PDF files are accepted.</p>
+                    <p class="text-sm text-gray-600 mt-1">
+                        @if(auth()->user()->isHearingUnit())
+                            Upload PDF orders or notices. The system will apply the electronic stamp and show a preview before service-list notifications are sent.
+                        @else
+                            Upload required documents for case {{ $case->case_no }}. Only PDF files are accepted.
+                        @endif
+                    </p>
                 </div>
 
                 <!-- Error Messages -->
@@ -34,7 +40,7 @@
                     </div>
                 @endif
 
-                <form action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('cases.documents.bulk-store', $case) }}" method="POST" enctype="multipart/form-data">
                     @csrf
                     
 
@@ -233,7 +239,7 @@
                         <textarea name="notification_message" rows="4" maxlength="5000"
                                   class="block w-full border-gray-300 rounded-md"
                                   placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
-                        <p class="text-xs text-gray-500 mt-1">This message will be sent to the case service list with the document notice.</p>
+                        <p class="text-xs text-gray-500 mt-1">This message is saved for the service-list notification and can be reviewed before final issuance.</p>
                     </div>
                     @endif
 
@@ -243,7 +249,7 @@
                             Cancel
                         </a>
                         <button type="submit" class="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600">
-                            Upload Documents
+                            {{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'Upload Documents' }}
                         </button>
                     </div>
                 </form>
