@@ -263,7 +263,7 @@
                 <h3 class="text-lg font-medium mb-4">Administrative Litigation Unit</h3>
                 @if($case->wrd_office_label)
                     <div class="text-sm">
-                        <div class="font-medium">{{ $case->wrd_office_label }}</div>
+                        <div class="font-medium">{{ str_replace('WRD', 'Water Right Division', $case->wrd_office_label) }}</div>
                         @if(!empty($case->wrd_office_details))
                             <div class="text-gray-600">{{ $case->wrd_office_details['address'] }}</div>
                             <div class="text-gray-600">{{ $case->wrd_office_details['city'] }}, {{ $case->wrd_office_details['state'] }} {{ $case->wrd_office_details['zip'] }}</div>
@@ -280,7 +280,7 @@
                                     <div class="font-medium text-gray-900">
                                         {{ $attorney->getDisplayName() }}
                                         @if($attorney->isExternalAttorney())
-                                            <span class="ml-2 text-xs font-normal text-indigo-700">WRD contract representative</span>
+                                            <span class="ml-2 text-xs font-normal text-indigo-700">Water Right Division contract representative</span>
                                         @endif
                                     </div>
                                     <div class="text-sm text-gray-600">{{ $attorney->email }}</div>
@@ -292,7 +292,7 @@
                         @endif
                     </div>
                 @else
-                    <p class="text-gray-500 text-sm">WRD office not set on this case.</p>
+                    <p class="text-gray-500 text-sm">Water Right Division office not set on this case.</p>
                 @endif
             </div>
 

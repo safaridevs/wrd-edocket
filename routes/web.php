@@ -122,7 +122,7 @@ Route::middleware('auth')->group(function () {
     Route::get('attorney/my-clients', [\App\Http\Controllers\AttorneyController::class, 'myClients'])->name('attorney.my-clients');
     
     // Attorney profile management
-    Route::get('attorney/profile/edit', [\App\Http\Controllers\AttorneyController::class, 'editProfile'])->name('attorney.profile.edit');
+    Route::get('attorney/profile/edit', fn () => redirect()->route('party.contact.edit'))->name('attorney.profile.edit');
     Route::patch('attorney/profile', [\App\Http\Controllers\AttorneyController::class, 'updateProfile'])->name('attorney.profile.update');
     
     // Party contact management

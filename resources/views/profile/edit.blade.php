@@ -1,181 +1,190 @@
+@php
+    $currentRole = ucwords(str_replace('_', ' ', $user->getCurrentRole()));
+    $initials = $user->initials ?: collect(explode(' ', trim($user->name)))
+        ->filter()
+        ->take(2)
+        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
+        ->join('');
+
+    $activePanel = match (true) {
+        session('status') === 'legal-service-profile-updated' => 'legal',
+        session('status') === 'password-updated' || $errors->updatePassword->isNotEmpty() => 'security',
+        default => 'account',
+    };
+
+    $legalContactName = $person?->full_name ?: $person?->organization;
+@endphp
+
 <x-app-layout>
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <!-- Header Section -->
-        <div class="bg-white shadow-sm border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">My Profile</h1>
-                        <p class="text-gray-600 mt-1">Manage your account settings and preferences</p>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="text-right">
-                            <p class="text-sm font-medium text-gray-900">{{ auth()->user()->name }}</p>
-                            <p class="text-xs text-gray-500">{{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}</p>
-                        </div>
-                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span class="text-blue-600 font-semibold text-sm">{{ auth()->user()->initials }}</span>
-                        </div>
-                    </div>
-                </div>
+    <x-slot name="header">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-xl font-semibold leading-tight text-slate-900">
+                    Profile
+                </h2>
+                <p class="text-sm text-slate-500">
+                    {{ $user->email }}
+                </p>
             </div>
+            <span class="inline-flex w-fit items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                Active {{ $currentRole }}
+            </span>
         </div>
+    </x-slot>
 
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Profile Overview -->
-                <div class="lg:col-span-1">
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <div class="text-center">
-                            <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <span class="text-blue-600 font-bold text-xl">{{ auth()->user()->initials }}</span>
+    <div class="bg-slate-50 py-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div
+                x-data="{ activePanel: @js($activePanel) }"
+                class="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"
+            >
+                <aside class="space-y-4">
+                    <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center gap-4">
+                            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-base font-semibold text-white">
+                                {{ $initials ?: 'U' }}
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900">{{ auth()->user()->name }}</h3>
-                            <p class="text-sm text-gray-600">{{ auth()->user()->email }}</p>
-                            <span class="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                {{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}
-                            </span>
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-slate-950">{{ $user->name }}</p>
+                                <p class="truncate text-xs text-slate-500">{{ $currentRole }}</p>
+                            </div>
                         </div>
-                        
-                        <div class="mt-6 space-y-3">
-                            <div class="flex items-center text-sm text-gray-600">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                Account Active
-                            </div>
-                            <div class="flex items-center text-sm text-gray-600">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                </svg>
-                                Secure Access
-                            </div>
-                            @if(auth()->user()->initials)
-                            <div class="flex items-center text-sm text-gray-600">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Initials: {{ auth()->user()->initials }}
-                            </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Profile Forms -->
-                <div class="lg:col-span-2 space-y-6">
-                    <!-- Profile Information -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
+                        <dl class="mt-5 space-y-3 border-t border-slate-100 pt-4 text-sm">
+                            <div>
+                                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Email</dt>
+                                <dd class="mt-1 break-all text-slate-800">{{ $user->email }}</dd>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Initials</dt>
+                                    <dd class="mt-1 text-slate-800">{{ $user->initials ?: '-' }}</dd>
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">Profile Information</h3>
-                                    <p class="text-sm text-gray-600">Update your account's profile information</p>
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Member Since</dt>
+                                    <dd class="mt-1 text-slate-800">{{ $user->created_at->format('M d, Y') }}</dd>
                                 </div>
                             </div>
-                        </div>
-                        <div class="p-6">
-                            @include('profile.partials.update-profile-information-form')
-                        </div>
-                    </div>
+                        </dl>
+                    </section>
 
-                    <!-- Legal Service Profile -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">Legal Service Profile</h3>
-                                    <p class="text-sm text-gray-600">Update contact information used for service and case notices</p>
-                                </div>
+                    <nav class="rounded-lg border border-slate-200 bg-white p-2 shadow-sm" aria-label="Profile sections">
+                        <button
+                            type="button"
+                            x-on:click="activePanel = 'account'"
+                            class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
+                            x-bind:class="activePanel === 'account' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
+                        >
+                            <span>Account</span>
+                            <span class="text-xs" x-bind:class="activePanel === 'account' ? 'text-slate-300' : 'text-slate-400'">Identity</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            x-on:click="activePanel = 'legal'"
+                            class="mt-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
+                            x-bind:class="activePanel === 'legal' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
+                        >
+                            <span>Contact Information</span>
+                            <span class="text-xs" x-bind:class="activePanel === 'legal' ? 'text-slate-300' : 'text-slate-400'">Service</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            x-on:click="activePanel = 'security'"
+                            class="mt-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
+                            x-bind:class="activePanel === 'security' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
+                        >
+                            <span>Security</span>
+                            <span class="text-xs" x-bind:class="activePanel === 'security' ? 'text-slate-300' : 'text-slate-400'">Password</span>
+                        </button>
+                    </nav>
+
+                    <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+                        <p class="font-semibold text-amber-950">Service Contact</p>
+                        <p class="mt-1 text-amber-900">{{ $legalContactName ?: 'Not linked' }}</p>
+                        @if($person?->phone_office || $person?->phone_mobile)
+                            <p class="mt-2 text-xs text-amber-800">
+                                {{ $person->phone_office ?: $person->phone_mobile }}
+                            </p>
+                        @endif
+                    </section>
+                </aside>
+
+                <main class="min-w-0">
+                    <section
+                        x-show="activePanel === 'account'"
+                        x-cloak
+                        class="rounded-lg border border-slate-200 bg-white shadow-sm"
+                    >
+                        <div class="border-b border-slate-200 px-6 py-4">
+                            <h3 class="text-base font-semibold text-slate-950">Account Identity</h3>
+                        </div>
+                        <div class="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+                            <div>
+                                @include('profile.partials.update-profile-information-form')
                             </div>
+                            <aside class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <dl class="space-y-4 text-sm">
+                                    <div>
+                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</dt>
+                                        <dd class="mt-1 text-slate-900">{{ $currentRole }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Status</dt>
+                                        <dd class="mt-1">
+                                            <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Active</span>
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Updated</dt>
+                                        <dd class="mt-1 text-slate-900">{{ $user->updated_at->format('M d, Y') }}</dd>
+                                    </div>
+                                </dl>
+                            </aside>
+                        </div>
+                    </section>
+
+                    <section
+                        x-show="activePanel === 'legal'"
+                        x-cloak
+                        class="rounded-lg border border-slate-200 bg-white shadow-sm"
+                    >
+                        <div class="border-b border-slate-200 px-6 py-4">
+                            <h3 class="text-base font-semibold text-slate-950">Contact Information</h3>
                         </div>
                         <div class="p-6">
                             @include('profile.partials.update-legal-service-profile-form')
                         </div>
-                    </div>
+                    </section>
 
-                    <!-- Security Settings -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">Security Settings</h3>
-                                    <p class="text-sm text-gray-600">Update your password to keep your account secure</p>
-                                </div>
-                            </div>
+                    <section
+                        x-show="activePanel === 'security'"
+                        x-cloak
+                        class="rounded-lg border border-slate-200 bg-white shadow-sm"
+                    >
+                        <div class="border-b border-slate-200 px-6 py-4">
+                            <h3 class="text-base font-semibold text-slate-950">Security</h3>
                         </div>
-                        <div class="p-6">
-                            @include('profile.partials.update-password-form')
-                        </div>
-                    </div>
-
-                    <!-- Account Information -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div class="p-6 border-b border-gray-200">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                                    <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">Account Information</h3>
-                                    <p class="text-sm text-gray-600">Important details about your OSE E-Docket account</p>
-                                </div>
+                        <div class="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
+                            <div>
+                                @include('profile.partials.update-password-form')
                             </div>
-                        </div>
-                        <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Account Created</label>
-                                    <p class="text-sm text-gray-900">{{ auth()->user()->created_at->format('F j, Y') }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
-                                    <p class="text-sm text-gray-900">{{ auth()->user()->updated_at->format('F j, Y') }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Account Status</label>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        Active
-                                    </span>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">User Role</label>
-                                    <p class="text-sm text-gray-900">{{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div class="flex items-start space-x-3">
-                                    <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
+                            <aside class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <dl class="space-y-4 text-sm">
                                     <div>
-                                        <h4 class="text-sm font-medium text-blue-900">Account Management</h4>
-                                        <p class="text-sm text-blue-800 mt-1">For account deactivation or role changes, please contact your system administrator or the OSE IT Support team.</p>
-                                        <p class="text-xs text-blue-700 mt-2">Email: <a href="mailto:support@ose.nm.gov" class="underline">support@ose.nm.gov</a></p>
+                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Access Type</dt>
+                                        <dd class="mt-1 text-slate-900">{{ $user->is_ldap_user ? 'OSE Network Account' : 'Local Password Account' }}</dd>
                                     </div>
-                                </div>
-                            </div>
+                                    <div>
+                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Last Account Update</dt>
+                                        <dd class="mt-1 text-slate-900">{{ $user->updated_at->format('M d, Y g:i A') }}</dd>
+                                    </div>
+                                </dl>
+                            </aside>
                         </div>
-                    </div>
-                </div>
+                    </section>
+                </main>
             </div>
         </div>
     </div>
