@@ -424,7 +424,7 @@ class CaseService
 
         // Handle compliance documents
         if ($case->case_type === 'compliance' && $request->hasFile('documents.compliance')) {
-            $complianceType = $request->input('compliance_doc_type') ?: 'compliance_document';
+            $complianceType = $request->input('compliance_doc_type') ?: 'other';
             $this->processFileArray(
                 $request->file('documents.compliance'),
                 $case,
@@ -453,11 +453,12 @@ class CaseService
         // Handle optional documents from dropdown structure
         if ($request->has('optional_docs')) {
             foreach ($request->input('optional_docs') as $index => $optionalDoc) {
-                if (isset($optionalDoc['type']) && $optionalDoc['type'] && $request->hasFile("optional_docs.{$index}.files")) {
+                if ($request->hasFile("optional_docs.{$index}.files")) {
+                    $docType = $optionalDoc['type'] ?: 'other';
                     $customTitle = $optionalDoc['custom_title'] ?? null;
                     foreach ($request->file("optional_docs.{$index}.files") as $fileIndex => $file) {
                         if ($file && $file->isValid()) {
-                            $displayType = $this->getDisplayType($optionalDoc['type']);
+                            $displayType = $this->getDisplayType($docType);
                             $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
                             
                             $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
@@ -470,7 +471,7 @@ class CaseService
                             
                             $documentData = [
                                 'case_id' => $case->id,
-                                'doc_type' => $optionalDoc['type'],
+                                'doc_type' => $docType,
                                 'custom_title' => $customTitle,
                                 'original_filename' => $originalFilename,
                                 'stored_filename' => $storedFilename,
@@ -490,7 +491,7 @@ class CaseService
             }
         }
         
-        // Handle other documents from upload-documents form structure
+        // Handle other documents from the case intake document form structure.
         if ($request->has('documents.other')) {
             foreach ($request->input('documents.other') as $index => $otherDoc) {
                 if (isset($otherDoc['type']) && $otherDoc['type'] && $request->hasFile("documents.other.{$index}.file")) {
@@ -645,22 +646,14 @@ class CaseService
             'items_count' => $rejection->items()->count(),
         ]);
 
-        // Notify case creator (ALU Clerk)
-        $this->notificationService->notify(
-            $case->creator,
-            'case_rejected',
-            'Case Rejected - Action Required',
-            "Case {$case->case_no} has been rejected by HU. Summary: {$reason}. Please review the correction items, make the necessary changes, and resubmit.",
-            $case
-        );
+        $case->loadMissing('creator');
 
-        // Notify assigned attorney if any
-        if ($case->assignedAttorney) {
+        if ($case->creator) {
             $this->notificationService->notify(
-                $case->assignedAttorney,
+                $case->creator,
                 'case_rejected',
-                'Case Rejected',
-                "Case {$case->case_no} has been rejected by HU. Summary: {$reason}",
+                'Case Rejected - Action Required',
+                "Case {$case->case_no} has been rejected by HU. Summary: {$reason}. Please review the correction items, make the necessary changes, and resubmit.",
                 $case
             );
         }

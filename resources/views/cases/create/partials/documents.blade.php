@@ -91,13 +91,13 @@
                         <input type="hidden" id="createDocumentModalGroup">
 
                         <div>
-                            <label for="createDocumentType" class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
+                            <label for="createDocumentType" class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
                             <select id="createDocumentType" class="block w-full rounded-md border-gray-300" onchange="syncCreateDocumentTitle()"></select>
                         </div>
 
                         <div>
                             <label for="createDocumentTitle" class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
-                            <input type="text" id="createDocumentTitle" maxlength="255" class="block w-full rounded-md border-gray-300" placeholder="Enter the document title">
+                            <input type="text" id="createDocumentTitle" maxlength="255" required class="block w-full rounded-md border-gray-300" placeholder="Enter the document title">
                             <p class="mt-2 text-sm text-gray-600">Document title is required.</p>
                             <p class="mt-1 text-sm text-orange-600">Note: the entered title should exactly match the document being uploaded. You can override the auto-filled title when needed.</p>
                         </div>

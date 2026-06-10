@@ -519,10 +519,11 @@
                     <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
                     <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
                         @csrf
+                        <input type="hidden" name="time_sensitive_notice" id="timeSensitiveNoticeInput" value="0">
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type *</label>
-                                <select name="doc_type" required class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
+                                <select name="doc_type" class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
                                     <option value="">Select document type...</option>
                                     @foreach($documentTypes as $docType)
                                     <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
@@ -1037,16 +1038,72 @@
             }
         }
 
+        let uploadTimeSensitiveDecisionMade = false;
+
         function confirmUpload(event) {
-            const customTitle = document.getElementById('customTitleInput').value.trim();
-            if (customTitle) {
-                const message = `You have entered a custom title:\n\n"${customTitle}"\n\nIs this correct?`;
-                if (!confirm(message)) {
-                    event.preventDefault();
-                    return false;
-                }
+            const form = event.target;
+            const timeSensitiveNoticeInput = document.getElementById('timeSensitiveNoticeInput');
+
+            if (!@json(!auth()->user()->isHearingUnit())) {
+                return true;
             }
-            return true;
+
+            if (uploadTimeSensitiveDecisionMade) {
+                uploadTimeSensitiveDecisionMade = false;
+                return true;
+            }
+
+            event.preventDefault();
+
+            if (timeSensitiveNoticeInput) {
+                timeSensitiveNoticeInput.value = '0';
+            }
+
+            showTimeSensitiveFilingPrompt((isTimeSensitive) => {
+                if (timeSensitiveNoticeInput) {
+                    timeSensitiveNoticeInput.value = isTimeSensitive ? '1' : '0';
+                }
+
+                uploadTimeSensitiveDecisionMade = true;
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+
+            return false;
+        }
+
+        function showTimeSensitiveFilingPrompt(onDecision) {
+            document.getElementById('timeSensitiveFilingPrompt')?.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'timeSensitiveFilingPrompt';
+            overlay.className = 'fixed inset-0 z-[70] bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
+            overlay.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Is this filing time-sensitive?</h3>
+                    <p class="text-sm text-gray-700 mb-6">
+                        Choose Yes to notify the service list immediately. Choose No to continue with normal HU review only.
+                    </p>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" data-time-sensitive="1" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Yes</button>
+                        <button type="button" data-time-sensitive="0" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">No</button>
+                    </div>
+                </div>
+            `;
+
+            overlay.querySelectorAll('[data-time-sensitive]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const isTimeSensitive = button.dataset.timeSensitive === '1';
+                    overlay.remove();
+                    onDecision(isTimeSensitive);
+                });
+            });
+
+            document.body.appendChild(overlay);
+            overlay.querySelector('[data-time-sensitive="0"]')?.focus();
         }
 
         function editDocumentTitle(documentId) {

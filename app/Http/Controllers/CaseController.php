@@ -238,7 +238,8 @@ class CaseController extends Controller
 
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)
-            ->orderBy('name')->get();
+            ->dropdownOrder()
+            ->get();
         $pleadingDocs = $documentTypes
             ->where('is_pleading', true);
         $optionalDocs = $documentTypes
@@ -379,7 +380,7 @@ class CaseController extends Controller
         $submissionNotificationRecipients = $this->caseService->getSubmissionNotificationOptions();
         $acceptanceNotificationRecipients = $this->caseService->getAcceptanceNotificationOptions($case);
         $documentTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
-            ->orderBy('name')
+            ->dropdownOrder()
             ->get();
 
         return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'documentTypes'));
@@ -798,36 +799,6 @@ class CaseController extends Controller
         $notificationCount = $this->caseService->notifySelectedParties($case, $validated['notify_recipients'], $validated['custom_message'] ?? null, Auth::user());
 
         return redirect()->route('cases.parties.manage', $case)->with('success', "Notifications sent to {$notificationCount} recipients.");
-    }
-
-    public function uploadDocuments(CaseModel $case)
-    {
-        if (!Auth::user()->canUploadDocumentsToCase($case)) {
-            if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
-                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
-            }
-
-            if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
-                abort(403, 'You can only upload documents to active cases you are associated with.');
-            }
-
-            abort(403);
-        }
-
-        $case->load(['documents.uploader']);
-
-        $userRole = Auth::user()->getCurrentRole();
-
-        if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney()) {
-            $documentTypes = \App\Models\DocumentType::forRole($userRole)
-                ->where('category', 'party_upload')
-                ->orderBy('name')->get();
-        } else {
-            $documentTypes = \App\Models\DocumentType::forRole($userRole)
-                ->orderBy('name')->get();
-        }
-
-        return view('cases.upload-documents', compact('case', 'documentTypes'));
     }
 
     public function storeDocuments(Request $request, CaseModel $case)
@@ -1445,7 +1416,7 @@ class CaseController extends Controller
             'documents.correctionCycles.items.resolvedBy',
         ]);
         $userRole = Auth::user()->getCurrentRole();
-        $documentTypes = \App\Models\DocumentType::forRole($userRole)->orderBy('name')->get();
+        $documentTypes = \App\Models\DocumentType::forRole($userRole)->dropdownOrder()->get();
         return view('cases.documents.manage', compact('case', 'documentTypes'));
     }
 
@@ -1465,19 +1436,26 @@ class CaseController extends Controller
 
         $validDocTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
             ->pluck('code')
+            ->push('other')
+            ->unique()
             ->toArray();
+
+        if (blank($request->input('doc_type'))) {
+            $request->merge(['doc_type' => 'other']);
+        }
 
         $documentFileRule = Auth::user()->isHearingUnit()
             ? 'required|file|mimes:pdf|max:204800'
             : 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:204800';
 
         $validated = $request->validate([
-            'doc_type' => 'required|in:' . implode(',', $validDocTypes),
+            'doc_type' => 'nullable|in:' . implode(',', $validDocTypes),
             'custom_title' => 'required|string|max:255',
             'pleading_type' => 'nullable|in:none,request_to_docket,request_pre_hearing',
             'document' => 'required|array|min:1',
             'document.*' => $documentFileRule,
             'notification_message' => 'nullable|string|max:5000',
+            'time_sensitive_notice' => 'nullable|boolean',
         ], [
             'document.required' => 'Select at least one document to upload.',
             'document.*.mimes' => Auth::user()->isHearingUnit()
@@ -1604,6 +1582,8 @@ class CaseController extends Controller
                 }
             }
 
+            $timeSensitiveNoticeCount = 0;
+
             if (!Auth::user()->isHearingUnit()) {
                 $this->notifyDocumentUploadRecipients(
                     $case,
@@ -1611,6 +1591,14 @@ class CaseController extends Controller
                     Auth::user(),
                     $validated['notification_message'] ?? null
                 );
+
+                if ($request->boolean('time_sensitive_notice')) {
+                    $timeSensitiveNoticeCount = $this->notifyTimeSensitiveFilingRecipients(
+                        $case,
+                        $uploadedDocuments,
+                        Auth::user()
+                    );
+                }
             }
 
             $message = Auth::user()->isHearingUnit()
@@ -1620,6 +1608,12 @@ class CaseController extends Controller
                 : ($uploadedCount === 1
                     ? 'Document uploaded successfully and is pending HU acceptance.'
                     : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.");
+
+            if ($timeSensitiveNoticeCount > 0) {
+                $message .= " {$timeSensitiveNoticeCount} recipient(s) notified of the time-sensitive filing.";
+            } elseif (!Auth::user()->isHearingUnit() && $request->boolean('time_sensitive_notice')) {
+                $message .= ' No service-list recipients were available for the time-sensitive notice.';
+            }
 
             if (Auth::user()->isHearingUnit() && !empty($stampingFailures)) {
                 return redirect()->route('cases.documents.manage', $case)
@@ -1653,15 +1647,13 @@ class CaseController extends Controller
 
             $message .= "\n\nView case: " . route('cases.show', $case);
 
-            foreach ($this->serviceNotificationEmails($case) as $email) {
-                $notificationService->notifyEmailAddress(
-                    $email,
-                    'issuance',
-                    "Case {$case->case_no}: Order or Notice Issued",
-                    $message,
-                    $case
-                );
-            }
+            $notificationService->notifyEmailAddresses(
+                $this->serviceNotificationEmails($case),
+                'issuance',
+                "Case {$case->case_no}: Order or Notice Issued",
+                $message,
+                $case
+            );
 
             return;
         }
@@ -1687,6 +1679,31 @@ class CaseController extends Controller
         );
     }
 
+    private function notifyTimeSensitiveFilingRecipients(CaseModel $case, \Illuminate\Support\Collection $documents, User $uploader): int
+    {
+        if ($documents->isEmpty()) {
+            return 0;
+        }
+
+        $notificationService = app(\App\Services\NotificationService::class);
+        $documentList = $documents
+            ->map(fn (Document $document) => '- ' . ($document->custom_title ?: $document->doc_type_label))
+            ->implode("\n");
+
+        $message = "A time-sensitive filing has been submitted in case {$case->case_no} by {$uploader->name}.\n\n"
+            . "Documents:\n{$documentList}\n\n"
+            . "This filing is pending Hearing Unit review.\n\n"
+            . "View case: " . route('cases.show', $case);
+
+        return $notificationService->notifyEmailAddresses(
+            $this->partyAndServiceNotificationEmails($case),
+            'time_sensitive_filing',
+            "Case {$case->case_no}: Time-Sensitive Filing Submitted",
+            $message,
+            $case
+        );
+    }
+
     private function serviceNotificationEmails(CaseModel $case): array
     {
         $case->loadMissing(['serviceList.person', 'assignments.user']);
@@ -1706,6 +1723,22 @@ class CaseController extends Controller
             }
 
             $this->addNotificationEmail($emails, $assignment->user?->email);
+        }
+
+        return array_values($emails);
+    }
+
+    private function partyAndServiceNotificationEmails(CaseModel $case): array
+    {
+        $case->loadMissing(['parties.person']);
+        $emails = [];
+
+        foreach ($this->serviceNotificationEmails($case) as $email) {
+            $this->addNotificationEmail($emails, $email);
+        }
+
+        foreach ($case->parties->reject(fn ($party) => $party->isWrdAgencyParty()) as $party) {
+            $this->addNotificationEmail($emails, $party->person?->email);
         }
 
         return array_values($emails);
@@ -1836,7 +1869,36 @@ class CaseController extends Controller
                 'accepted_by_user_id' => auth()->id(),
             ]);
 
-        return response()->json(['success' => true, 'message' => 'Document accepted successfully']);
+        $notifiedCount = $this->notifyDocumentAcceptanceRecipients($case, $document->refresh());
+
+        return response()->json([
+            'success' => true,
+            'message' => $notifiedCount > 0
+                ? "Document accepted successfully. {$notifiedCount} recipient(s) notified."
+                : 'Document accepted successfully. No service-list recipients were available to notify.',
+        ]);
+    }
+
+    private function notifyDocumentAcceptanceRecipients(CaseModel $case, Document $document): int
+    {
+        $notificationService = app(\App\Services\NotificationService::class);
+        $documentTitle = $document->custom_title ?: $document->doc_type_label;
+        $message = "A filed document has been accepted in case {$case->case_no}.\n\n"
+            . "Document:\n- {$documentTitle}\n\n"
+            . "View case documents: " . route('cases.documents.manage', $case);
+
+        return $notificationService->notifyEmailAddresses(
+            $this->documentAcceptanceNotificationEmails($case),
+            'document_accepted',
+            "Case {$case->case_no}: Document Accepted",
+            $message,
+            $case
+        );
+    }
+
+    private function documentAcceptanceNotificationEmails(CaseModel $case): array
+    {
+        return $this->partyAndServiceNotificationEmails($case);
     }
 
     public function rejectDocument(Request $request, CaseModel $case, $documentId)

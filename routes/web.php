@@ -42,10 +42,6 @@ Route::middleware('auth')->group(function () {
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
     Route::delete('cases/{case}', [CaseController::class, 'destroy'])->middleware('permission:create_case')->name('cases.destroy');
 
-    Route::get('cases/{case}/file-document', [DocumentController::class, 'fileForm'])->name('documents.file');
-    Route::post('cases/{case}/file-document', [DocumentController::class, 'store'])->name('documents.file.store');
-    Route::get('cases/{case}/upload-documents', [CaseController::class, 'uploadDocuments'])->name('cases.documents.upload');
-    Route::post('cases/{case}/upload-documents', [CaseController::class, 'storeDocuments'])->name('cases.documents.bulk-store');
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])->middleware('permission:apply_stamp')->name('documents.approve');
     
     Route::get('cases/{case}/persons/{person}/edit', [PersonController::class, 'edit'])->name('cases.persons.edit');

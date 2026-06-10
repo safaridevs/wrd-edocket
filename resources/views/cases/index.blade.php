@@ -157,9 +157,6 @@
                                 <a href="{{ route('cases.hu-review', $case) }}" class="text-green-600 hover:text-green-900">Review</a>
                                 @endif --}}
 
-                                @if($case->status === 'active' && auth()->user()->canFileToCase() && auth()->user()->canAccessCase($case))
-                                <a href="{{ route('cases.documents.upload', $case) }}" class="text-purple-600 hover:text-purple-900">File Doc</a>
-                                @endif
                             </td>
                         </tr>
                         @endforeach

@@ -55,6 +55,27 @@ class NotificationService
         ]);
     }
 
+    public function notifyEmailAddresses(array $emails, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): int
+    {
+        $emails = array_values(array_unique(array_filter(array_map(
+            fn ($email) => strtolower(trim((string) $email)),
+            $emails
+        ))));
+
+        foreach ($emails as $email) {
+            $this->notifyEmailAddress($email, $type, $title, $message, $case, false);
+        }
+
+        if ($logAudit && !empty($emails)) {
+            $currentUser = auth()->user();
+            if ($currentUser) {
+                AuditService::logEmailNotificationBatch($currentUser, $case, $emails, $type, $title);
+            }
+        }
+
+        return count($emails);
+    }
+
     public function notify($recipient, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): Notification
     {
         $userId = null;

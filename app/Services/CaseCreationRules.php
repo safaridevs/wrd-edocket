@@ -93,7 +93,7 @@ class CaseCreationRules
             $rules['pleading_type'] = 'nullable|in:request_pre_hearing,request_to_docket';
             $rules['documents.application'] = 'nullable|array';
             $rules['documents.application.*'] = 'nullable|file|mimes:pdf|max:204800';
-            $rules['compliance_doc_type'] = 'required|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand';
+            $rules['compliance_doc_type'] = 'nullable|in:compliance_order,pre_compliance_letter,compliance_letter,notice_of_violation,notice_of_reprimand,other';
             $rules['documents.compliance'] = 'required|array';
             $rules['documents.compliance.*'] = 'required|file|mimes:pdf|max:204800';
             $rules['compliance_custom_title'] = 'nullable|string|max:255';

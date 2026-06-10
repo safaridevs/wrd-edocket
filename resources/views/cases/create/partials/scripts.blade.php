@@ -350,7 +350,7 @@
             const selectedLabel = select?.options[select.selectedIndex]?.text || '';
             const previousSuggestedTitle = titleInput?.dataset.lastSuggestedTitle || '';
 
-            if (titleInput && selectedLabel && (!titleInput.value.trim() || titleInput.value.trim() === previousSuggestedTitle)) {
+            if (titleInput && select?.value && selectedLabel && (!titleInput.value.trim() || titleInput.value.trim() === previousSuggestedTitle)) {
                 titleInput.value = selectedLabel;
                 titleInput.dataset.lastSuggestedTitle = selectedLabel;
             }
@@ -378,11 +378,12 @@
             const filesInput = document.getElementById('createDocumentFiles');
             const selectedOption = select?.options[select.selectedIndex];
 
-            if (!group || !select || !titleInput || !filesInput || !selectedOption || !select.value) {
-                alert('Select a document type before filing this package.');
+            if (!group || !select || !titleInput || !filesInput) {
+                alert('The document filing modal is not ready. Close it and try again.');
                 return;
             }
 
+            const docType = select.value || 'other';
             const enteredTitle = titleInput.value.trim();
             const files = Array.from(filesInput.files || []);
 
@@ -407,8 +408,8 @@
             }
 
             const entryId = `staged-doc-${++stagedDocumentCounter}`;
-            const hiddenWrapper = buildCreateDocumentHiddenInputs(entryId, group, select.value, enteredTitle, Array.from(filesInput.files));
-            const visibleCard = buildCreateDocumentCard(entryId, group, select.value, enteredTitle, Array.from(filesInput.files));
+            const hiddenWrapper = buildCreateDocumentHiddenInputs(entryId, group, docType, enteredTitle, Array.from(filesInput.files));
+            const visibleCard = buildCreateDocumentCard(entryId, group, docType, enteredTitle, Array.from(filesInput.files));
 
             document.getElementById('document-hidden-inputs')?.appendChild(hiddenWrapper);
             const targetList = document.getElementById(`${group}-documents-list`);

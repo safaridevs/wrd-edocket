@@ -33,8 +33,11 @@ class DocumentType extends Model
     public function scopeForRole($query, $roleName)
     {
         return $query->where('is_active', true)
-                    ->whereHas('roles', function($q) use ($roleName) {
-                        $q->where('name', $roleName);
+                    ->where(function ($query) use ($roleName) {
+                        $query->where('code', 'other')
+                            ->orWhereHas('roles', function($q) use ($roleName) {
+                                $q->where('name', $roleName);
+                            });
                     });
     }
 
@@ -59,6 +62,13 @@ class DocumentType extends Model
     public function scopeOptional($query)
     {
         return $query->where('is_required', false);
+    }
+
+    public function scopeDropdownOrder($query)
+    {
+        return $query
+            ->orderByRaw("CASE WHEN LOWER(code) = 'other' OR LOWER(name) IN ('other', 'others') THEN 1 ELSE 0 END")
+            ->orderBy('name');
     }
 
     public function scopePleading($query)
