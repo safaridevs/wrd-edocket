@@ -9,16 +9,17 @@ use setasign\Fpdi\Tcpdf\Fpdi;
 
 class PdfStampingService
 {
+    public function __construct(
+        private readonly PdfConversionService $pdfConversionService
+    ) {
+    }
+
     public function stampDocument(Document $document, $case): bool
     {
-        $stampText = "FILED\n" .
-                    "New Mexico Office of the State Engineer\n" .
-                    "Water Rights Hearing Unit\n" .
-                    $document->uploaded_at->format('M d, Y') . " at " . $document->uploaded_at->format('g:i A') . "\n" .
-                    "Case No: {$case->case_no}";
-        
+        $stampText = $this->buildStampText($document, auth()->user());
+
         $success = $this->stampPdf($document, auth()->user());
-        
+
         if ($success) {
             $document->update([
                 'stamped' => true,
@@ -37,32 +38,72 @@ class PdfStampingService
             throw new \RuntimeException('Only PDF documents can be e-stamped.');
         }
 
-        $stampedPath = null;
+        $originalPath = null;
+        $convertedPath = null;
 
         try {
             $originalPath = $this->getDocumentPath($document);
             \Log::info('Original PDF path: ' . $originalPath);
 
-            $pageCount = $this->preflightPdf($originalPath);
-            $stampedPath = $this->createStampedPdf($originalPath, $document, $user, $pageCount);
-            \Log::info('Stamped PDF created at: ' . $stampedPath);
-
-            $this->validateStampedPdf($stampedPath, $pageCount);
-
-            // Replace original with stamped version
-            $this->replaceOriginalFile($document, $stampedPath);
-            \Log::info('Original file replaced with stamped version');
-
-            return true;
+            return $this->stampSourcePdf($originalPath, $document, $user, 'original');
         } catch (\Exception $e) {
             \Log::error('PDF stamping failed: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
 
+            if (!$originalPath) {
+                throw new \RuntimeException($this->mapStampingErrorMessage($e), previous: $e);
+            }
+
+            try {
+                \Log::warning('Retrying PDF stamping after conversion fallback', [
+                    'document_id' => $document->id,
+                    'storage_uri' => $document->storage_uri,
+                    'original_error' => $e->getMessage(),
+                ]);
+
+                $convertedPath = $this->pdfConversionService->convertForStamping($originalPath);
+                $result = $this->stampSourcePdf($convertedPath, $document, $user, 'converted');
+
+                \Log::info('PDF stamping succeeded after conversion fallback', [
+                    'document_id' => $document->id,
+                    'storage_uri' => $document->storage_uri,
+                ]);
+
+                return $result;
+            } catch (\Exception $fallbackException) {
+                \Log::error('PDF stamping conversion fallback failed: ' . $fallbackException->getMessage());
+
+                throw new \RuntimeException($this->mapStampingErrorMessage($fallbackException), previous: $fallbackException);
+            } finally {
+                if ($convertedPath && file_exists($convertedPath)) {
+                    @unlink($convertedPath);
+                }
+            }
+        }
+    }
+
+    private function stampSourcePdf(string $sourcePath, Document $document, User $user, string $sourceLabel): bool
+    {
+        $stampedPath = null;
+
+        try {
+            $pageCount = $this->preflightPdf($sourcePath);
+            $stampedPath = $this->createStampedPdf($sourcePath, $document, $user, $pageCount);
+            \Log::info("Stamped PDF created from {$sourceLabel} source at: " . $stampedPath);
+
+            $this->validateStampedPdf($stampedPath, $pageCount);
+
+            // Replace original with stamped version only after output validation succeeds.
+            $this->replaceOriginalFile($document, $stampedPath);
+            \Log::info("Original file replaced with stamped {$sourceLabel} version");
+
+            return true;
+        } catch (\Exception $e) {
             if ($stampedPath && file_exists($stampedPath)) {
                 @unlink($stampedPath);
             }
 
-            throw new \RuntimeException($this->mapStampingErrorMessage($e), previous: $e);
+            throw $e;
         }
     }
 
@@ -187,12 +228,8 @@ class PdfStampingService
         $pdf->SetFont('helvetica', 'B', 8);
         $pdf->SetTextColor(255, 0, 0);
 
-        $stampDate = $document->uploaded_at->format('D n/j/y');
-        $stampTime = $document->uploaded_at->format('g:i A');
-        $initials = $user->initials ?? 'HU';
+        $stampText = $this->buildStampText($document, $user);
 
-        $stampText = "Electronically Filed\n{$stampDate} @ {$stampTime}\nOSE HEARING UNIT/{$initials}";
-        
         // Calculate text width
         $lines = explode("\n", $stampText);
         $maxWidth = 0;
@@ -237,6 +274,24 @@ class PdfStampingService
         $document->update(['size_bytes' => $newSize]);
 
         \Log::info('File replaced. New size: ' . $newSize . ' bytes');
+    }
+
+    private function buildStampText(Document $document, User $user): string
+    {
+        $stampDate = $document->uploaded_at->format('F d, Y');
+        $stampTime = $document->uploaded_at->format('g:i A');
+        $initials = $user->initials ?? 'HU';
+
+        if ($this->isHearingUnitUpload($document)) {
+            return "Electronically Issued:\n{$stampDate} @ {$stampTime}\nOSE Hearing Unit/{$initials}";
+        }
+
+        return "Electronically Filed\n{$stampDate} @ {$stampTime}\nOSE HEARING UNIT/{$initials}";
+    }
+
+    private function isHearingUnitUpload(Document $document): bool
+    {
+        return (bool) $document->uploader?->isHearingUnit();
     }
 
     private function mapStampingErrorMessage(\Throwable $e): string

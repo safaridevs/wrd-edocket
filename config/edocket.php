@@ -33,6 +33,14 @@ return [
         'enabled' => true,
         'document_types' => ['filing', 'issuance']
     ],
+
+    'pdf_conversion' => [
+        'enabled' => env('PDF_CONVERSION_ENABLED', true),
+        'python' => env('PDF_CONVERSION_PYTHON', 'python'),
+        'script' => env('PDF_CONVERSION_SCRIPT', 'tools/pdf/convert.py'),
+        'version' => env('PDF_CONVERSION_VERSION', '1.4'),
+        'timeout' => env('PDF_CONVERSION_TIMEOUT', 60),
+    ],
     
     'case_routing' => [
         'auto_assign_hu' => true,
