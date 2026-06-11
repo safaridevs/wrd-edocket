@@ -576,6 +576,10 @@ class CaseService
             return false;
         }
 
+        if ($case->pendingAluDocumentsForAcceptance()->exists()) {
+            return false;
+        }
+
         $case->update([
             'status' => 'active',
             'accepted_at' => now()

@@ -57,6 +57,8 @@
                 'uploaded_by_user_id' => $document->uploaded_by_user_id,
             ],
         ]);
+        $pendingAluAcceptanceDocuments = $pendingAluAcceptanceDocuments ?? collect();
+        $canAcceptSubmittedCase = $pendingAluAcceptanceDocuments->isEmpty();
     @endphp
 
     <div class="py-12">
@@ -762,7 +764,19 @@
                             @endif
                         @endif
                         @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
-                        <button onclick="showAcceptanceModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">Accept Case</button>
+                        <button
+                            type="button"
+                            @if($canAcceptSubmittedCase)
+                                onclick="showAcceptanceModal()"
+                                class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600"
+                            @else
+                                disabled
+                                class="bg-gray-300 text-gray-600 px-4 py-2 rounded-md text-sm cursor-not-allowed"
+                                title="Accept all ALU-submitted documents before accepting the case."
+                            @endif
+                        >
+                            Accept Case
+                        </button>
                         <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
                         @endif
 
@@ -778,6 +792,13 @@
                         @endif
                     </div>
                 </div>
+
+                @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']) && !$canAcceptSubmittedCase)
+                <div class="mb-4 rounded-md border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                    Accept Case is disabled until all ALU-submitted documents are accepted.
+                    {{ $pendingAluAcceptanceDocuments->count() }} document(s) still need acceptance.
+                </div>
+                @endif
 
                 <!-- Filters and Search -->
                 <div class="mb-4 flex flex-wrap gap-4">
@@ -822,7 +843,9 @@
                                 <div class="font-medium">{{ $doc->original_filename }}</div>
                                 <div class="flex space-x-2">
                                     @if($doc->stamped)
-                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">📋 E-Stamped</span>
+                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">
+                                            📋 {{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}
+                                        </span>
                                     @endif
                                     @if($isPendingHuUpload)
                                         <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs HU Stamp</span>
@@ -846,7 +869,7 @@
                                 • {{ number_format($doc->size_bytes / 1024, 1) }} KB •
                                 {{ $doc->uploaded_at->format('M j, Y g:i A') }}
                                 @if($doc->stamped && $doc->stamped_at)
-                                    <br><span class="text-blue-600">E-Stamped: {{ $doc->stamped_at->format('M j, Y g:i A') }}</span>
+                                    <br><span class="text-blue-600">{{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}: {{ $doc->stamped_at->format('M j, Y g:i A') }}</span>
                                 @endif
                             </div>
                         </div>
@@ -964,8 +987,8 @@
                 <div class="space-y-3">
                     @foreach($case->auditLogs->sortByDesc('created_at') as $log)
                     <div class="flex items-start space-x-3 py-2 border-b">
-                        <div class="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                        <div class="flex-1">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                        <div class="flex-1 min-w-0">
                             <div class="text-sm">
                                 <strong>{{ $log->user->getDisplayName() }}</strong>
                                 @if($log->action === 'update_document_title')
@@ -977,12 +1000,12 @@
                             <div class="text-xs text-gray-500">{{ $log->created_at->format('M j, Y g:i A') }}</div>
                             @if($log->meta_json)
                                 @if($log->action === 'update_document_title')
-                                    <div class="text-xs text-gray-600 mt-1">
-                                        <div>Original: {{ $log->meta_json['old_title'] ?? 'N/A' }}</div>
-                                        <div>Current: {{ $log->meta_json['new_title'] ?? 'N/A' }}</div>
+                                    <div class="text-xs text-gray-600 mt-1 break-words">
+                                        <div class="whitespace-normal">Original: {{ $log->meta_json['old_title'] ?? 'N/A' }}</div>
+                                        <div class="whitespace-normal">Current: {{ $log->meta_json['new_title'] ?? 'N/A' }}</div>
                                     </div>
                                 @else
-                                    <div class="text-xs text-gray-600 mt-1">{{ json_encode($log->meta_json) }}</div>
+                                    <div class="text-xs text-gray-600 mt-1 whitespace-pre-wrap break-all">{{ json_encode($log->meta_json) }}</div>
                                 @endif
                             @endif
                         </div>
@@ -1498,7 +1521,13 @@
             overlay.className = 'fixed inset-0 z-[70] bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
             overlay.innerHTML = `
                 <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Is this filing time-sensitive?</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <span>Is this filing time-sensitive?</span>
+                        <span
+                            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-400 text-xs font-semibold text-gray-600 cursor-help"
+                            title="A time-sensitive document is a pleading that creates a deadline by which another party is required to respond or is a pleading that is filed pursuant to a current deadline."
+                        >?</span>
+                    </h3>
                     <p class="text-sm text-gray-700 mb-6">
                         Choose Yes to notify the service list immediately. Choose No to continue with normal HU review only.
                     </p>

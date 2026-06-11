@@ -379,11 +379,15 @@ class CaseController extends Controller
         ]);
         $submissionNotificationRecipients = $this->caseService->getSubmissionNotificationOptions();
         $acceptanceNotificationRecipients = $this->caseService->getAcceptanceNotificationOptions($case);
+        $pendingAluAcceptanceDocuments = $case->pendingAluDocumentsForAcceptance()
+            ->with('uploader.roleRelation')
+            ->orderByDesc('uploaded_at')
+            ->get();
         $documentTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
             ->dropdownOrder()
             ->get();
 
-        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'documentTypes'));
+        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'pendingAluAcceptanceDocuments', 'documentTypes'));
     }
 
     public function downloadServiceList(CaseModel $case)
@@ -596,6 +600,11 @@ class CaseController extends Controller
             'notify_recipients.*' => 'string',
             'custom_message' => 'nullable|string|max:1000',
         ]);
+
+        $pendingAluDocumentCount = $case->pendingAluDocumentsForAcceptance()->count();
+        if ($pendingAluDocumentCount > 0) {
+            return back()->with('error', "Accept all ALU-submitted documents before accepting the case. {$pendingAluDocumentCount} document(s) still need acceptance.");
+        }
 
         if ($this->caseService->acceptCase(
             $case,

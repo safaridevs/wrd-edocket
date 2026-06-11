@@ -79,9 +79,9 @@
                             <div class="divide-y">
                                 @foreach($groupNotifications as $notification)
                                 <div class="px-4 py-3 hover:bg-gray-50">
-                                    <div class="flex justify-between items-start">
-                                        <div class="flex-1">
-                                            <div class="flex items-center space-x-3">
+                                    <div class="flex justify-between items-start min-w-0">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center space-x-3 flex-wrap gap-y-1">
                                                 <span class="text-sm font-medium text-gray-900">
                                                     {{ $notification->sent_at->format('M d, Y H:i') }}
                                                 </span>
@@ -96,10 +96,10 @@
                                                     </span>
                                                 @endif
                                             </div>
-                                            <div class="mt-1 text-sm text-gray-600">
+                                            <div class="mt-1 text-sm text-gray-600 break-all">
                                                 <strong>To:</strong> {{ $notification->payload_json['email'] ?? '-' }}
                                             </div>
-                                            <div class="mt-1 text-sm text-gray-700">
+                                            <div class="mt-1 text-sm text-gray-700 break-words">
                                                 {{ $notification->payload_json['title'] ?? '-' }}
                                             </div>
                                         </div>

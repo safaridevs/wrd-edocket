@@ -159,7 +159,9 @@
                                             @endif
 
                                             @if($document->stamped)
-                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">📋 Electronically Filed</span>
+                                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                                                    📋 {{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}
+                                                </span>
                                             @endif
 
 
@@ -1083,7 +1085,13 @@
             overlay.className = 'fixed inset-0 z-[70] bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
             overlay.innerHTML = `
                 <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Is this filing time-sensitive?</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <span>Is this filing time-sensitive?</span>
+                        <span
+                            class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-400 text-xs font-semibold text-gray-600 cursor-help"
+                            title="A time-sensitive document is a pleading that creates a deadline by which another party is required to respond or is a pleading that is filed pursuant to a current deadline."
+                        >?</span>
+                    </h3>
                     <p class="text-sm text-gray-700 mb-6">
                         Choose Yes to notify the service list immediately. Choose No to continue with normal HU review only.
                     </p>

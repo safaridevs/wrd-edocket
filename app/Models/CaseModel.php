@@ -3,12 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseModel extends Model
 {
     protected $table = 'cases';
+
+    public const ALU_DOCUMENT_UPLOADER_ROLES = [
+        'alu_mgr',
+        'alu_clerk',
+        'alu_paralegal',
+        'alu_atty',
+        'alu_attorney',
+        'alu_managing_atty',
+        'alu_manager',
+    ];
 
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
@@ -170,6 +181,22 @@ class CaseModel extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class, 'case_id');
+    }
+
+    public function pendingAluDocumentsForAcceptance(): HasMany
+    {
+        return $this->documents()
+            ->where(function (Builder $query) {
+                $query->where('approved', false)
+                    ->orWhereNull('approved');
+            })
+            ->whereHas('uploader', function (Builder $query) {
+                $query->whereIn('role', self::ALU_DOCUMENT_UPLOADER_ROLES)
+                    ->orWhereHas('roleRelation', function (Builder $roleQuery) {
+                        $roleQuery->where('group', 'alu')
+                            ->orWhereIn('name', self::ALU_DOCUMENT_UPLOADER_ROLES);
+                    });
+            });
     }
 
     public function notifications(): HasMany
