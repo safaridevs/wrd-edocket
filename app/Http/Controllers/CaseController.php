@@ -1695,19 +1695,14 @@ class CaseController extends Controller
         }
 
         $notificationService = app(\App\Services\NotificationService::class);
-        $documentList = $documents
-            ->map(fn (Document $document) => '- ' . ($document->custom_title ?: $document->doc_type_label))
-            ->implode("\n");
 
-        $message = "A time-sensitive filing has been submitted in case {$case->case_no} by {$uploader->name}.\n\n"
-            . "Documents:\n{$documentList}\n\n"
-            . "This filing is pending Hearing Unit review.\n\n"
+        $message = "A time-sensitive pleading has been submitted for filing that has not yet been accepted for filing. Click on the link below to view the submission.\n\n"
             . "View case: " . route('cases.show', $case);
 
         return $notificationService->notifyEmailAddresses(
             $this->partyAndServiceNotificationEmails($case),
             'time_sensitive_filing',
-            "Case {$case->case_no}: Time-Sensitive Filing Submitted",
+            "Hearing Unit Number {$case->case_no}: Time-Sensitive Filing Submitted",
             $message,
             $case
         );
@@ -1891,10 +1886,14 @@ class CaseController extends Controller
     private function notifyDocumentAcceptanceRecipients(CaseModel $case, Document $document): int
     {
         $notificationService = app(\App\Services\NotificationService::class);
-        $documentTitle = $document->custom_title ?: $document->doc_type_label;
-        $message = "A filed document has been accepted in case {$case->case_no}.\n\n"
-            . "Document:\n- {$documentTitle}\n\n"
-            . "View case documents: " . route('cases.documents.manage', $case);
+        $document->loadMissing('documentType');
+        $isPleadingDocument = (bool) $document->documentType?->is_pleading || $document->pleading_type !== 'none';
+
+        $message = $isPleadingDocument
+            ? "Please click on the link below to view a recently docketed matter that you are a party to or have an interest in.\n\n"
+                . "View case: " . route('cases.show', $case)
+            : "Please click on the link below to view the most recent document that has been accepted for filing in Hearing Unit Number {$case->case_no}.\n\n"
+                . "View case: " . route('cases.show', $case);
 
         return $notificationService->notifyEmailAddresses(
             $this->documentAcceptanceNotificationEmails($case),
@@ -1958,7 +1957,7 @@ class CaseController extends Controller
                 $document->uploader,
                 'document_rejected',
                 'Document Rejected - Action Required',
-                "Your document '{$document->original_filename}' in case {$case->case_no} has been rejected.\n\nSummary: {$summary}\n\nPlease review the correction items, submit a corrected replacement, and wait for HU review.",
+                "Your pleading has been not been accepted for filing. Please click on the link below to better understand why the pleading was rejected.\n\nView case: " . route('cases.show', $case),
                 $case
             );
         }
@@ -2019,7 +2018,7 @@ class CaseController extends Controller
                 $document->uploader,
                 'document_fix_required',
                 'Document Fix Required - Action Needed',
-                "Your document '{$document->original_filename}' in case {$case->case_no} requires corrections.\n\nSummary: {$summary}\n\nPlease make the necessary changes, submit a corrected replacement, and wait for HU review.",
+                "The Hearing Unit has requested that you \"fix\" the pleading or document that you submitted for filing. Please click on the link below to better understand the corrections being requested.\n\nView case: " . route('cases.show', $case),
                 $case
             );
         }
