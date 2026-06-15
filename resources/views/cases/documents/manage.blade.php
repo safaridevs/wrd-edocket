@@ -1006,38 +1006,33 @@
 
         function stampDocument(documentId) {
             console.log('stampDocument called with ID:', documentId);
-            if (confirm('Are you sure you want to apply electronic stamp to this document?')) {
-                console.log('User confirmed, sending request...');
-                const url = `/cases/{{ $case->id }}/documents/${documentId}/stamp`;
-                console.log('URL:', url);
+            const url = `/cases/{{ $case->id }}/documents/${documentId}/stamp`;
+            console.log('URL:', url);
 
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.success) {
-                        alert('Document stamped successfully!');
-                        location.reload();
-                    } else {
-                        alert('Failed to stamp document: ' + (data.error || 'Unknown error'));
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error stamping document: ' + error.message);
-                });
-            } else {
-                console.log('User cancelled');
-            }
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    alert('Document stamped successfully!');
+                    location.reload();
+                } else {
+                    alert('Failed to stamp document: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error stamping document: ' + error.message);
+            });
         }
 
         let uploadTimeSensitiveDecisionMade = false;
