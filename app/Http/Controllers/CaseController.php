@@ -1673,19 +1673,35 @@ class CaseController extends Controller
             ->get()
             ->all();
 
-        if (empty($huUsers)) {
-            return;
+        $message = "{$uploader->name} has filed document(s) in case {$case->case_no}.\n\nDocuments:\n{$documentList}\n\nReview case documents: " . route('cases.documents.manage', $case);
+        $title = "Case {$case->case_no}: New Filing Uploaded";
+
+        if (!empty($huUsers)) {
+            $notificationService->notifyMultiple(
+                $huUsers,
+                'new_filing',
+                $title,
+                $message,
+                $case
+            );
         }
 
-        $message = "{$uploader->name} has filed document(s) in case {$case->case_no}.\n\nDocuments:\n{$documentList}\n\nReview case documents: " . route('cases.documents.manage', $case);
+        $huContactEmail = strtolower(trim((string) config('edocket.contact.hu_email')));
+        $huUserEmails = collect($huUsers)
+            ->map(fn (User $user) => strtolower(trim((string) $user->email)))
+            ->filter()
+            ->all();
 
-        $notificationService->notifyMultiple(
-            $huUsers,
-            'new_filing',
-            "Case {$case->case_no}: New Filing Uploaded",
-            $message,
-            $case
-        );
+        if ($huContactEmail !== '' && !in_array($huContactEmail, $huUserEmails, true)) {
+            $notificationService->notifyEmailAddress(
+                $huContactEmail,
+                'new_filing',
+                $title,
+                $message,
+                $case,
+                false
+            );
+        }
     }
 
     private function notifyTimeSensitiveFilingRecipients(CaseModel $case, \Illuminate\Support\Collection $documents, User $uploader): int

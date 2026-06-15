@@ -280,7 +280,7 @@
                         © {{ date('Y') }} New Mexico Office of the State Engineer. All rights reserved.
                     </p>
                     <p class="text-gray-500 text-sm mt-2">
-                        For technical support, contact: <a href="mailto:hu.admin@ose.nm.gov" class="text-blue-400 hover:text-blue-300">support@ose.nm.gov</a>
+                        For technical support, contact: <a href="mailto:{{ config('edocket.contact.support_email') }}" class="text-blue-400 hover:text-blue-300">{{ config('edocket.contact.support_email') }}</a>
                     </p>
                 </div>
             </div>

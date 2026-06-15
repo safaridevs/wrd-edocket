@@ -41,6 +41,11 @@ return [
         'version' => env('PDF_CONVERSION_VERSION', '1.4'),
         'timeout' => env('PDF_CONVERSION_TIMEOUT', 60),
     ],
+
+    'contact' => [
+        'hu_email' => env('HU_CONTACT_EMAIL', 'hu.admin@ose.nm.gov'),
+        'support_email' => env('SUPPORT_EMAIL', 'support@ose.nm.gov'),
+    ],
     
     'case_routing' => [
         'auto_assign_hu' => true,

@@ -90,7 +90,7 @@
             <h3 style="color: #1e40af;">Contact Information</h3>
             <p>If you have questions about this stamped document or your case:</p>
             <ul>
-                <li><strong>Email:</strong> hearing.unit@ose.nm.gov</li>
+                <li><strong>Email:</strong> {{ config('edocket.contact.hu_email') }}</li>
                 <li><strong>Phone:</strong> (505) 827-6120</li>
                 <li><strong>Office Hours:</strong> Monday - Friday, 8:00 AM - 5:00 PM</li>
             </ul>
@@ -107,7 +107,7 @@
             <p><strong>New Mexico Office of the State Engineer</strong></p>
             <p>1680 Hickman Loop, Las Cruces, NM 88005</p>
             <p>This is an automated message from the OSE E-Docket system. Please do not reply to this email.</p>
-            <p>For technical support, contact: <a href="mailto:support@ose.nm.gov">support@ose.nm.gov</a></p>
+            <p>For technical support, contact: <a href="mailto:{{ config('edocket.contact.support_email') }}">{{ config('edocket.contact.support_email') }}</a></p>
         </div>
     </div>
 </body>

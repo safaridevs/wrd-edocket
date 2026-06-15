@@ -17,8 +17,6 @@ use Illuminate\Support\Facades\Storage;
 
 class CaseService
 {
-    private const HU_SUBMISSION_EMAIL = 'hu.admin@ose.nm.gov';
-
     public function __construct(
         private NotificationService $notificationService,
         private CaseStorageService $caseStorageService
@@ -706,7 +704,7 @@ class CaseService
             'token' => 'hu_submission_mailbox',
             'name' => 'Hearing Unit',
             'role' => 'HU Admin',
-            'email' => self::HU_SUBMISSION_EMAIL,
+            'email' => $this->huSubmissionEmail(),
         ]];
     }
 
@@ -1106,17 +1104,20 @@ class CaseService
 
     public function notifyCaseSubmission(CaseModel $case, array $recipients = [], ?string $customMessage = null): void
     {
-        $baseMessage = "The Hearing Unit is in receipt of the Request to Docket OR the Request for Pre-Hearing Scheduling Conference. The Request and the associated documents will be reviewed and either accepted or rejected. If a case is rejected, we hope to provide a reason for rejection (i.e. improper naming convention, did not include all required documents such as the Application, letters of protests, letter of denial and letter of aggrieval, compliance order, etc.)";
-        
-        $fullMessage = "Case {$case->case_no} has been submitted to the Hearing Unit for review. {$baseMessage}";
+        $fullMessage = "Case {$case->case_no} has been submitted to the Hearing Unit for review.\n\n"
+            . "Please click the link below to review the submitted request and associated documents.\n\n"
+            . "View case: " . route('cases.show', $case);
+
         if ($customMessage) {
             $fullMessage .= "\n\nAdditional Information: {$customMessage}";
         }
 
         $notifiedEmails = [];
 
+        $huSubmissionEmail = $this->huSubmissionEmail();
+
         $this->notificationService->notifyEmailAddress(
-            self::HU_SUBMISSION_EMAIL,
+            $huSubmissionEmail,
             'case_submitted',
             'Case Submitted for Review',
             $fullMessage,
@@ -1124,7 +1125,7 @@ class CaseService
             false
         );
 
-        $notifiedEmails[] = self::HU_SUBMISSION_EMAIL;
+        $notifiedEmails[] = $huSubmissionEmail;
         
         // Log once with all recipients
         if (!empty($notifiedEmails) && auth()->user()) {
@@ -1135,6 +1136,11 @@ class CaseService
                 'recipient_count' => count($notifiedEmails)
             ]);
         }
+    }
+
+    private function huSubmissionEmail(): string
+    {
+        return (string) config('edocket.contact.hu_email');
     }
 
 
