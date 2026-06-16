@@ -11,8 +11,9 @@ return new class extends Migration
         Schema::create('case_status_audits', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->constrained()->onDelete('cascade');
-            $table->enum('from_status', ['draft', 'submitted_to_hu', 'active', 'closed', 'archived'])->nullable();
-            $table->enum('to_status', ['draft', 'submitted_to_hu', 'active', 'closed', 'archived']);
+            $table->string('status_type')->default('workflow')->index();
+            $table->string('from_status')->nullable();
+            $table->string('to_status')->nullable();
             $table->foreignId('changed_by')->constrained('users');
             $table->text('reason')->nullable();
             $table->timestamps();

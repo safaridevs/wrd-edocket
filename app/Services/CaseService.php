@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CaseModel;
 use App\Models\CaseParty;
 use App\Models\CaseRejection;
+use App\Models\CaseStatusAudit;
 use App\Models\Document;
 use App\Models\OseFileNumber;
 use App\Models\Person;
@@ -544,26 +545,6 @@ class CaseService
         return false;
     }
 
-    public function routeToHearingUnit(CaseModel $case): void
-    {
-        $huAdmin = User::whereCurrentRole('hu_admin')->first();
-        
-        if ($huAdmin) {
-            $case->update([
-                'assigned_to' => $huAdmin->id,
-                'status' => 'pending_hu_acceptance'
-            ]);
-
-            $this->notificationService->notify(
-                $huAdmin,
-                'case_assignment',
-                'New Case Assignment',
-                "Case {$case->case_number} has been assigned to you for review.",
-                $case
-            );
-        }
-    }
-
     public function acceptCase(CaseModel $case, User $user, array $recipients = [], ?string $customMessage = null): bool
     {
         if (!$user->canAcceptFilings()) {
@@ -1098,6 +1079,55 @@ class CaseService
         ]);
 
         AuditLog::log('archive_case', $user, $case);
+
+        return true;
+    }
+
+    public function updateHuDisplayStatus(CaseModel $case, User $user, ?string $status, ?string $note = null): bool
+    {
+        if (!$user->isHearingUnit()) {
+            return false;
+        }
+
+        $status = $status ?: null;
+        $note = trim((string) $note);
+        $note = $note === '' ? null : $note;
+        if ($status === null) {
+            $note = null;
+        }
+
+        if ($status !== null && !array_key_exists($status, CaseModel::huDisplayStatuses())) {
+            return false;
+        }
+
+        $fromStatus = $case->hu_display_status;
+        $fromNote = $case->hu_display_status_note;
+
+        if ($fromStatus === $status && $fromNote === $note) {
+            return true;
+        }
+
+        $case->update([
+            'hu_display_status' => $status,
+            'hu_display_status_note' => $note,
+            'hu_display_status_updated_by' => $user->id,
+            'hu_display_status_updated_at' => now(),
+        ]);
+
+        CaseStatusAudit::record(
+            $case,
+            $user,
+            $fromStatus,
+            $status,
+            $note,
+            CaseStatusAudit::TYPE_HU_DISPLAY
+        );
+
+        AuditLog::log('update_hu_display_status', $user, $case, [
+            'from_status' => $fromStatus,
+            'to_status' => $status,
+            'note' => $note,
+        ]);
 
         return true;
     }

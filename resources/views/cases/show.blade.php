@@ -57,6 +57,7 @@
                 'uploaded_by_user_id' => $document->uploaded_by_user_id,
             ],
         ]);
+        $caseDocumentGroups = \App\View\DocumentHierarchy::groups($case->documents);
         $pendingAluAcceptanceDocuments = $pendingAluAcceptanceDocuments ?? collect();
         $canAcceptSubmittedCase = $pendingAluAcceptanceDocuments->isEmpty();
     @endphp
@@ -91,12 +92,29 @@
                         @endif
                         <h3 class="text-lg font-medium">{{ $case->case_no }}</h3>
                         <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
-                        <span class="inline-block mt-2 px-2 py-1 text-xs rounded-full
-                            {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                               ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                               ($case->status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')) }}">
-                            {{ ucfirst(str_replace('_', ' ', $case->status)) }}
-                        </span>
+                        <div class="mt-2 flex items-center gap-2">
+                            <span class="inline-block px-2 py-1 text-xs rounded-full {{ $case->visible_status_badge_class }}">
+                                {{ $case->visible_status_label }}
+                            </span>
+                            @if(auth()->user()->isHearingUnit())
+                                <button type="button"
+                                        onclick="showHuStatusModal()"
+                                        class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                        title="Update HU display status">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </button>
+                            @endif
+                        </div>
+                        @if($case->hu_display_status)
+                            <div class="mt-1 text-xs text-gray-500">Workflow: {{ $case->workflow_status_label }}</div>
+                        @endif
+                        @if($case->hu_display_status_note)
+                            <div class="mt-1 max-w-xl text-xs text-gray-600">
+                                {{ $case->hu_display_status_note }}
+                            </div>
+                        @endif
                     </div>
                     <div>
                         <strong>Key Dates:</strong>
@@ -826,7 +844,18 @@
                 </div>
 
                 <div id="documentsContainer" class="space-y-2">
-                    @foreach($case->documents->sortByDesc('uploaded_at') as $doc)
+                    @foreach($caseDocumentGroups as $documentGroup)
+                    @php
+                        $indentClasses = ['ml-0', 'ml-6', 'ml-12'];
+                        $headingIndent = ['ml-0', 'ml-6', 'ml-12'][$documentGroup['level']] ?? 'ml-12';
+                        $itemIndent = $indentClasses[$documentGroup['level']] ?? 'ml-12';
+                    @endphp
+                    <div class="document-group-heading {{ $headingIndent }} flex items-center gap-2 pt-3 text-sm font-semibold text-gray-800"
+                         data-document-group="{{ $documentGroup['key'] }}">
+                        <span class="h-2 w-2 rounded-full bg-gray-500"></span>
+                        <span>{{ $documentGroup['label'] }}</span>
+                    </div>
+                    @foreach($documentGroup['documents'] as $doc)
                     @php
                         $latestDocCorrection = $doc->correctionCycles->firstWhere('status', 'open')
                             ?? $doc->correctionCycles->firstWhere('status', 'resubmitted');
@@ -834,10 +863,12 @@
                         $isPendingHuIssue = !$doc->approved && !$doc->rejected_reason && $doc->stamped && $doc->uploader?->isHearingUnit();
                         $isPendingHuUpload = !$doc->approved && !$doc->rejected_reason && !$doc->stamped && $doc->uploader?->isHearingUnit();
                     @endphp
-                    <div class="flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
-                         data-doc-type="{{ $doc->doc_type }}"
-                         data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : ($isPendingHuUpload ? 'needs-stamp' : 'pending'))) }}"
-                         data-filename="{{ strtolower($doc->original_filename) }}">
+                    <div class="{{ $itemIndent }} flex items-center justify-between p-4 border rounded hover:bg-gray-50 document-item"
+                          data-doc-type="{{ $doc->doc_type }}"
+                          data-status="{{ $doc->stamped ? 'stamped' : ($doc->approved ? 'accepted' : ($doc->rejected_reason ? 'rejected' : ($isPendingHuUpload ? 'needs-stamp' : 'pending'))) }}"
+                          data-filename="{{ strtolower($doc->original_filename) }}"
+                          data-document-group="{{ $documentGroup['key'] }}"
+                          data-document-id="{{ $doc->id }}">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3">
                                 <div class="font-medium">{{ $doc->original_filename }}</div>
@@ -907,7 +938,7 @@
                         </div>
                     </div>
                     @if($doc->rejected_reason || $latestDocCorrection)
-                    <div class="mt-2 mb-4 space-y-2">
+                    <div class="document-detail {{ $itemIndent }} mt-2 mb-4 space-y-2" data-document-id="{{ $doc->id }}">
                         @if($doc->rejected_reason)
                         <div class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
                             <strong>Rejection Reason:</strong> {{ $doc->rejected_reason }}
@@ -965,6 +996,7 @@
                         @endif
                     </div>
                     @endif
+                    @endforeach
                     @endforeach
                 </div>
 
@@ -1184,11 +1216,17 @@
 
             // Hide all documents
             docs.forEach(doc => doc.style.display = 'none');
+            document.querySelectorAll('.document-detail').forEach(detail => detail.style.display = 'none');
 
             // Show current page documents
             filteredDocs.slice(startIndex, endIndex).forEach(doc => {
                 doc.style.display = 'flex';
+                const detail = document.querySelector(`.document-detail[data-document-id="${doc.dataset.documentId}"]`);
+                if (detail) {
+                    detail.style.display = 'block';
+                }
             });
+            updateDocumentGroupHeadings();
 
             // Update pagination info
             document.getElementById('showingFrom').textContent = filteredDocs.length > 0 ? startIndex + 1 : 0;
@@ -1212,6 +1250,16 @@
                 };
                 pageNumbers.appendChild(pageBtn);
             }
+        }
+
+        function updateDocumentGroupHeadings() {
+            document.querySelectorAll('.document-group-heading').forEach(heading => {
+                const group = heading.dataset.documentGroup;
+                const hasVisibleDocument = Array.from(document.querySelectorAll(`.document-item[data-document-group="${group}"]`))
+                    .some(doc => doc.style.display !== 'none');
+
+                heading.style.display = hasVisibleDocument ? 'flex' : 'none';
+            });
         }
 
         // Initialize pagination
@@ -1558,6 +1606,14 @@
             document.getElementById('reopenModal').classList.add('hidden');
         }
 
+        function showHuStatusModal() {
+            document.getElementById('huStatusModal')?.classList.remove('hidden');
+        }
+
+        function hideHuStatusModal() {
+            document.getElementById('huStatusModal')?.classList.add('hidden');
+        }
+
         // Attorney modal functions
         window.toggleAttorneyFields = function() {
             const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
@@ -1746,6 +1802,46 @@
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideRejectModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
                             <button type="submit" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Reject & Notify ALU</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if(auth()->user()->isHearingUnit())
+    <div id="huStatusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Update HU Display Status</h3>
+                    <form method="POST" action="{{ route('cases.hu-display-status.update', $case) }}" class="space-y-4">
+                        @csrf
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="hu_display_status" class="block w-full border-gray-300 rounded-md text-sm">
+                                <option value="">None</option>
+                                @foreach(\App\Models\CaseModel::huDisplayStatuses() as $value => $label)
+                                    <option value="{{ $value }}" @selected($case->hu_display_status === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Message / Short Description</label>
+                            <textarea name="hu_display_status_note" rows="3" maxlength="1000" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Optional message shown with the HU display status.">{{ old('hu_display_status_note', $case->hu_display_status_note) }}</textarea>
+                        </div>
+                        @if($case->hu_display_status_updated_at)
+                            <p class="text-xs text-gray-500">
+                                Last updated {{ $case->hu_display_status_updated_at->format('M j, Y g:i A') }}
+                                @if($case->huDisplayStatusUpdatedBy)
+                                    by {{ $case->huDisplayStatusUpdatedBy->getDisplayName() }}
+                                @endif
+                            </p>
+                        @endif
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" onclick="hideHuStatusModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Update</button>
                         </div>
                     </form>
                 </div>

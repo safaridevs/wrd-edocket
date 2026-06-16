@@ -132,12 +132,12 @@
                                 {{ ucfirst($case->case_type) }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                    {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                                       ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' :
-                                        ($case->status === 'draft' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800')) }}">
-                                    {{ ucfirst(str_replace('_', ' ', $case->status)) }}
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">
+                                    {{ $case->visible_status_label }}
                                 </span>
+                                @if($case->hu_display_status)
+                                    <div class="mt-1 text-xs text-gray-500">Workflow: {{ $case->workflow_status_label }}</div>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ $case->submitted_at?->format('M j, Y') ?? 'Not submitted' }}

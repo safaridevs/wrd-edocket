@@ -21,10 +21,16 @@ class CaseModel extends Model
         'alu_manager',
     ];
 
+    public const HU_DISPLAY_STATUSES = [
+        'stayed' => 'Stayed',
+        'in_mediation' => 'In Mediation',
+    ];
+
     protected $fillable = [
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
         'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
-        'submitted_at', 'accepted_at', 'closed_at', 'archived_at', 'closed_by_user_id', 'archived_by_user_id', 'closure_reason'
+        'submitted_at', 'accepted_at', 'closed_at', 'archived_at', 'closed_by_user_id', 'archived_by_user_id', 'closure_reason',
+        'hu_display_status', 'hu_display_status_note', 'hu_display_status_updated_by', 'hu_display_status_updated_at'
     ];
 
     protected $casts = [
@@ -32,6 +38,7 @@ class CaseModel extends Model
         'accepted_at' => 'datetime',
         'closed_at' => 'datetime',
         'archived_at' => 'datetime',
+        'hu_display_status_updated_at' => 'datetime',
         'metadata' => 'array'
     ];
 
@@ -122,6 +129,11 @@ class CaseModel extends Model
     public function archivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'archived_by_user_id');
+    }
+
+    public function huDisplayStatusUpdatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'hu_display_status_updated_by');
     }
 
     // New many-to-many relationships
@@ -229,6 +241,46 @@ class CaseModel extends Model
         return $this->hasMany(CaseStatusAudit::class, 'case_id');
     }
 
+    public static function huDisplayStatuses(): array
+    {
+        return self::HU_DISPLAY_STATUSES;
+    }
+
+    public function getHuDisplayStatusLabelAttribute(): ?string
+    {
+        if (!$this->hu_display_status) {
+            return null;
+        }
+
+        return self::HU_DISPLAY_STATUSES[$this->hu_display_status]
+            ?? ucwords(str_replace('_', ' ', $this->hu_display_status));
+    }
+
+    public function getWorkflowStatusLabelAttribute(): string
+    {
+        return ucwords(str_replace('_', ' ', $this->status));
+    }
+
+    public function getVisibleStatusLabelAttribute(): string
+    {
+        return $this->hu_display_status_label ?? $this->workflow_status_label;
+    }
+
+    public function getVisibleStatusBadgeClassAttribute(): string
+    {
+        return match ($this->hu_display_status) {
+            'stayed' => 'bg-orange-100 text-orange-800',
+            'in_mediation' => 'bg-purple-100 text-purple-800',
+            default => match ($this->status) {
+                'active' => 'bg-green-100 text-green-800',
+                'draft' => 'bg-gray-100 text-gray-800',
+                'rejected' => 'bg-red-100 text-red-800',
+                'submitted_to_hu' => 'bg-yellow-100 text-yellow-800',
+                default => 'bg-blue-100 text-blue-800',
+            },
+        };
+    }
+
     public function rejections(): HasMany
     {
         return $this->hasMany(CaseRejection::class, 'case_id')->latest('rejected_at')->latest('id');
@@ -272,13 +324,7 @@ class CaseModel extends Model
         $this->update($updates);
 
         // Create audit entry
-        CaseStatusAudit::create([
-            'case_id' => $this->id,
-            'from_status' => $oldStatus,
-            'to_status' => $newStatus,
-            'changed_by' => $user->id,
-            'reason' => $reason
-        ]);
+        CaseStatusAudit::record($this, $user, $oldStatus, $newStatus, $reason);
 
         return true;
     }

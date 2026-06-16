@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class CaseController extends Controller
@@ -2492,6 +2493,29 @@ class CaseController extends Controller
         }
 
         return back()->with('error', 'Unable to archive case.');
+    }
+
+    public function updateHuDisplayStatus(Request $request, CaseModel $case)
+    {
+        if (!auth()->user()->isHearingUnit()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'hu_display_status' => ['nullable', Rule::in(array_keys(CaseModel::huDisplayStatuses()))],
+            'hu_display_status_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if ($this->caseService->updateHuDisplayStatus(
+            $case,
+            auth()->user(),
+            $validated['hu_display_status'] ?? null,
+            $validated['hu_display_status_note'] ?? null
+        )) {
+            return back()->with('success', 'HU status updated successfully.');
+        }
+
+        return back()->with('error', 'Unable to update HU status.');
     }
 
     public function reopen(Request $request, CaseModel $case)

@@ -18,11 +18,15 @@
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $case->case_no }}</h1>
                 <div class="flex items-center space-x-3">
                     <span class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</span>
-                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-                        Active
+                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ $case->visible_status_badge_class }}">
+                        {{ $case->visible_status_label }}
                     </span>
-
                 </div>
+                @if($case->hu_display_status_note)
+                    <div class="mt-3 rounded bg-orange-50 px-3 py-2 text-sm text-orange-800">
+                        {{ $case->hu_display_status_note }}
+                    </div>
+                @endif
             </div>
             <div class="text-right text-sm text-gray-600">
                 <div><strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}</div>

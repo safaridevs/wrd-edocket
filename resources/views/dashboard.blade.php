@@ -286,10 +286,8 @@
                                                 <h4 class="text-lg font-semibold text-gray-900">{{ $case->case_no }}</h4>
                                                 <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                                             </div>
-                                            <span class="px-3 py-1 text-xs font-semibold rounded-full
-                                                {{ $case->status === 'active' ? 'bg-green-100 text-green-800' :
-                                                   ($case->status === 'submitted_to_hu' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800') }}">
-                                                {{ ucfirst(str_replace('_', ' ', $case->status)) }}
+                                            <span class="px-3 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">
+                                                {{ $case->visible_status_label }}
                                             </span>
                                         </div>
 

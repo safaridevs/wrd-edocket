@@ -69,8 +69,8 @@
                                         {{ $case->case_no }}
                                     </a>
                                 </h4>
-                                <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r from-green-400 to-green-500 text-white shadow-sm">
-                                    ✓ Active
+                                <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full {{ $case->visible_status_badge_class }}">
+                                    {{ $case->visible_status_label }}
                                 </span>
                             </div>
 

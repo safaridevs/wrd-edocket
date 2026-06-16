@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/close', [CaseController::class, 'close'])->name('cases.close');
     Route::post('cases/{case}/reopen', [CaseController::class, 'reopen'])->name('cases.reopen');
     Route::post('cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
+    Route::post('cases/{case}/hu-display-status', [CaseController::class, 'updateHuDisplayStatus'])->name('cases.hu-display-status.update');
     Route::get('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorneyForm'])->name('cases.assign-attorney');
     Route::post('cases/{case}/assign-attorney', [CaseController::class, 'assignAttorney'])->name('cases.assign-attorney.store');
     Route::get('cases/{case}/assign-hydrology-expert', [CaseController::class, 'assignHydrologyExpertForm'])->name('cases.assign-hydrology-expert');

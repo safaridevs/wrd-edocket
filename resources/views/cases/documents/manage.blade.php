@@ -43,6 +43,7 @@
             'original_filename' => $document->original_filename,
         ],
     ]);
+    $caseDocumentGroups = \App\View\DocumentHierarchy::groups($case->documents);
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -65,7 +66,10 @@
                 <p class="text-sm text-gray-600">{{ $case->caption }}</p>
                 <div class="mt-2 flex space-x-4 text-sm">
                     <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</span>
-                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $case->status)) }}</span>
+                    <span class="{{ $case->visible_status_badge_class }} px-2 py-1 rounded">{{ $case->visible_status_label }}</span>
+                    @if($case->hu_display_status)
+                        <span class="text-gray-500 px-2 py-1">Workflow: {{ $case->workflow_status_label }}</span>
+                    @endif
                 </div>
             </div>
 
@@ -111,12 +115,25 @@
                 <!-- Document List -->
                 @if($case->documents->count() > 0)
                     <div class="space-y-4" id="documentList">
-                        @foreach($case->documents->sortByDesc('uploaded_at') as $document)
+                        @foreach($caseDocumentGroups as $documentGroup)
+                        @php
+                            $indentClasses = ['ml-0', 'ml-6', 'ml-12'];
+                            $headingIndent = ['ml-0', 'ml-6', 'ml-12'][$documentGroup['level']] ?? 'ml-12';
+                            $itemIndent = $indentClasses[$documentGroup['level']] ?? 'ml-12';
+                        @endphp
+                        <div class="document-group-heading {{ $headingIndent }} flex items-center gap-2 pt-2 text-sm font-semibold text-gray-800"
+                             data-document-group="{{ $documentGroup['key'] }}">
+                            <span class="h-2 w-2 rounded-full bg-gray-500"></span>
+                            <span>{{ $documentGroup['label'] }}</span>
+                        </div>
+                        @foreach($documentGroup['documents'] as $document)
                         @php
                             $latestCorrection = $document->correctionCycles->firstWhere('status', 'open')
                                 ?? $document->correctionCycles->firstWhere('status', 'resubmitted');
                         @endphp
-                        <div class="border rounded-lg p-4 bg-gray-50 document-item" data-type="{{ $document->doc_type }}">
+                        <div class="{{ $itemIndent }} border rounded-lg p-4 bg-gray-50 document-item"
+                             data-type="{{ $document->doc_type }}"
+                             data-document-group="{{ $documentGroup['key'] }}">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between mb-2">
@@ -409,6 +426,7 @@
                                 </div>
                             </div>
                         </div>
+                        @endforeach
                         @endforeach
                     </div>
                 @else
@@ -714,7 +732,21 @@
                     doc.style.display = 'none';
                 }
             });
+
+            updateDocumentGroupHeadings();
         }
+
+        function updateDocumentGroupHeadings() {
+            document.querySelectorAll('.document-group-heading').forEach(heading => {
+                const group = heading.dataset.documentGroup;
+                const hasVisibleDocument = Array.from(document.querySelectorAll(`.document-item[data-document-group="${group}"]`))
+                    .some(doc => doc.style.display !== 'none');
+
+                heading.style.display = hasVisibleDocument ? 'flex' : 'none';
+            });
+        }
+
+        updateDocumentGroupHeadings();
 
         let currentAction = null;
         let currentDocumentId = null;
