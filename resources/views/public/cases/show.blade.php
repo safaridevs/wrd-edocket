@@ -22,9 +22,12 @@
                         {{ $case->visible_status_label }}
                     </span>
                 </div>
-                @if($case->hu_display_status_note)
-                    <div class="mt-3 rounded bg-orange-50 px-3 py-2 text-sm text-orange-800">
-                        {{ $case->hu_display_status_note }}
+                @if($case->hu_display_status)
+                    <div class="mt-2">
+                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                              @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                            {{ $case->hu_display_status_label }}
+                        </span>
                     </div>
                 @endif
             </div>

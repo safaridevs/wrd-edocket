@@ -72,6 +72,12 @@
                                 <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full {{ $case->visible_status_badge_class }}">
                                     {{ $case->visible_status_label }}
                                 </span>
+                                @if($case->hu_display_status)
+                                    <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                                          @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                                        {{ $case->hu_display_status_label }}
+                                    </span>
+                                @endif
                             </div>
 
                             <p class="text-gray-900 mb-3">{{ $case->caption }}</p>

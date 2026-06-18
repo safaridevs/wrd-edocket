@@ -68,7 +68,8 @@
                     <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</span>
                     <span class="{{ $case->visible_status_badge_class }} px-2 py-1 rounded">{{ $case->visible_status_label }}</span>
                     @if($case->hu_display_status)
-                        <span class="text-gray-500 px-2 py-1">Workflow: {{ $case->workflow_status_label }}</span>
+                        <span class="{{ $case->hu_display_status_badge_class }} px-2 py-1 rounded"
+                              @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>{{ $case->hu_display_status_label }}</span>
                     @endif
                 </div>
             </div>
@@ -323,7 +324,7 @@
                                             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                                                 <div class="text-sm font-semibold text-amber-900">Stamped preview ready for HU review</div>
                                                 <p class="mt-1 text-sm text-amber-800">Open the stamped PDF preview. Service-list notifications will not be sent until you click Issue & Notify.</p>
-                                                <form method="POST" action="{{ route('cases.documents.issue-stamped', [$case, $document]) }}" class="mt-3 space-y-3">
+                                                <form method="POST" action="{{ route('cases.documents.issue-stamped', [$case, $document]) }}" class="mt-3 space-y-3 hu-issue-form" data-loading-form>
                                                     @csrf
                                                     <div>
                                                         <label class="block text-xs font-medium text-amber-900 mb-1">Additional notification message</label>
@@ -333,7 +334,9 @@
                                                         <a href="{{ route('documents.preview', $document) }}" target="_blank" class="text-blue-700 hover:text-blue-900 text-sm bg-white px-3 py-1.5 rounded border border-blue-200">
                                                             Preview Stamped PDF
                                                         </a>
-                                                        <button type="submit" class="text-white text-sm bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded" onclick="return confirm('Issue this stamped document and notify the service list?')">
+                                                        <button type="button"
+                                                                class="text-white text-sm bg-amber-600 hover:bg-amber-700 px-3 py-1.5 rounded"
+                                                                onclick="showIssueNotifyModal(this.closest('form'))">
                                                             Issue & Notify
                                                         </button>
                                                     </div>
@@ -466,6 +469,29 @@
         </div>
     </div>
 
+    <!-- Issue & Notify Confirmation Modal -->
+    <div id="issueNotifyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-lg max-w-md w-full">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-3">Confirm Issue & Notify</h3>
+                    <p class="text-sm text-gray-700 mb-5">
+                        Issue this stamped document and notify the service list?
+                    </p>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="hideIssueNotifyModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
+                            Cancel
+                        </button>
+                        <button type="button" id="issueNotifyConfirmBtn" onclick="confirmIssueNotify()" class="inline-flex items-center justify-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700">
+                            <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <span data-button-label>Issue & Notify</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Document Correction Modal -->
     <div id="documentCorrectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -537,7 +563,7 @@
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
+                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)" data-loading-form>
                         @csrf
                         <input type="hidden" name="time_sensitive_notice" id="timeSensitiveNoticeInput" value="0">
                         <div class="space-y-4">
@@ -604,8 +630,9 @@
                             <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                                 Cancel
                             </button>
-                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}
+                            <button type="submit" data-loading-text="{{ auth()->user()->isHearingUnit() ? 'Generating preview...' : 'Filing document...' }}" class="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                                <span data-button-label>{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</span>
                             </button>
                         </div>
                     </form>
@@ -687,6 +714,78 @@
         function hideUploadModal() {
             document.getElementById('uploadModal').classList.add('hidden');
             document.getElementById('uploadForm').reset();
+        }
+
+        let pendingIssueNotifyForm = null;
+
+        function showIssueNotifyModal(form) {
+            pendingIssueNotifyForm = form;
+            document.getElementById('issueNotifyModal').classList.remove('hidden');
+            document.getElementById('issueNotifyConfirmBtn')?.focus();
+        }
+
+        function hideIssueNotifyModal() {
+            document.getElementById('issueNotifyModal').classList.add('hidden');
+            pendingIssueNotifyForm = null;
+        }
+
+        function confirmIssueNotify() {
+            if (!pendingIssueNotifyForm) {
+                hideIssueNotifyModal();
+                return;
+            }
+
+            const confirmBtn = document.getElementById('issueNotifyConfirmBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add('opacity-75', 'cursor-wait');
+            confirmBtn.querySelector('[data-loading-spinner]')?.classList.remove('hidden');
+            const label = confirmBtn.querySelector('[data-button-label]');
+            if (label) {
+                label.textContent = 'Issuing...';
+            }
+
+            pendingIssueNotifyForm.submit();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-loading-form]').forEach((form) => {
+                form.addEventListener('submit', function(event) {
+                    if (form.id === 'uploadForm' && !@json(auth()->user()->isHearingUnit()) && !uploadTimeSensitiveDecisionMade) {
+                        return;
+                    }
+
+                    setFormLoadingState(form, event.submitter);
+                });
+            });
+        });
+
+        function setFormLoadingState(form, submitter) {
+            const loadingText = submitter?.dataset.loadingText || 'Working...';
+
+            form.querySelectorAll('button[type="submit"]').forEach((button) => {
+                button.disabled = true;
+                button.classList.add('opacity-75', 'cursor-wait');
+            });
+
+            if (submitter) {
+                submitter.querySelector('[data-loading-spinner]')?.classList.remove('hidden');
+                const label = submitter.querySelector('[data-button-label]');
+                if (label) {
+                    label.textContent = loadingText;
+                }
+            }
+
+            let status = form.querySelector('[data-loading-status]');
+            if (!status && submitter) {
+                status = document.createElement('div');
+                status.dataset.loadingStatus = 'true';
+                status.className = 'mt-3 text-sm font-medium text-gray-600';
+                submitter.closest('.flex')?.insertAdjacentElement('afterend', status);
+            }
+
+            if (status) {
+                status.textContent = loadingText;
+            }
         }
 
         function togglePleadingType() {

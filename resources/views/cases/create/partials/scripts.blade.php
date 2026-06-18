@@ -648,7 +648,7 @@
             });
 
             document.querySelectorAll('[data-submit-action]').forEach((button) => {
-                button.addEventListener('click', () => submitCaseForm(button.dataset.submitAction));
+                button.addEventListener('click', () => submitCaseForm(button.dataset.submitAction, button));
             });
 
             goToWizardStep(0);
@@ -819,7 +819,7 @@
             return true;
         }
 
-        function submitCaseForm(action) {
+        function submitCaseForm(action, triggerButton = null) {
             for (let step = 0; step < wizardStepMeta.length; step++) {
                 if (!validateWizardStep(step)) {
                     goToWizardStep(step);
@@ -838,7 +838,38 @@
                 progressDiv.classList.remove('hidden');
             }
 
+            setCaseCreateSubmittingState(triggerButton, action);
             form.submit();
+        }
+
+        function setCaseCreateSubmittingState(triggerButton, action) {
+            const loadingMessage = action === 'draft' ? 'Saving draft...' : 'Submitting to HU...';
+
+            document.querySelectorAll('[data-submit-action]').forEach((button) => {
+                button.disabled = true;
+                button.classList.add('opacity-75', 'cursor-wait');
+            });
+
+            if (triggerButton) {
+                const spinner = triggerButton.querySelector('[data-loading-spinner]');
+                const label = triggerButton.querySelector('[data-button-label]');
+                spinner?.classList.remove('hidden');
+                if (label) {
+                    label.textContent = triggerButton.dataset.loadingText || loadingMessage;
+                }
+            }
+
+            let status = document.getElementById('caseCreateSubmitStatus');
+            if (!status && triggerButton) {
+                status = document.createElement('div');
+                status.id = 'caseCreateSubmitStatus';
+                status.className = 'mt-3 text-center text-sm font-medium text-slate-600';
+                triggerButton.closest('.flex')?.insertAdjacentElement('afterend', status);
+            }
+
+            if (status) {
+                status.textContent = loadingMessage;
+            }
         }
 
         function populateReviewStep() {

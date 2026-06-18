@@ -286,9 +286,17 @@
                                                 <h4 class="text-lg font-semibold text-gray-900">{{ $case->case_no }}</h4>
                                                 <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
                                             </div>
-                                            <span class="px-3 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">
-                                                {{ $case->visible_status_label }}
-                                            </span>
+                                            <div class="flex flex-col items-end gap-1">
+                                                <span class="px-3 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">
+                                                    {{ $case->visible_status_label }}
+                                                </span>
+                                                @if($case->hu_display_status)
+                                                    <span class="px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                                                          @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                                                        {{ $case->hu_display_status_label }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                         </div>
 
                                         <p class="text-sm text-gray-700 mt-3 line-clamp-2">{{ $case->caption }}</p>

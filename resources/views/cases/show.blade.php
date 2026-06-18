@@ -108,11 +108,11 @@
                             @endif
                         </div>
                         @if($case->hu_display_status)
-                            <div class="mt-1 text-xs text-gray-500">Workflow: {{ $case->workflow_status_label }}</div>
-                        @endif
-                        @if($case->hu_display_status_note)
-                            <div class="mt-1 max-w-xl text-xs text-gray-600">
-                                {{ $case->hu_display_status_note }}
+                            <div class="mt-1">
+                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                                      @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                                    {{ $case->hu_display_status_label }}
+                                </span>
                             </div>
                         @endif
                     </div>
@@ -1614,6 +1614,47 @@
             document.getElementById('huStatusModal')?.classList.add('hidden');
         }
 
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-loading-form]').forEach((form) => {
+                form.addEventListener('submit', function(event) {
+                    if (form.id === 'uploadForm' && !@json(auth()->user()->isHearingUnit()) && !uploadTimeSensitiveDecisionMade) {
+                        return;
+                    }
+
+                    setFormLoadingState(form, event.submitter);
+                });
+            });
+        });
+
+        function setFormLoadingState(form, submitter) {
+            const loadingText = submitter?.dataset.loadingText || 'Working...';
+
+            form.querySelectorAll('button[type="submit"]').forEach((button) => {
+                button.disabled = true;
+                button.classList.add('opacity-75', 'cursor-wait');
+            });
+
+            if (submitter) {
+                submitter.querySelector('[data-loading-spinner]')?.classList.remove('hidden');
+                const label = submitter.querySelector('[data-button-label]');
+                if (label) {
+                    label.textContent = loadingText;
+                }
+            }
+
+            let status = form.querySelector('[data-loading-status]');
+            if (!status && submitter) {
+                status = document.createElement('div');
+                status.dataset.loadingStatus = 'true';
+                status.className = 'mt-3 text-sm font-medium text-gray-600';
+                submitter.closest('.flex')?.insertAdjacentElement('afterend', status);
+            }
+
+            if (status) {
+                status.textContent = loadingText;
+            }
+        }
+
         // Attorney modal functions
         window.toggleAttorneyFields = function() {
             const option = document.querySelector('#attorneyModal input[name="attorney_option"]:checked')?.value;
@@ -1828,8 +1869,8 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Message / Short Description</label>
-                            <textarea name="hu_display_status_note" rows="3" maxlength="1000" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Optional message shown with the HU display status.">{{ old('hu_display_status_note', $case->hu_display_status_note) }}</textarea>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Hover Description</label>
+                            <textarea name="hu_display_status_note" rows="3" maxlength="1000" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Optional description shown when users hover over the HU display status.">{{ old('hu_display_status_note', $case->hu_display_status_note) }}</textarea>
                         </div>
                         @if($case->hu_display_status_updated_at)
                             <p class="text-xs text-gray-500">
@@ -1944,7 +1985,7 @@
                     <h3 class="text-lg font-medium mb-4">Submit Case {{ $case->case_no }} to Hearing Unit</h3>
                     <p class="text-sm text-gray-600 mb-4">Submitting to Hearing Unit now only notifies the Hearing Unit recipient below.</p>
 
-                    <form action="{{ route('cases.update', $case) }}" method="POST">
+                    <form action="{{ route('cases.update', $case) }}" method="POST" data-loading-form>
                         @csrf
                         @method('PUT')
                         <input type="hidden" name="case_type" value="{{ $case->case_type }}">
@@ -1973,7 +2014,10 @@
 
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideSubmitModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Submit to HU</button>
+                            <button type="submit" data-loading-text="Submitting to HU..." class="inline-flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+                                <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                                <span data-button-label>Submit to HU</span>
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -1988,7 +2032,7 @@
             <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)">
+                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)" data-loading-form>
                         @csrf
                         <input type="hidden" name="time_sensitive_notice" id="timeSensitiveNoticeInput" value="0">
                         <div class="space-y-4">
@@ -2055,8 +2099,9 @@
                             <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
                                 Cancel
                             </button>
-                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                {{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}
+                            <button type="submit" data-loading-text="{{ auth()->user()->isHearingUnit() ? 'Generating preview...' : 'Filing document...' }}" class="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                                <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                                <span data-button-label>{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</span>
                             </button>
                         </div>
                     </form>

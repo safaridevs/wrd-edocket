@@ -263,21 +263,31 @@ class CaseModel extends Model
 
     public function getVisibleStatusLabelAttribute(): string
     {
-        return $this->hu_display_status_label ?? $this->workflow_status_label;
+        return $this->workflow_status_label;
     }
 
     public function getVisibleStatusBadgeClassAttribute(): string
     {
+        return $this->workflow_status_badge_class;
+    }
+
+    public function getWorkflowStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            'active' => 'bg-green-100 text-green-800',
+            'draft' => 'bg-gray-100 text-gray-800',
+            'rejected' => 'bg-red-100 text-red-800',
+            'submitted_to_hu' => 'bg-yellow-100 text-yellow-800',
+            default => 'bg-blue-100 text-blue-800',
+        };
+    }
+
+    public function getHuDisplayStatusBadgeClassAttribute(): string
+    {
         return match ($this->hu_display_status) {
-            'stayed' => 'bg-orange-100 text-orange-800',
-            'in_mediation' => 'bg-purple-100 text-purple-800',
-            default => match ($this->status) {
-                'active' => 'bg-green-100 text-green-800',
-                'draft' => 'bg-gray-100 text-gray-800',
-                'rejected' => 'bg-red-100 text-red-800',
-                'submitted_to_hu' => 'bg-yellow-100 text-yellow-800',
-                default => 'bg-blue-100 text-blue-800',
-            },
+            'stayed' => 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
+            'in_mediation' => 'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
+            default => 'bg-gray-50 text-gray-600 ring-1 ring-gray-200',
         };
     }
 

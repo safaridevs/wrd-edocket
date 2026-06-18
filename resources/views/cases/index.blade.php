@@ -136,7 +136,12 @@
                                     {{ $case->visible_status_label }}
                                 </span>
                                 @if($case->hu_display_status)
-                                    <div class="mt-1 text-xs text-gray-500">Workflow: {{ $case->workflow_status_label }}</div>
+                                    <div class="mt-1">
+                                        <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                                              @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                                            {{ $case->hu_display_status_label }}
+                                        </span>
+                                    </div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

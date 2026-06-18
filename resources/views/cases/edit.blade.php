@@ -58,7 +58,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('cases.update', $case) }}" enctype="multipart/form-data" class="bg-white shadow-sm rounded-lg p-6">
+            <form id="caseEditForm" method="POST" action="{{ route('cases.update', $case) }}" enctype="multipart/form-data" class="bg-white shadow-sm rounded-lg p-6">
                 @csrf
                 @method('PUT')
                 
@@ -237,11 +237,13 @@
 
                 <!-- Actions -->
                 <div class="flex gap-4">
-                    <button type="submit" name="action" value="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Save Draft
+                    <button type="submit" name="action" value="draft" data-loading-text="Saving draft..." class="inline-flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
+                        <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                        <span data-button-label>Save Draft</span>
                     </button>
-                    <button type="submit" name="action" value="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-                        Submit to HU
+                    <button type="submit" name="action" value="submit" data-loading-text="Submitting to HU..." class="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
+                        <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                        <span data-button-label>Submit to HU</span>
                     </button>
                     <a href="{{ route('cases.show', $case) }}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md transition-colors">
                         Cancel
@@ -251,5 +253,29 @@
         </div>
     </div>
 
+    <script>
+        document.getElementById('caseEditForm')?.addEventListener('submit', function(event) {
+            const submitter = event.submitter;
+            const loadingText = submitter?.dataset.loadingText || 'Saving...';
+
+            this.querySelectorAll('button[type="submit"]').forEach((button) => {
+                button.disabled = true;
+                button.classList.add('opacity-75', 'cursor-wait');
+            });
+
+            if (submitter) {
+                submitter.querySelector('[data-loading-spinner]')?.classList.remove('hidden');
+                const label = submitter.querySelector('[data-button-label]');
+                if (label) {
+                    label.textContent = loadingText;
+                }
+
+                const status = document.createElement('div');
+                status.className = 'mt-3 text-sm font-medium text-gray-600';
+                status.textContent = loadingText;
+                submitter.closest('.flex')?.insertAdjacentElement('afterend', status);
+            }
+        });
+    </script>
 
 </x-app-layout>

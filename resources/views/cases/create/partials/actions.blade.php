@@ -11,11 +11,13 @@
 </div>
 
 <div class="flex justify-center gap-4">
-    <button type="button" data-submit-action="draft" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
-        Save Draft
+    <button type="button" data-submit-action="draft" data-loading-text="Saving draft..." class="inline-flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition-colors">
+        <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+        <span data-button-label>Save Draft</span>
     </button>
-    <button type="button" data-submit-action="submit" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
-        Submit to HU
+    <button type="button" data-submit-action="submit" data-loading-text="Submitting to HU..." class="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
+        <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+        <span data-button-label>Submit to HU</span>
     </button>
     <a href="{{ route('cases.index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md transition-colors">
         Cancel
