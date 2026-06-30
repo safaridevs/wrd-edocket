@@ -16,8 +16,8 @@
 
         <!-- Search Form -->
         <form method="GET" action="{{ route('public.cases.index') }}" class="max-w-4xl mx-auto">
-            <div class="flex flex-col sm:flex-row gap-4">
-                <div class="flex-1">
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div class="lg:col-span-7">
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -31,11 +31,26 @@
                                class="w-full pl-12 pr-4 py-4 border-gray-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 search-focus text-lg">
                     </div>
                 </div>
-                <div class="flex gap-3">
-                    <button type="submit" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold">
+
+                <div class="lg:col-span-3">
+                    <label for="case-type" class="sr-only">Case Type</label>
+                    <select id="case-type"
+                            name="type"
+                            class="w-full py-4 px-4 border-gray-300 rounded-xl shadow-sm focus:border-blue-500 focus:ring-blue-500 text-lg">
+                        <option value="">All Case Types</option>
+                        @foreach($allowedTypes as $type)
+                            <option value="{{ $type }}" @selected(request('type') === $type)>
+                                {{ ucfirst(str_replace('_', ' ', $type)) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="flex gap-3 lg:col-span-2">
+                    <button type="submit" class="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl font-semibold">
                         Search
                     </button>
-                    @if(request('search'))
+                    @if(request('search') || request('type'))
                         <a href="{{ route('public.cases.index') }}" class="bg-gray-100 text-gray-700 px-6 py-4 rounded-xl hover:bg-gray-200 transition-colors font-medium">
                             Clear
                         </a>
@@ -49,8 +64,15 @@
     <div class="bg-white rounded-lg shadow">
         <div class="px-6 py-4 border-b border-gray-200">
             <h3 class="text-lg font-medium text-gray-900">
-                @if(request('search'))
-                    Search Results for "{{ request('search') }}" ({{ $cases->total() }} found)
+                @if(request('search') || request('type'))
+                    Search Results
+                    @if(request('search'))
+                        for "{{ request('search') }}"
+                    @endif
+                    @if(request('type'))
+                        in {{ ucfirst(str_replace('_', ' ', request('type'))) }} cases
+                    @endif
+                    ({{ $cases->total() }} found)
                 @else
                     Active Cases ({{ $cases->total() }} total)
                 @endif
@@ -80,7 +102,7 @@
                                 @endif
                             </div>
 
-                            <p class="text-gray-900 mb-3">{{ $case->caption }}</p>
+                            @include('public.cases.partials.caption-preview', ['caption' => $case->caption])
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>
@@ -148,8 +170,8 @@
                 </div>
                 <h3 class="text-lg font-medium text-gray-900 mb-2">No cases found</h3>
                 <p class="text-gray-600">
-                    @if(request('search'))
-                        No public cases match your search criteria. Try different keywords or browse all cases.
+                    @if(request('search') || request('type'))
+                        No public cases match your search criteria. Try different keywords, case type, or browse all cases.
                     @else
                         No public cases are currently available for public viewing.
                     @endif

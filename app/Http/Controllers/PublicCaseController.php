@@ -11,9 +11,15 @@ class PublicCaseController extends Controller
 {
     public function index(Request $request)
     {
+        $allowedTypes = ['aggrieved', 'protested', 'compliance'];
+
         $query = CaseModel::where('status', 'active')
             ->with(['parties.person', 'oseFileNumbers'])
             ->orderBy('created_at', 'desc');
+
+        if ($request->filled('type') && in_array($request->type, $allowedTypes, true)) {
+            $query->where('case_type', $request->type);
+        }
 
         // Search functionality
         if ($request->has('search') && !empty($request->search)) {
@@ -29,14 +35,17 @@ class PublicCaseController extends Controller
                   ->orWhereHas('oseFileNumbers', function($oq) use ($search) {
                       $oq->where('basin_code', 'like', "%{$search}%")
                          ->orWhere('file_no_from', 'like', "%{$search}%")
-                         ->orWhere('file_no_to', 'like', "%{$search}%");
+                         ->orWhere('file_no_to', 'like', "%{$search}%")
+                         ->orWhereHas('basinCode', function($bq) use ($search) {
+                             $bq->where('description', 'like', "%{$search}%");
+                         });
                   });
             });
         }
 
-        $cases = $query->paginate(20);
+        $cases = $query->paginate(20)->withQueryString();
 
-        return view('public.cases.index', compact('cases'));
+        return view('public.cases.index', compact('cases', 'allowedTypes'));
     }
 
     public function show(CaseModel $case)

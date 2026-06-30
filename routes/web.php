@@ -10,10 +10,35 @@ use App\Http\Controllers\CaseInitiationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
+use App\Models\CaseModel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', function (Request $request) {
+    $activeCases = CaseModel::where('status', 'active');
+    $activeCasesCount = (clone $activeCases)->count();
+
+    $caseYears = (clone $activeCases)
+        ->orderByDesc('created_at')
+        ->pluck('created_at')
+        ->map(fn ($date) => $date ? Carbon::parse($date)->format('Y') : null)
+        ->filter()
+        ->unique()
+        ->values();
+
+    $selectedYear = $request->query('year');
+    if (!$selectedYear || !$caseYears->contains((string) $selectedYear)) {
+        $selectedYear = $caseYears->first() ?? now()->format('Y');
+    }
+
+    $publicCases = CaseModel::where('status', 'active')
+        ->whereYear('created_at', $selectedYear)
+        ->with(['parties.person', 'oseFileNumbers'])
+        ->orderByDesc('created_at')
+        ->get();
+
+    return view('welcome', compact('activeCasesCount', 'caseYears', 'selectedYear', 'publicCases'));
 })->name('welcome');
 
 // Public case viewing (no authentication required)

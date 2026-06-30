@@ -13,4 +13,9 @@ class OseFileNumber extends Model
     {
         return $this->belongsTo(CaseModel::class, 'case_id');
     }
+
+    public function basinCode(): BelongsTo
+    {
+        return $this->belongsTo(OseBasinCode::class, 'basin_code', 'initial');
+    }
 }

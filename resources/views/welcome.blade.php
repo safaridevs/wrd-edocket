@@ -71,11 +71,11 @@
             <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-blue-600">{{ \App\Models\CaseModel::where('status', 'active')->count() }}</div>
+                        <div class="text-3xl font-bold text-blue-600">{{ $activeCasesCount }}</div>
                         <div class="text-gray-600 mt-2">Cases</div>
                     </div>
                     <div class="text-center">
-                        <div class="text-3xl font-bold text-purple-600">{{ \App\Models\CaseModel::where('status', 'active')->count() }}</div>
+                        <div class="text-3xl font-bold text-purple-600">{{ $activeCasesCount }}</div>
                         <div class="text-gray-600 mt-2">Active Hearings</div>
                     </div>
                 </div>
@@ -92,78 +92,118 @@
                     </p>
                 </div>
 
-                @php
-                    $publicCases = \App\Models\CaseModel::where('status', 'active')
-                        ->with(['parties.person', 'documents', 'oseFileNumbers'])
-                        ->latest()
-                        ->take(12)
-                        ->get();
-                @endphp
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900">
+                                    {{ $selectedYear }} Cases ({{ $publicCases->count() }} total)
+                                </h3>
+                            </div>
 
-                @if($publicCases->count() > 0)
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                        @foreach($publicCases as $case)
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                            <div class="p-6 flex flex-col h-full">
-                                <div class="flex items-start justify-between mb-4">
-                                    <div>
-                                        <h3 class="font-semibold text-gray-900 text-lg">{{ $case->case_no }}</h3>
-                                        <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
-                                    </div>
-                                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                                        Active
-                                    </span>
-                                </div>
+                            <form method="GET" action="{{ route('welcome') }}#public-cases" class="flex items-center gap-3">
+                                <label for="case-year" class="text-sm font-medium text-gray-700">Year</label>
+                                <select id="case-year" name="year" class="rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    @forelse($caseYears as $year)
+                                        <option value="{{ $year }}" @selected((string) $selectedYear === (string) $year)>{{ $year }}</option>
+                                    @empty
+                                        <option value="{{ $selectedYear }}">{{ $selectedYear }}</option>
+                                    @endforelse
+                                </select>
+                                <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    Filter
+                                </button>
+                            </form>
+                        </div>
+                    </div>
 
-                                <div class="mb-4">
-                                    <p class="text-sm text-gray-700 line-clamp-2">{{ Str::limit($case->caption, 100) }}</p>
-                                </div>
+                    @if($publicCases->count() > 0)
+                        <div class="divide-y divide-gray-200">
+                            @foreach($publicCases as $case)
+                            <div class="p-6 border-l-4 border-l-transparent hover:border-l-blue-500 hover:bg-gradient-to-r hover:from-blue-50 hover:to-transparent">
+                                <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex flex-wrap items-center gap-3 mb-3">
+                                            <h4 class="text-xl font-semibold text-blue-600">
+                                                <a href="{{ route('public.cases.show', $case) }}" class="hover:text-blue-800 transition-colors">
+                                                    {{ $case->case_no }}
+                                                </a>
+                                            </h4>
+                                            <span class="inline-flex px-3 py-1 text-xs font-bold rounded-full {{ $case->visible_status_badge_class }}">
+                                                {{ $case->visible_status_label }}
+                                            </span>
+                                            @if($case->hu_display_status)
+                                                <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded-full {{ $case->hu_display_status_badge_class }}"
+                                                      @if($case->hu_display_status_note) title="{{ $case->hu_display_status_note }}" @endif>
+                                                    {{ $case->hu_display_status_label }}
+                                                </span>
+                                            @endif
+                                        </div>
 
-                                @if($case->oseFileNumbers->count() > 0)
-                                <div class="mb-4">
-                                    <p class="text-xs text-gray-500 mb-1">OSE File Numbers:</p>
-                                    <div class="flex flex-wrap gap-1">
-                                        @foreach($case->oseFileNumbers->take(2) as $ose)
-                                        <span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                                            {{ $ose->file_no_from }}{{ $ose->file_no_to ? '-' . $ose->file_no_to : '' }}
-                                        </span>
-                                        @endforeach
-                                        @if($case->oseFileNumbers->count() > 2)
-                                        <span class="text-xs text-gray-500">+{{ $case->oseFileNumbers->count() - 2 }} more</span>
+                                        @include('public.cases.partials.caption-preview', ['caption' => $case->caption])
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                                            <div>
+                                                <strong>Case Type:</strong> {{ ucfirst($case->case_type) }}
+                                            </div>
+                                            <div>
+                                                <strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}
+                                            </div>
+                                            @if($case->oseFileNumbers->count() > 0)
+                                            <div class="md:col-span-2">
+                                                <strong>OSE File Numbers:</strong>
+                                                @foreach($case->oseFileNumbers as $ose)
+                                                    <span class="inline-block bg-gray-100 px-2 py-1 rounded text-xs mr-1">
+                                                        {{ $ose->file_no_from }}{{ $ose->file_no_to ? ' - ' . $ose->file_no_to : '' }}
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                            @endif
+                                        </div>
+
+                                        @if($case->parties->count() > 0)
+                                        <div class="mt-3">
+                                            <strong class="text-sm text-gray-600">Parties:</strong>
+                                            <div class="mt-1 flex flex-wrap gap-2">
+                                                @foreach($case->parties->take(3) as $party)
+                                                    <span class="inline-block bg-blue-50 text-blue-800 px-2 py-1 rounded text-xs">
+                                                        {{ $party->person->full_name }} ({{ ucfirst($party->role) }})
+                                                    </span>
+                                                @endforeach
+                                                @if($case->parties->count() > 3)
+                                                    <span class="text-xs text-gray-500">
+                                                        +{{ $case->parties->count() - 3 }} more
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
                                         @endif
                                     </div>
-                                </div>
-                                @endif
 
-                                <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
-                                    <span>{{ $case->documents->count() }} documents</span>
-                                    <span>{{ $case->created_at->format('M j, Y') }}</span>
+                                    <div class="lg:ml-4">
+                                        <a href="{{ route('public.cases.show', $case) }}"
+                                           class="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-blue-800 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto">
+                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            View Details
+                                        </a>
+                                    </div>
                                 </div>
-
-                                <a href="{{ route('public.cases.show', $case) }}" class="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center block">
-                                    View Case Details
-                                </a>
                             </div>
+                            @endforeach
                         </div>
-                        @endforeach
-                    </div>
-
-                    @if(\App\Models\CaseModel::where('status', 'active')->count() > 12)
-                    <div class="text-center">
-                        <a href="{{ route('public.cases.index') }}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 px-6 rounded-lg transition-colors">
-                            View All Public Cases ({{ \App\Models\CaseModel::where('status', 'active')->count() }} total)
-                        </a>
-                    </div>
+                    @else
+                        <div class="text-center py-12">
+                            <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">No Cases Found</h3>
+                            <p class="text-gray-600">No active Hearing Unit cases are available for {{ $selectedYear }}.</p>
+                        </div>
                     @endif
-                @else
-                    <div class="text-center py-12">
-                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">No Public Cases Yet</h3>
-                        <p class="text-gray-600">Active Hearing Unit cases will appear here for public access.</p>
-                    </div>
-                @endif
+                </div>
             </div>
         </div>
 
