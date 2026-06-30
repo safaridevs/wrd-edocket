@@ -14,8 +14,7 @@ return new class extends Migration
             $table->dropIndex('documents_case_id_doc_type_index');
         });
         
-        // Drop the CHECK constraint
-        DB::statement('ALTER TABLE documents DROP CONSTRAINT CK__documents__doc_t__62E4AA3C');
+        $this->dropCheckConstraints('documents', 'doc_type');
         
         // Drop and recreate the column with new values
         Schema::table('documents', function (Blueprint $table) {
@@ -23,7 +22,7 @@ return new class extends Migration
         });
         
         Schema::table('documents', function (Blueprint $table) {
-            $table->enum('doc_type', ['application', 'notice_publication', 'affidavit_publication', 'protest_letter', 'aggrieval_letter', 'request_to_docket', 'request_for_pre_hearing', 'order', 'filing_other', 'hearing_video', 'supporting', 'affidavit', 'exhibit', 'correspondence', 'technical_report', 'legal_brief', 'motion', 'other'])->default('application')->after('case_id');
+            $table->string('doc_type', 100)->default('application')->after('case_id');
             $table->index(['case_id', 'doc_type']);
         });
     }
@@ -35,7 +34,21 @@ return new class extends Migration
         });
         
         Schema::table('documents', function (Blueprint $table) {
-            $table->enum('doc_type', ['application', 'notice_publication', 'affidavit_publication', 'protest_letter', 'aggrieval_letter', 'request_to_docket', 'order', 'filing_other', 'hearing_video', 'supporting', 'affidavit', 'exhibit', 'correspondence', 'technical_report', 'legal_brief', 'motion', 'other'])->default('application')->after('case_id');
+            $table->string('doc_type', 100)->default('application')->after('case_id');
         });
+    }
+
+    private function dropCheckConstraints(string $table, string $column): void
+    {
+        $constraints = DB::select("
+            SELECT name
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(?)
+              AND definition LIKE ?
+        ", [$table, '%' . $column . '%']);
+
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
+        }
     }
 };

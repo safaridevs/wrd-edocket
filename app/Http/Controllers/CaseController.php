@@ -1028,6 +1028,8 @@ class CaseController extends Controller
                 'is_primary' => false
             ]);
 
+            $party->removeFromServiceListWhileRepresented();
+
             return response()->json(['success' => true]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()]);
@@ -1080,6 +1082,8 @@ class CaseController extends Controller
                     ->delete();
             }
         }
+
+        $party->restoreServiceListIfUnrepresented();
 
         return response()->json(['success' => true]);
     }
@@ -1284,17 +1288,12 @@ class CaseController extends Controller
                         'service_method' => 'email',
                         'is_primary' => false,
                     ]);
+
+                    $clientParty->removeFromServiceListWhileRepresented();
                 }
             }
 
-            // Create service list entry
-            \App\Models\ServiceList::create([
-                'case_id' => $case->id,
-                'person_id' => $person->id,
-                'email' => $person->email,
-                'service_method' => 'email',
-                'is_primary' => true
-            ]);
+            $clientParty->restoreServiceListIfUnrepresented();
 
             return redirect()->route('cases.parties.manage', $case)->with('success', 'Party added successfully.');
 

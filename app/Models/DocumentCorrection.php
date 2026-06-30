@@ -41,12 +41,12 @@ class DocumentCorrection extends Model
 
     public function requestedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'requested_by_user_id');
+        return $this->belongsTo(User::class, 'requested_by_user_id')->withTrashed();
     }
 
     public function resubmittedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'resubmitted_by_user_id');
+        return $this->belongsTo(User::class, 'resubmitted_by_user_id')->withTrashed();
     }
 
     public function replacementDocument(): BelongsTo
@@ -56,7 +56,7 @@ class DocumentCorrection extends Model
 
     public function acceptedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'accepted_by_user_id');
+        return $this->belongsTo(User::class, 'accepted_by_user_id')->withTrashed();
     }
 
     public function items(): HasMany

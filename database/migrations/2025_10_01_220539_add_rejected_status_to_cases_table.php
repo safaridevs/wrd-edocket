@@ -9,8 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop the existing constraint
-        DB::statement('ALTER TABLE cases DROP CONSTRAINT CK__cases__status__5D2BD0E6');
+        $this->dropCheckConstraints('cases', 'status');
         
         // Add new constraint with rejected status
         DB::statement("ALTER TABLE cases ADD CONSTRAINT CK_cases_status CHECK (status IN ('draft', 'submitted_to_hu', 'active', 'rejected', 'closed', 'archived'))");
@@ -18,10 +17,23 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Drop the new constraint
-        DB::statement('ALTER TABLE cases DROP CONSTRAINT CK_cases_status');
+        $this->dropCheckConstraints('cases', 'status');
         
         // Restore original constraint (without rejected)
         DB::statement("ALTER TABLE cases ADD CONSTRAINT CK__cases__status__5D2BD0E6 CHECK (status IN ('draft', 'submitted_to_hu', 'active', 'closed', 'archived'))");
+    }
+
+    private function dropCheckConstraints(string $table, string $column): void
+    {
+        $constraints = DB::select("
+            SELECT name
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(?)
+              AND definition LIKE ?
+        ", [$table, '%' . $column . '%']);
+
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
+        }
     }
 };

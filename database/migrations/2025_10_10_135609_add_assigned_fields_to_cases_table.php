@@ -8,9 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('cases')) {
+            return;
+        }
+
         Schema::table('cases', function (Blueprint $table) {
-            $table->integer('assigned_attorney_id')->nullable();
-            $table->integer('assigned_hydrology_expert_id')->nullable();
+            if (!Schema::hasColumn('cases', 'assigned_attorney_id')) {
+                $table->integer('assigned_attorney_id')->nullable();
+            }
+            if (!Schema::hasColumn('cases', 'assigned_hydrology_expert_id')) {
+                $table->integer('assigned_hydrology_expert_id')->nullable();
+            }
         });
     }
 

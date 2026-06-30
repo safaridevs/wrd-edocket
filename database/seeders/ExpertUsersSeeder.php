@@ -33,14 +33,16 @@ class ExpertUsersSeeder extends Seeder
         ];
 
         foreach ($experts as $expert) {
-            User::create([
-                'name' => $expert['name'],
-                'email' => $expert['email'],
-                'password' => Hash::make('password'),
-                'role' => $expert['role'],
-                'initials' => $expert['initials'],
-                'is_active' => true,
-            ]);
+            User::updateOrCreate(
+                ['email' => $expert['email']],
+                [
+                    'name' => $expert['name'],
+                    'password' => Hash::make('password'),
+                    'role' => $expert['role'],
+                    'initials' => $expert['initials'],
+                    'is_active' => true,
+                ]
+            );
         }
     }
 }

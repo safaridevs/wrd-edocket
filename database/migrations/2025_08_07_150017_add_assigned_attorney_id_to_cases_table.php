@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('cases') || Schema::hasColumn('cases', 'assigned_attorney_id')) {
+            return;
+        }
+
         Schema::table('cases', function (Blueprint $table) {
             $table->foreignId('assigned_attorney_id')->nullable()->constrained('users');
         });

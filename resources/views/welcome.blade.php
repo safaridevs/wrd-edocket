@@ -50,7 +50,7 @@
                         OSE E-Docket
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-                        Access Office Of The State Engineer Hearing Unit cases
+                        Access Office of The State Engineer Hearing Unit Cases
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
@@ -266,26 +266,26 @@
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Information for Parties</h3>
                         <div class="space-y-3">
                             <a href="https://nmonesource.com/nmos/en/a/s/index.do?cont=chapter+72+water+code" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                NMSA 1978, Chapter 72 Water Code
+                                Water Code - NMSA 1978, Chapter 72
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c25" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                19.25.1 NMAC - General Provisions
+                                General Provisions - 19.25.1 NMAC
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c25p1" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                19.25.2 NMAC - Hearing Unit Procedures
+                                Hearing Unit Procedures - 19.25.2 NMAC
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c26" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Title 19 Chapter 26 - Surface Water Rules
+                                Surface Water Rules - Title 19 Chapter 26
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c27" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Title 19 Chapter 27 - Underground Water Rules
+                                Underground Water Rules - Title 19 Chapter 27
                             </a>
                         </div>
                         <br>
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Alternative Dispute Resolution (ADR)</h3>
                         <div class="space-y-3">
                             <a href="{{ asset('documents/New Mexico Mediation Procedures Act.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                New Mexico Mediation Precedures Act
+                                New Mexico Mediation Procedures Act - NMSA 1978, Chapter 44, Art. 7(B)
                             </a>
                             <a href="{{ asset('documents/OSE Mediation - NM Law and Mediation.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 OSE Mediation - NM Law and Mediation

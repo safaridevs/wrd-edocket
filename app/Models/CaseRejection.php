@@ -30,12 +30,12 @@ class CaseRejection extends Model
 
     public function rejectedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'rejected_by_user_id');
+        return $this->belongsTo(User::class, 'rejected_by_user_id')->withTrashed();
     }
 
     public function resubmittedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'resubmitted_by_user_id');
+        return $this->belongsTo(User::class, 'resubmitted_by_user_id')->withTrashed();
     }
 
     public function items(): HasMany

@@ -12,10 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('case_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('action', [
-                'create_case', 'update_case', 'submit_to_hu', 'accept_request', 'reject_request',
-                'upload_doc', 'approve_doc', 'reject_doc', 'file_document', 'issue_order', 'sync_repo'
-            ]);
+            $table->string('action', 100);
             $table->json('meta_json')->nullable();
             $table->timestamps();
             

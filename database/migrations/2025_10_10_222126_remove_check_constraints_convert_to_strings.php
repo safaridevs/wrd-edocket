@@ -9,12 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Drop indexes first
-        try {
-            Schema::table('notifications', function (Blueprint $table) {
-                $table->dropIndex('notifications_case_id_notification_type_index');
-            });
-        } catch (Exception $e) {}
+        $this->dropIndexIfExists('notifications', 'notifications_case_id_notification_type_index');
+        $this->dropIndexIfExists('audit_logs', 'audit_logs_case_id_action_index');
+        $this->dropIndexIfExists('documents', 'documents_case_id_doc_type_index');
+        $this->dropIndexIfExists('case_parties', 'case_parties_case_id_role_index');
 
         // Get all CHECK constraints and drop them
         $constraints = DB::select("
@@ -61,11 +59,47 @@ return new class extends Migration
             $table->string('role', 50)->change();
             $table->string('representation', 50)->change();
         });
+
+        $this->createIndexIfMissing('notifications', 'notifications_case_id_notification_type_index', ['case_id', 'notification_type']);
+        $this->createIndexIfMissing('audit_logs', 'audit_logs_case_id_action_index', ['case_id', 'action']);
+        $this->createIndexIfMissing('documents', 'documents_case_id_doc_type_index', ['case_id', 'doc_type']);
+        $this->createIndexIfMissing('case_parties', 'case_parties_case_id_role_index', ['case_id', 'role']);
     }
 
     public function down(): void
     {
         // Recreate the constraints (this is complex, so we'll just note it)
         // In practice, you'd recreate the original enum constraints here
+    }
+
+    private function dropIndexIfExists(string $table, string $index): void
+    {
+        $exists = DB::selectOne("
+            SELECT 1 AS found
+            FROM sys.indexes
+            WHERE object_id = OBJECT_ID(?)
+              AND name = ?
+        ", [$table, $index]);
+
+        if ($exists) {
+            DB::statement("DROP INDEX {$index} ON {$table}");
+        }
+    }
+
+    private function createIndexIfMissing(string $table, string $index, array $columns): void
+    {
+        $exists = DB::selectOne("
+            SELECT 1 AS found
+            FROM sys.indexes
+            WHERE object_id = OBJECT_ID(?)
+              AND name = ?
+        ", [$table, $index]);
+
+        if ($exists) {
+            return;
+        }
+
+        $columnList = implode(', ', array_map(fn (string $column) => "[{$column}]", $columns));
+        DB::statement("CREATE INDEX {$index} ON {$table} ({$columnList})");
     }
 };

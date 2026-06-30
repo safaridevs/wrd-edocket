@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->nullable()->constrained()->onDelete('cascade');
-            $table->enum('notification_type', ['case_initiated', 'accepted', 'new_filing', 'issuance']);
+            $table->string('notification_type', 50);
             $table->json('payload_json')->nullable();
             $table->timestamp('sent_at');
             

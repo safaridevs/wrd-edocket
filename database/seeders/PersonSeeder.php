@@ -57,7 +57,10 @@ class PersonSeeder extends Seeder
         ];
 
         foreach ($persons as $personData) {
-            Person::create($personData);
+            Person::updateOrCreate(
+                ['email' => $personData['email']],
+                $personData
+            );
         }
     }
 }

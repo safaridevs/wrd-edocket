@@ -11,7 +11,8 @@ return new class extends Migration
         Schema::create('case_parties', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->constrained()->onDelete('cascade');
-            $table->enum('role', ['applicant', 'protestant', 'aggrieved_party', 'counsel', 'paralegal', 'expert_wrd', 'expert_hydro', 'alu_atty', 'alu_supervising_atty']);
+            $table->string('role', 50);
+            $table->unsignedBigInteger('client_party_id')->nullable();
             $table->foreignId('person_id')->constrained('persons')->onDelete('cascade');
             $table->boolean('service_enabled')->default(true);
             

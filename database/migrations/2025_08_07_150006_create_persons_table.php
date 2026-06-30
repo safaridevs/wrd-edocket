@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('persons', function (Blueprint $table) {
             $table->id();
-            $table->enum('type', ['individual', 'company']);
+            $table->string('type', 50);
             $table->string('prefix')->nullable();
             $table->string('first_name')->nullable();
             $table->string('middle_name')->nullable();

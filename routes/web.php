@@ -10,6 +10,7 @@ use App\Http\Controllers\CaseInitiationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\ReportController;
 use App\Models\CaseModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -55,6 +56,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/legal-service', [ProfileController::class, 'updateLegalServiceProfile'])->name('profile.legal-service.update');
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/active-cases/print', [ReportController::class, 'activeCasesPrint'])->name('reports.active-cases.print');
+    Route::get('reports/active-cases/pdf', [ReportController::class, 'activeCasesPdf'])->name('reports.active-cases.pdf');
 
     
     // E-Docket Routes

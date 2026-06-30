@@ -8,11 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('cases') || !Schema::hasTable('users') || Schema::hasTable('case_assignments')) {
+            return;
+        }
+
         Schema::create('case_assignments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->constrained('cases')->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('assignment_type', ['hydrology_expert', 'wrd', 'alu_clerk', 'alu_atty']);
+            $table->string('assignment_type', 50);
             $table->timestamp('assigned_at')->useCurrent();
             $table->foreignId('assigned_by')->constrained('users');
             $table->timestamps();

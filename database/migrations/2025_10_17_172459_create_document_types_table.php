@@ -12,8 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('code')->unique();
-            $table->enum('category', ['case_creation', 'party_upload', 'system']);
-            $table->json('allowed_roles');
+            $table->string('category', 50);
             $table->boolean('is_required')->default(false);
             $table->boolean('is_pleading')->default(false);
             $table->boolean('allows_multiple')->default(false);

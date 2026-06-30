@@ -31,7 +31,7 @@ class SimpleDemoSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => $userData['email']],
                 array_merge($userData, ['password' => Hash::make('password123')])
             );

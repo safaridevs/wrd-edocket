@@ -65,14 +65,12 @@ class CaseService
                             $this->createAgentParty($case, $partyData, $clientParty);
                         }
                         
-                        // Auto-create service list entry
-                        ServiceList::create([
-                            'case_id' => $case->id,
-                            'person_id' => $person->id,
-                            'email' => $person->email,
-                            'service_method' => $partyData['service_method'] ?? 'email',
-                            'is_primary' => true
-                        ]);
+                        $this->syncDirectPartyServiceListEntry(
+                            $case,
+                            $clientParty,
+                            $person,
+                            $partyData['service_method'] ?? 'email'
+                        );
                     }
                 }
             }
@@ -235,6 +233,7 @@ class CaseService
         ]);
 
         $this->syncRepresentativeServiceListEntry($case, $attorneyPerson, $data['service_method'] ?? 'email');
+        $clientParty->removeFromServiceListWhileRepresented();
         \Log::info('Created counsel party', ['counsel_party_id' => $counselParty->id]);
     }
 
@@ -317,6 +316,34 @@ class CaseService
                 'email' => $person->email,
                 'service_method' => $serviceMethod,
                 'is_primary' => false,
+            ]
+        );
+    }
+
+    private function syncDirectPartyServiceListEntry(CaseModel $case, CaseParty $party, Person $person, string $serviceMethod = 'email'): void
+    {
+        if ($party->hasPrivateCounsel()) {
+            $party->removeFromServiceListWhileRepresented();
+            return;
+        }
+
+        if (empty($person->email)) {
+            return;
+        }
+
+        if (!$party->service_enabled) {
+            $party->forceFill(['service_enabled' => true])->save();
+        }
+
+        ServiceList::firstOrCreate(
+            [
+                'case_id' => $case->id,
+                'person_id' => $person->id,
+            ],
+            [
+                'email' => $person->email,
+                'service_method' => $serviceMethod,
+                'is_primary' => true,
             ]
         );
     }
@@ -962,14 +989,7 @@ class CaseService
                                 $this->createAgentParty($case, $partyData, $clientParty);
                             }
                             
-                            // Auto-create service list entry
-                            ServiceList::create([
-                                'case_id' => $case->id,
-                                'person_id' => $person->id,
-                                'email' => $person->email,
-                                'service_method' => 'email',
-                                'is_primary' => true
-                            ]);
+                            $this->syncDirectPartyServiceListEntry($case, $clientParty, $person);
                         }
                     }
                 }

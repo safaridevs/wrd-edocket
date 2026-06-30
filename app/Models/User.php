@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -229,7 +230,17 @@ class User extends Authenticatable
         }
 
         if ($this->getCurrentRole() === 'party') {
-            return $case->status === 'active' && $this->canAccessCase($case);
+            if ($case->status !== 'active' || !$this->canAccessCase($case)) {
+                return false;
+            }
+
+            $directParties = CaseParty::directPartiesForEmail($case, $this->email);
+
+            if ($directParties->contains(fn (CaseParty $party) => !$party->hasPrivateCounsel())) {
+                return true;
+            }
+
+            return $directParties->isEmpty() && ($this->isAttorney() || $this->isParalegal());
         }
 
         if ($this->isExternalAttorney()) {

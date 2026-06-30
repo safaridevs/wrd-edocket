@@ -21,6 +21,12 @@
                         {{ __('Cases') }}
                     </x-nav-link>
 
+                    @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))
+                        <x-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')">
+                            {{ __('Report') }}
+                        </x-nav-link>
+                    @endif
+
                     @if(Auth::user()->canCreateCase())
                         <x-nav-link :href="route('cases.create')" :active="request()->routeIs('cases.create')">
                             {{ __('New Case') }}
@@ -153,6 +159,12 @@
             <x-responsive-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
                 {{ __('Cases') }}
             </x-responsive-nav-link>
+
+            @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))
+                <x-responsive-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')">
+                    {{ __('Report') }}
+                </x-responsive-nav-link>
+            @endif
 
             @if(Auth::user()->canCreateCase())
                 <x-responsive-nav-link :href="route('cases.create')" :active="request()->routeIs('cases.create')">

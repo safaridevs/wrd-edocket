@@ -104,6 +104,14 @@ return new class extends Migration
             Schema::drop('attorney_client_relationships');
         }
 
+        if (Schema::hasTable('case_parties') && Schema::hasColumn('case_parties', 'attorney_id')) {
+            $this->dropForeignKeysForColumn('case_parties', 'attorney_id');
+
+            Schema::table('case_parties', function (Blueprint $table) {
+                $table->dropColumn('attorney_id');
+            });
+        }
+
         if (Schema::hasTable('attorneys')) {
             Schema::drop('attorneys');
         }
@@ -171,5 +179,22 @@ return new class extends Migration
             'first_name' => $parts[0] ?? null,
             'last_name' => count($parts) > 1 ? implode(' ', array_slice($parts, 1)) : null,
         ];
+    }
+
+    private function dropForeignKeysForColumn(string $table, string $column): void
+    {
+        $constraints = DB::select("
+            SELECT fk.name
+            FROM sys.foreign_keys fk
+            INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+            INNER JOIN sys.tables t ON fkc.parent_object_id = t.object_id
+            INNER JOIN sys.columns c ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
+            WHERE t.name = ?
+              AND c.name = ?
+        ", [$table, $column]);
+
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
+        }
     }
 };

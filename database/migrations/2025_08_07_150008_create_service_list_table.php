@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('case_id')->constrained()->onDelete('cascade');
             $table->foreignId('person_id')->constrained('persons')->onDelete('cascade');
             $table->string('email');
-            $table->enum('service_method', ['email', 'mail'])->default('email');
+            $table->string('service_method', 50)->default('email');
             $table->boolean('is_primary')->default(false);
             $table->timestamps();
             

@@ -93,47 +93,47 @@ class CaseModel extends Model
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by_user_id');
+        return $this->belongsTo(User::class, 'created_by_user_id')->withTrashed();
     }
 
     public function assignee(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by_user_id');
+        return $this->belongsTo(User::class, 'updated_by_user_id')->withTrashed();
     }
 
     public function assignedAttorney(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_attorney_id');
+        return $this->belongsTo(User::class, 'assigned_attorney_id')->withTrashed();
     }
 
     public function assignedHydrologyExpert(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_hydrology_expert_id');
+        return $this->belongsTo(User::class, 'assigned_hydrology_expert_id')->withTrashed();
     }
 
     public function assignedAluClerk(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_alu_clerk_id');
+        return $this->belongsTo(User::class, 'assigned_alu_clerk_id')->withTrashed();
     }
 
     public function assignedWrd(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assigned_wrd_id');
+        return $this->belongsTo(User::class, 'assigned_wrd_id')->withTrashed();
     }
 
     public function closedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'closed_by_user_id');
+        return $this->belongsTo(User::class, 'closed_by_user_id')->withTrashed();
     }
 
     public function archivedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'archived_by_user_id');
+        return $this->belongsTo(User::class, 'archived_by_user_id')->withTrashed();
     }
 
     public function huDisplayStatusUpdatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'hu_display_status_updated_by');
+        return $this->belongsTo(User::class, 'hu_display_status_updated_by')->withTrashed();
     }
 
     // New many-to-many relationships

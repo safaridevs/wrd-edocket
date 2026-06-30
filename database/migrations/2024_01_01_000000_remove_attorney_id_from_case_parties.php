@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up()
     {
+        if (!Schema::hasTable('case_parties') || !Schema::hasColumn('case_parties', 'attorney_id')) {
+            return;
+        }
+
         Schema::table('case_parties', function (Blueprint $table) {
             $table->dropForeign(['attorney_id']);
             $table->dropColumn('attorney_id');
@@ -16,6 +20,10 @@ return new class extends Migration
 
     public function down()
     {
+        if (!Schema::hasTable('case_parties') || Schema::hasColumn('case_parties', 'attorney_id')) {
+            return;
+        }
+
         Schema::table('case_parties', function (Blueprint $table) {
             $table->unsignedBigInteger('attorney_id')->nullable();
             $table->foreign('attorney_id')->references('id')->on('attorneys');

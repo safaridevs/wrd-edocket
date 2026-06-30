@@ -1,19 +1,43 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE cases ADD assigned_alu_clerk_id BIGINT NULL');
-        DB::statement('ALTER TABLE cases ADD assigned_wrd_id BIGINT NULL');
+        if (!Schema::hasTable('cases')) {
+            return;
+        }
+
+        Schema::table('cases', function (Blueprint $table) {
+            if (!Schema::hasColumn('cases', 'assigned_alu_clerk_id')) {
+                $table->unsignedBigInteger('assigned_alu_clerk_id')->nullable();
+            }
+
+            if (!Schema::hasColumn('cases', 'assigned_wrd_id')) {
+                $table->unsignedBigInteger('assigned_wrd_id')->nullable();
+            }
+        });
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE cases DROP COLUMN assigned_alu_clerk_id');
-        DB::statement('ALTER TABLE cases DROP COLUMN assigned_wrd_id');
+        if (!Schema::hasTable('cases')) {
+            return;
+        }
+
+        $columns = array_values(array_filter(
+            ['assigned_alu_clerk_id', 'assigned_wrd_id'],
+            fn (string $column) => Schema::hasColumn('cases', $column)
+        ));
+
+        if (!empty($columns)) {
+            Schema::table('cases', function (Blueprint $table) use ($columns) {
+                $table->dropColumn($columns);
+            });
+        }
     }
 };

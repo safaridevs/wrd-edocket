@@ -80,6 +80,8 @@ class DocumentType extends Model
     {
         return $query->where('is_active', true)
                     ->where('category', 'case_creation')
-                    ->whereJsonContains('allowed_roles', 'alu_clerk');
+                    ->whereHas('roles', function ($q) {
+                        $q->where('name', 'alu_clerk');
+                    });
     }
 }

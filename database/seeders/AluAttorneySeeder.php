@@ -17,7 +17,7 @@ class AluAttorneySeeder extends Seeder
         ];
 
         foreach ($attorneys as $attorney) {
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => $attorney['email']],
                 [
                     'name' => $attorney['name'],

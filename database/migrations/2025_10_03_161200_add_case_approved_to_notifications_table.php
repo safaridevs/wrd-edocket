@@ -14,8 +14,7 @@ return new class extends Migration
             $table->dropIndex('notifications_case_id_notification_type_index');
         });
         
-        // Drop the CHECK constraint
-        DB::statement('ALTER TABLE notifications DROP CONSTRAINT CK__notificat__notif__6A85CC04');
+        $this->dropCheckConstraints('notifications', 'notification_type');
         
         // Drop and recreate the column with new values
         Schema::table('notifications', function (Blueprint $table) {
@@ -23,7 +22,7 @@ return new class extends Migration
         });
         
         Schema::table('notifications', function (Blueprint $table) {
-            $table->enum('notification_type', ['case_initiated', 'accepted', 'new_filing', 'issuance', 'case_approved'])->default('case_initiated')->after('case_id');
+            $table->string('notification_type', 50)->default('case_initiated')->after('case_id');
             $table->index(['case_id', 'notification_type']);
         });
     }
@@ -35,7 +34,21 @@ return new class extends Migration
         });
         
         Schema::table('notifications', function (Blueprint $table) {
-            $table->enum('notification_type', ['case_initiated', 'accepted', 'new_filing', 'issuance'])->after('case_id');
+            $table->string('notification_type', 50)->after('case_id');
         });
+    }
+
+    private function dropCheckConstraints(string $table, string $column): void
+    {
+        $constraints = DB::select("
+            SELECT name
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(?)
+              AND definition LIKE ?
+        ", [$table, '%' . $column . '%']);
+
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
+        }
     }
 };

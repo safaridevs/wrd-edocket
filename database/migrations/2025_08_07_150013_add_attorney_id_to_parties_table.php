@@ -8,9 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('case_parties')) {
+            return;
+        }
+
         Schema::table('case_parties', function (Blueprint $table) {
-            $table->foreignId('attorney_id')->nullable()->constrained()->onDelete('set null');
-            $table->enum('representation', ['self', 'attorney'])->default('self');
+            if (!Schema::hasColumn('case_parties', 'attorney_id')) {
+                $table->foreignId('attorney_id')->nullable()->constrained()->onDelete('set null');
+            }
+            if (!Schema::hasColumn('case_parties', 'representation')) {
+                $table->string('representation', 50)->default('self');
+            }
         });
     }
 

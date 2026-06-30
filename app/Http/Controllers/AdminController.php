@@ -16,12 +16,47 @@ use Illuminate\Validation\Rules;
 
 class AdminController extends Controller
 {
-    public function users()
+    public function users(Request $request)
     {
-        $users = User::with('roleRelation')->orderBy('name')->paginate(50);
-        $roles = Role::where('is_active', true)->orderBy('display_name')->get();
+        $filters = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'role' => 'nullable|string|max:100',
+            'status' => 'nullable|in:active,inactive',
+            'account_type' => 'nullable|in:ldap,local',
+            'per_page' => 'nullable|integer|in:25,50,100,200',
+        ]);
 
-        return view('admin.users', compact('users', 'roles'));
+        $roles = Role::where('is_active', true)->orderBy('display_name')->get();
+        $perPage = $filters['per_page'] ?? 50;
+
+        $users = User::with('roleRelation')
+            ->when(filled($filters['search'] ?? null), function ($query) use ($filters) {
+                $search = trim($filters['search']);
+
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%")
+                        ->orWhere('sam_account_name', 'like', "%{$search}%");
+                });
+            })
+            ->when(filled($filters['role'] ?? null), function ($query) use ($filters) {
+                $role = $filters['role'];
+
+                $query->where(function ($query) use ($role) {
+                    $query->where('role', $role)
+                        ->orWhereHas('roleRelation', fn ($roleQuery) => $roleQuery->where('name', $role));
+                });
+            })
+            ->when(($filters['status'] ?? null) === 'active', fn ($query) => $query->where('is_active', true))
+            ->when(($filters['status'] ?? null) === 'inactive', fn ($query) => $query->where('is_active', false))
+            ->when(($filters['account_type'] ?? null) === 'ldap', fn ($query) => $query->where('is_ldap_user', true))
+            ->when(($filters['account_type'] ?? null) === 'local', fn ($query) => $query->where('is_ldap_user', false))
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return view('admin.users', compact('users', 'roles', 'filters'));
     }
 
     public function documentTypes()
@@ -227,8 +262,12 @@ class AdminController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'You cannot delete your own account.');
         }
-        
-        $user->delete();
-        return back()->with('success', 'User deleted successfully.');
+
+        DB::transaction(function () use ($user) {
+            $user->update(['is_active' => false]);
+            $user->delete();
+        });
+
+        return back()->with('success', 'User deactivated and deleted successfully.');
     }
 }

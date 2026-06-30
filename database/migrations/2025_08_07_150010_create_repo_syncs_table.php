@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('repo_syncs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('document_id')->constrained()->onDelete('cascade');
-            $table->enum('destination', ['onedrive', 'sharepoint', 'revver', 'website']);
-            $table->enum('status', ['queued', 'success', 'failed'])->default('queued');
+            $table->string('destination', 50);
+            $table->string('status', 50)->default('queued');
             $table->string('external_id')->nullable();
             $table->integer('attempts')->default(0);
             $table->text('last_error')->nullable();

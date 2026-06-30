@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CaseParty;
 use App\Models\CaseModel;
 use App\Models\Person;
+use App\Models\ServiceList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -51,13 +52,36 @@ class AttorneyController extends Controller
             'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
         ]);
 
+        ServiceList::firstOrCreate([
+            'case_id' => $case->id,
+            'person_id' => $attorneyPerson->id,
+        ], [
+            'email' => $attorneyPerson->email,
+            'service_method' => 'email',
+            'is_primary' => false,
+        ]);
+
+        $clientParty->removeFromServiceListWhileRepresented();
+
         return redirect()->back()->with('success', 'Client representation added successfully.');
     }
 
     public function terminateRepresentation($relationship)
     {
         $relationship = CaseParty::where('role', 'counsel')->findOrFail($relationship);
+        $case = $relationship->case;
+        $clientParty = $relationship->clientParty;
+        $counselPersonId = $relationship->person_id;
+
         $relationship->delete();
+
+        if ($case && !$case->parties()->where('person_id', $counselPersonId)->exists()) {
+            ServiceList::where('case_id', $case->id)
+                ->where('person_id', $counselPersonId)
+                ->delete();
+        }
+
+        $clientParty?->restoreServiceListIfUnrepresented();
 
         return redirect()->back()->with('success', 'Client representation terminated.');
     }

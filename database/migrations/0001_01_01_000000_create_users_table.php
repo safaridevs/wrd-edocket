@@ -17,12 +17,13 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('role', ['wrd', 'wrap_dir', 'alu_mgr', 'alu_clerk', 'alu_atty', 'hu_admin', 'hu_clerk', 'party', 'admin'])->default('party');
+            $table->string('role', 50)->default('party');
             $table->string('initials', 4)->nullable();
             $table->string('phone')->nullable();
             $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

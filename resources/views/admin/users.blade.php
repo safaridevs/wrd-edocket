@@ -41,18 +41,83 @@
                         </button>
                     </div>
 
+                    <form method="GET" action="{{ route('admin.users') }}" class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,2fr)_minmax(150px,1fr)_minmax(140px,1fr)_minmax(150px,1fr)_minmax(120px,auto)]">
+                            <div>
+                                <label for="userSearch" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Search</label>
+                                <input
+                                    id="userSearch"
+                                    type="search"
+                                    name="search"
+                                    value="{{ $filters['search'] ?? '' }}"
+                                    placeholder="Name, email, title, or network ID"
+                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                >
+                            </div>
+
+                            <div>
+                                <label for="roleFilter" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Role</label>
+                                <select id="roleFilter" name="role" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="">All roles</option>
+                                    @foreach($roles as $role)
+                                        <option value="{{ $role->name }}" @selected(($filters['role'] ?? '') === $role->name)>{{ $role->display_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="statusFilter" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Status</label>
+                                <select id="statusFilter" name="status" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="">All statuses</option>
+                                    <option value="active" @selected(($filters['status'] ?? '') === 'active')>Active</option>
+                                    <option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Inactive</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="accountTypeFilter" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Account</label>
+                                <select id="accountTypeFilter" name="account_type" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <option value="">All accounts</option>
+                                    <option value="ldap" @selected(($filters['account_type'] ?? '') === 'ldap')>OSE Network</option>
+                                    <option value="local" @selected(($filters['account_type'] ?? '') === 'local')>Local Password</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="perPageFilter" class="block text-xs font-semibold uppercase tracking-wide text-gray-500">Rows</label>
+                                <select id="perPageFilter" name="per_page" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    @foreach([25, 50, 100, 200] as $size)
+                                        <option value="{{ $size }}" @selected((int)($filters['per_page'] ?? 50) === $size)>{{ $size }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-sm text-gray-600">
+                                Showing {{ $users->firstItem() ?? 0 }} to {{ $users->lastItem() ?? 0 }} of {{ $users->total() }} users
+                            </p>
+                            <div class="flex gap-2">
+                                <a href="{{ route('admin.users') }}" class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Clear</a>
+                                <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Apply Filters</button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Account</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @foreach($users as $user)
+                            @forelse($users as $user)
                             <tr>
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $user->getDisplayName() }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
@@ -61,11 +126,14 @@
                                         {{ ucwords(str_replace('_', ' ', $user->getCurrentRole())) }}
                                     </span>
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ $user->is_ldap_user ? 'OSE Network' : 'Local Password' }}
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($user->is_active)
                                         <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
                                     @else
-                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Pending</span>
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -88,25 +156,28 @@
                                             <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Delete this user? This action cannot be undone.')">Delete</button>
+                                                <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Deactivate and delete this user? The account will be hidden, but history will be preserved.')">Delete</button>
                                             </form>
                                         @endif
                                     </div>
                                 </td>
                             </tr>
-                            @endforeach
+                            @empty
+                            <tr>
+                                <td colspan="6" class="px-6 py-10 text-center text-sm text-gray-500">
+                                    No users match the selected filters.
+                                </td>
+                            </tr>
+                            @endforelse
                         </tbody>
                     </table>
+                    </div>
 
                     <!-- Pagination -->
                     <div class="mt-4">
                         {{ $users->links() }}
                     </div>
 
-                    <!-- User count -->
-                    <div class="mt-2 text-sm text-gray-600">
-                        Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }} users
-                    </div>
                 </div>
             </div>
         </div>

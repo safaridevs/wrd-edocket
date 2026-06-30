@@ -11,7 +11,8 @@ return new class extends Migration
         Schema::create('documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->constrained()->onDelete('cascade');
-            $table->enum('doc_type', ['application', 'notice_publication', 'affidavit_publication', 'protest_letter', 'aggrieval_letter', 'request_to_docket', 'order', 'filing_other', 'hearing_video', 'supporting', 'affidavit', 'exhibit', 'correspondence', 'technical_report', 'legal_brief', 'motion', 'other']);
+            $table->string('doc_type', 100);
+            $table->string('custom_title')->nullable();
             $table->string('original_filename');
             $table->string('stored_filename');
             $table->string('mime');

@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('document_types') || !Schema::hasTable('roles') || Schema::hasTable('document_type_role')) {
+            return;
+        }
+
         Schema::create('document_type_role', function (Blueprint $table) {
             $table->id();
             $table->foreignId('document_type_id')->constrained()->onDelete('cascade');

@@ -14,8 +14,7 @@ return new class extends Migration
             $table->dropIndex('audit_logs_case_id_action_index');
         });
         
-        // Drop the CHECK constraint
-        DB::statement('ALTER TABLE audit_logs DROP CONSTRAINT CK__audit_log__actio__00750D23');
+        $this->dropCheckConstraints('audit_logs', 'action');
         
         // Drop and recreate the column with new values
         Schema::table('audit_logs', function (Blueprint $table) {
@@ -23,7 +22,7 @@ return new class extends Migration
         });
         
         Schema::table('audit_logs', function (Blueprint $table) {
-            $table->enum('action', ['create_case', 'update_case', 'submit_to_hu', 'accept_request', 'reject_request', 'approve_case', 'stamp_document', 'notify_parties'])->default('create_case')->after('case_id');
+            $table->string('action', 100)->default('create_case')->after('case_id');
             $table->index(['case_id', 'action']);
         });
     }
@@ -39,8 +38,22 @@ return new class extends Migration
         });
         
         Schema::table('audit_logs', function (Blueprint $table) {
-            $table->enum('action', ['create_case', 'update_case', 'submit_to_hu', 'accept_request', 'reject_request', 'approve_case', 'notify_parties'])->default('create_case')->after('case_id');
+            $table->string('action', 100)->default('create_case')->after('case_id');
             $table->index(['case_id', 'action']);
         });
+    }
+
+    private function dropCheckConstraints(string $table, string $column): void
+    {
+        $constraints = DB::select("
+            SELECT name
+            FROM sys.check_constraints
+            WHERE parent_object_id = OBJECT_ID(?)
+              AND definition LIKE ?
+        ", [$table, '%' . $column . '%']);
+
+        foreach ($constraints as $constraint) {
+            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
+        }
     }
 };

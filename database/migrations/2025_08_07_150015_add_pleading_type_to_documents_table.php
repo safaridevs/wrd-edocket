@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('documents', function (Blueprint $table) {
-            $table->enum('pleading_type', ['request_pre_hearing', 'request_to_docket', 'none'])->default('none');
+            $table->string('pleading_type', 100)->default('none');
         });
     }
 

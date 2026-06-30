@@ -9,8 +9,6 @@ use App\Models\CaseModel;
 use App\Models\CaseParty;
 use App\Models\ServiceList;
 use App\Models\OseFileNumber;
-use App\Models\Document;
-use App\Models\OseBasinCode;
 use Illuminate\Support\Facades\Hash;
 
 class DemoDataSeeder extends Seeder
@@ -40,7 +38,7 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($users as $userData) {
-            User::firstOrCreate(
+            User::updateOrCreate(
                 ['email' => $userData['email']],
                 array_merge($userData, ['password' => Hash::make('password123')])
             );
@@ -54,7 +52,10 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($attorneys as $attorneyData) {
-            Person::firstOrCreate(['email' => $attorneyData['email']], array_merge(['type' => 'individual'], $attorneyData));
+            Person::updateOrCreate(
+                ['email' => $attorneyData['email']],
+                array_merge(['type' => 'individual'], $attorneyData)
+            );
         }
 
         // Create Persons
@@ -105,7 +106,7 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($persons as $personData) {
-            Person::firstOrCreate(['email' => $personData['email']], $personData);
+            Person::updateOrCreate(['email' => $personData['email']], $personData);
         }
 
         // Create Cases with different statuses
@@ -144,14 +145,19 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($cases as $caseData) {
-            $case = CaseModel::firstOrCreate(['case_no' => $caseData['case_no']], $caseData);
+            $case = CaseModel::updateOrCreate(['case_no' => $caseData['case_no']], $caseData);
 
             // Add OSE File Numbers
-            OseFileNumber::firstOrCreate([
-                'case_id' => $case->id,
-                'basin_code' => 'RG',
-                'file_no_from' => 'RG-' . rand(10000, 99999),
-            ]);
+            OseFileNumber::updateOrCreate(
+                [
+                    'case_id' => $case->id,
+                    'basin_code' => 'RG',
+                    'file_no_from' => 'RG-' . str_pad((string) $case->id, 5, '0', STR_PAD_LEFT),
+                ],
+                [
+                    'file_no_to' => null,
+                ]
+            );
 
             // Add parties to cases
             $this->addPartiesToCase($case);
@@ -162,52 +168,68 @@ class DemoDataSeeder extends Seeder
 
     private function addPartiesToCase($case)
     {
-        $persons = Person::all();
+        $persons = Person::whereIn('email', [
+            'john.smith@email.com',
+            'maria.garcia@email.com',
+            'contact@abcranch.com',
+            'william.johnson@email.com',
+        ])->orderBy('email')->get()->values();
+
+        if ($persons->isEmpty()) {
+            return;
+        }
+
         $attorneys = Person::whereIn('email', [
             'jwilson@lawfirm.com',
             'pdavis@legalgroup.com',
             'rbrown@waterlaw.com',
-        ])->get();
+        ])->orderBy('email')->get()->values();
 
-        // Add 2-3 parties per case
-        $partyCount = rand(2, 3);
-        $roles = ['applicant', 'protestant', 'intervenor'];
+        $roles = ['applicant', 'protestant', 'aggrieved_party'];
         
-        for ($i = 0; $i < $partyCount; $i++) {
-            $person = $persons->random();
+        for ($i = 0; $i < min(3, $persons->count()); $i++) {
+            $person = $persons[$i];
             $role = $roles[$i % count($roles)];
-            
-            // Check if this person is already a party in this case
-            if (!CaseParty::where('case_id', $case->id)->where('person_id', $person->id)->exists()) {
-                $attorney = $attorneys->isNotEmpty() && rand(0, 1) ? $attorneys->random() : null;
 
-                $clientParty = CaseParty::create([
+            $clientParty = CaseParty::updateOrCreate(
+                [
                     'case_id' => $case->id,
                     'person_id' => $person->id,
                     'role' => $role,
+                ],
+                [
                     'service_enabled' => true,
-                ]);
+                ]
+            );
 
-                if ($attorney) {
-                    CaseParty::firstOrCreate([
+            $attorney = $attorneys->get($i);
+
+            if ($attorney) {
+                CaseParty::updateOrCreate(
+                    [
                         'case_id' => $case->id,
                         'person_id' => $attorney->id,
                         'role' => 'counsel',
                         'client_party_id' => $clientParty->id,
-                    ], [
+                    ],
+                    [
                         'service_enabled' => true,
-                    ]);
-                }
+                        'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
+                    ]
+                );
+            }
 
-                // Add to service list
-                ServiceList::create([
+            ServiceList::updateOrCreate(
+                [
                     'case_id' => $case->id,
                     'person_id' => $person->id,
+                ],
+                [
                     'email' => $person->email,
                     'service_method' => 'email',
                     'is_primary' => true
-                ]);
-            }
+                ]
+            );
         }
     }
 }

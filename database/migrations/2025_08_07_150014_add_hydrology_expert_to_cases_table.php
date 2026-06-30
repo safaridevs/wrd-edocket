@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('cases') || Schema::hasColumn('cases', 'assigned_hydrology_expert_id')) {
+            return;
+        }
+
         Schema::table('cases', function (Blueprint $table) {
             $table->unsignedBigInteger('assigned_hydrology_expert_id')->nullable()->after('assigned_attorney_id');
             $table->foreign('assigned_hydrology_expert_id')->references('id')->on('users');
