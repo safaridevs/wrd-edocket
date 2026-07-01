@@ -16,6 +16,7 @@
                 { value: 'compliance_letter', label: 'Compliance Letter' },
                 { value: 'notice_of_violation', label: 'Notice of Violation' },
                 { value: 'notice_of_reprimand', label: 'Notice of Reprimand (Well Driller)' },
+                { value: 'notice_of_contemplated_action', label: 'Notice of Contemplated Action' },
             ],
             pleading: [
                 @foreach($pleadingDocs as $docType)

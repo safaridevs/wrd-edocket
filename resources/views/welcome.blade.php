@@ -280,6 +280,9 @@
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c27" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 Underground Water Rules - Title 19 Chapter 27
                             </a>
+                            <a href="{{ asset('documents/Instructions for Parties in State Engineer Administrative Hearings_Rev_11_2_22.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Instructions for Parties in State Engineer Administrative Hearings Rev 11-2-22
+                            </a>
                         </div>
                         <br>
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Alternative Dispute Resolution (ADR)</h3>
@@ -293,18 +296,22 @@
                             <a href="{{ asset('documents/OSE Mediation FAQs.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 OSE Mediation FAQs
                             </a>
-                            <a href="{{ asset('documents/Instructions for Parties in State Engineer Administrative Hearings_Rev_11_2_22.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Instructions for Parties in State Engineer Administrative Hearings Rev 11-2-22
+
+                            <a href="{{ asset('documents/Mediation Guidelines.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Mediation Guidelines
+                            </a>
+                            <a href="https://nmonesource.com/nmos/nmsa/en/item/4374/index.do#a8A" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Governmental Dispute Resolution Act - NMSA 1978, Chapter 12, Art. 8(A)
                             </a>
 
                         </div>
-                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Instructions for Parties</h3>
+                         {{-- <h3 class="text-lg font-semibold text-gray-900 mb-4">Instructions for Parties</h3>
                         <div class="space-y-3">
                             <a href="{{ asset('documents/Mediation Guidelines.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 Mediation Guidelines
                             </a>
 
-                        </div>
+                        </div> --}}
                     </div>
 
                     {{--  --}}

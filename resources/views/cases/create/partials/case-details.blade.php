@@ -11,7 +11,7 @@
         </label>
         <label class="flex items-center">
             <input type="radio" name="case_type" value="compliance" {{ old('case_type') == 'compliance' ? 'checked' : '' }} required class="mr-2">
-            Compliance Action
+            Compliance Action or Contemplated Action
         </label>
     </div>
     @error('case_type')

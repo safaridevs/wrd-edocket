@@ -10,6 +10,8 @@ class DocumentTypeSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->normalizeLegacyCodes();
+
         foreach ($this->documentTypes() as $type) {
             $roleNames = $type['roles'];
             unset($type['roles']);
@@ -20,6 +22,19 @@ class DocumentTypeSeeder extends Seeder
             );
 
             $this->syncRoles($documentType, $roleNames);
+        }
+    }
+
+    private function normalizeLegacyCodes(): void
+    {
+        $legacyCode = 'notice_contemplated_action';
+        $currentCode = 'notice_of_contemplated_action';
+
+        if (
+            DocumentType::where('code', $legacyCode)->exists()
+            && ! DocumentType::where('code', $currentCode)->exists()
+        ) {
+            DocumentType::where('code', $legacyCode)->update(['code' => $currentCode]);
         }
     }
 
@@ -189,7 +204,7 @@ class DocumentTypeSeeder extends Seeder
             ],
             [
                 'name' => 'Notice of Contemplated Action',
-                'code' => 'notice_contemplated_action',
+                'code' => 'notice_of_contemplated_action',
                 'category' => 'case_creation',
                 'is_required' => false,
                 'is_pleading' => false,

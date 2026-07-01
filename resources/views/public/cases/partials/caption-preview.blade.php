@@ -1,13 +1,13 @@
 @php
     $captionText = trim((string) ($caption ?? ''));
-    $captionWords = preg_split('/\s+/', $captionText, -1, PREG_SPLIT_NO_EMPTY);
-    $captionLimit = 55;
-    $captionIsLong = count($captionWords) > $captionLimit;
+    $captionLimit = 500;
+    $captionLength = function_exists('mb_strlen') ? mb_strlen($captionText) : strlen($captionText);
+    $captionIsLong = $captionLength > $captionLimit;
     $captionPreview = $captionIsLong
-        ? implode(' ', array_slice($captionWords, 0, $captionLimit))
+        ? (function_exists('mb_substr') ? mb_substr($captionText, 0, $captionLimit) : substr($captionText, 0, $captionLimit))
         : $captionText;
     $captionRemainder = $captionIsLong
-        ? implode(' ', array_slice($captionWords, $captionLimit))
+        ? (function_exists('mb_substr') ? mb_substr($captionText, $captionLimit) : substr($captionText, $captionLimit))
         : '';
 @endphp
 
