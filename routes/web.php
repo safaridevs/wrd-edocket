@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function (Request $request) {
     $activeCases = CaseModel::where('status', 'active');
-    $activeCasesCount = (clone $activeCases)->count();
 
     $caseYears = (clone $activeCases)
         ->orderByDesc('created_at')
@@ -39,7 +38,7 @@ Route::get('/', function (Request $request) {
         ->orderByDesc('created_at')
         ->get();
 
-    return view('welcome', compact('activeCasesCount', 'caseYears', 'selectedYear', 'publicCases'));
+    return view('welcome', compact('caseYears', 'selectedYear', 'publicCases'));
 })->name('welcome');
 
 // Public case viewing (no authentication required)
