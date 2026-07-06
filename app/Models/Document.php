@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
+use App\Services\DocumentTextIndexService;
 
 class Document extends Model
 {
@@ -40,6 +41,11 @@ class Document extends Model
     public function documentType(): BelongsTo
     {
         return $this->belongsTo(DocumentType::class, 'doc_type', 'code');
+    }
+
+    public function textIndex(): HasOne
+    {
+        return $this->hasOne(DocumentText::class);
     }
 
     public function correctionCycles(): HasMany
@@ -80,5 +86,14 @@ class Document extends Model
             'is_stamped' => true,
             'stamped_at' => now()
         ]);
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (Document $document) {
+            if ($document->wasRecentlyCreated || $document->wasChanged(['storage_uri', 'checksum'])) {
+                app(DocumentTextIndexService::class)->indexBestEffort($document);
+            }
+        });
     }
 }

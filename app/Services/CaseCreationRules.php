@@ -13,7 +13,7 @@ class CaseCreationRules
     {
         $rules = [
             'case_type' => 'required|in:aggrieved,protested,compliance',
-            'caption' => 'required|string|max:1000',
+            'caption' => 'required|string',
             'wrd_office' => 'required|in:albuquerque,santa_fe',
             'parties' => 'required|array|min:1',
             'parties.*.role' => 'required|in:' . implode(',', self::CREATE_PARTY_ROLES),

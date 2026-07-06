@@ -491,7 +491,7 @@ class CaseController extends Controller
 
         $validated = $request->validate([
             'case_type' => 'required|in:aggrieved,protested,compliance',
-            'caption' => 'required|string|max:1000',
+            'caption' => 'required|string',
             'ose_numbers' => 'nullable|array',
             'ose_numbers.*.basin_code_from' => 'nullable|string|exists:ose_basin_codes,initial',
             'ose_numbers.*.basin_code_to' => 'nullable|string|exists:ose_basin_codes,initial',

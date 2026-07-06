@@ -21,6 +21,10 @@
                         {{ __('Cases') }}
                     </x-nav-link>
 
+                    <x-nav-link :href="route('documents.search')" :active="request()->routeIs('documents.search')">
+                        {{ __('Document Search') }}
+                    </x-nav-link>
+
                     @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))
                         <x-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')">
                             {{ __('Report') }}
@@ -158,6 +162,10 @@
 
             <x-responsive-nav-link :href="route('cases.index')" :active="request()->routeIs('cases.*')">
                 {{ __('Cases') }}
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link :href="route('documents.search')" :active="request()->routeIs('documents.search')">
+                {{ __('Document Search') }}
             </x-responsive-nav-link>
 
             @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))

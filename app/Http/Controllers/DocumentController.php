@@ -4,13 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Services\DocumentService;
+use App\Services\DocumentTextIndexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 
 class DocumentController extends Controller
 {
-    public function __construct(private DocumentService $documentService) {}
+    public function __construct(
+        private DocumentService $documentService,
+        private DocumentTextIndexService $documentTextIndexService
+    ) {}
 
     public function myDocuments(Request $request)
     {
@@ -21,6 +25,27 @@ class DocumentController extends Controller
             ->withQueryString();
 
         return view('documents.index', compact('documents'));
+    }
+
+    public function search(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => 'nullable|string|max:255',
+        ]);
+
+        $query = trim((string) ($validated['q'] ?? ''));
+        $documents = null;
+
+        if ($query !== '') {
+            $documents = $this->documentTextIndexService->search(Auth::user(), $query);
+        }
+
+        return view('documents.search', [
+            'documents' => $documents,
+            'query' => $query,
+            'searchService' => $this->documentTextIndexService,
+            'textIndexAvailable' => $this->documentTextIndexService->isTextIndexAvailable(),
+        ]);
     }
 
     public function download(Document $document)

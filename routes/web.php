@@ -51,6 +51,7 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('documents/search', [DocumentController::class, 'search'])->name('documents.search');
     Route::get('my-documents', [DocumentController::class, 'myDocuments'])->name('documents.index');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
