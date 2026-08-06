@@ -850,11 +850,13 @@
                         $headingIndent = ['ml-0', 'ml-6', 'ml-12'][$documentGroup['level']] ?? 'ml-12';
                         $itemIndent = $indentClasses[$documentGroup['level']] ?? 'ml-12';
                     @endphp
-                    <div class="document-group-heading {{ $headingIndent }} flex items-center gap-2 pt-3 text-sm font-semibold text-gray-800"
-                         data-document-group="{{ $documentGroup['key'] }}">
-                        <span class="h-2 w-2 rounded-full bg-gray-500"></span>
-                        <span>{{ $documentGroup['label'] }}</span>
-                    </div>
+                    @if($documentGroup['show_heading'] ?? true)
+                        <div class="document-group-heading {{ $headingIndent }} flex items-center gap-2 pt-3 text-sm font-semibold text-gray-800"
+                             data-document-group="{{ $documentGroup['key'] }}">
+                            <span class="h-2 w-2 rounded-full bg-gray-500"></span>
+                            <span>{{ $documentGroup['label'] }}</span>
+                        </div>
+                    @endif
                     @foreach($documentGroup['documents'] as $doc)
                     @php
                         $latestDocCorrection = $doc->correctionCycles->firstWhere('status', 'open')

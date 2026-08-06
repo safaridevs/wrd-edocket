@@ -16,161 +16,93 @@ class DocumentHierarchy
         'alu_manager',
     ];
 
-    private const PLEADING_LABELS = [
-        'request_pre_hearing' => 'Request for Pre-Hearing',
-        'request_to_docket' => 'Request to Docket',
+    private const PLEADING_TYPES = [
+        'request_pre_hearing',
+        'request_to_docket',
     ];
 
     public static function groups(Collection $documents): array
     {
-        $documents = $documents->sortByDesc('uploaded_at')->values();
+        $documents = self::chronological($documents);
         $aluDocuments = $documents
             ->filter(fn ($document) => self::isAluDocument($document))
             ->values();
 
         $pleadingDocuments = $aluDocuments
-            ->filter(fn ($document) => array_key_exists((string) $document->pleading_type, self::PLEADING_LABELS))
+            ->filter(fn ($document) => in_array((string) $document->pleading_type, self::PLEADING_TYPES, true))
             ->values();
 
-        $hasPleadingDocuments = $pleadingDocuments->isNotEmpty();
         $groups = [];
 
-        if ($hasPleadingDocuments) {
+        if ($pleadingDocuments->isNotEmpty()) {
             $groups[] = [
                 'key' => 'pleading',
-                'label' => self::pleadingGroupLabel($pleadingDocuments),
+                'label' => 'Pleading Documents',
                 'level' => 0,
+                'show_heading' => false,
                 'documents' => $pleadingDocuments,
             ];
         }
 
-        $categoryGroups = [
-            [
-                'key' => 'application',
-                'label' => 'Application',
-                'level' => $hasPleadingDocuments ? 1 : 0,
-                'types' => ['application'],
-            ],
-            [
-                'key' => 'notice_publication',
-                'label' => 'Notice of Pub',
-                'level' => $hasPleadingDocuments ? 2 : 1,
-                'types' => ['notice_publication'],
-            ],
-            [
-                'key' => 'affidavit',
-                'label' => 'Affidavit',
-                'level' => $hasPleadingDocuments ? 2 : 1,
-                'types' => ['affidavit_publication', 'affidavit'],
-            ],
-        ];
+        $pleadingIds = $pleadingDocuments->pluck('id')->all();
+        $pleadingChildren = $aluDocuments
+            ->reject(fn ($document) => in_array($document->id, $pleadingIds, true))
+            ->sort(function ($left, $right) {
+                $leftIsApplication = $left->doc_type === 'application';
+                $rightIsApplication = $right->doc_type === 'application';
 
-        $groupedIds = $pleadingDocuments->pluck('id')->all();
-        foreach ($categoryGroups as $categoryGroup) {
-            $groupDocuments = $aluDocuments
-                ->filter(fn ($document) => in_array($document->doc_type, $categoryGroup['types'], true))
-                ->values();
+                if ($leftIsApplication !== $rightIsApplication) {
+                    return $leftIsApplication ? -1 : 1;
+                }
 
-            if ($groupDocuments->isEmpty()) {
-                continue;
-            }
+                return self::compareChronologically($left, $right);
+            })
+            ->values();
 
-            $groupedIds = array_merge($groupedIds, $groupDocuments->pluck('id')->all());
+        if ($pleadingChildren->isNotEmpty()) {
             $groups[] = [
-                'key' => $categoryGroup['key'],
-                'label' => $categoryGroup['label'],
-                'level' => $categoryGroup['level'],
-                'documents' => $groupDocuments,
+                'key' => 'pleading_children',
+                'label' => 'Pleading Documents',
+                'level' => $pleadingDocuments->isNotEmpty() ? 1 : 0,
+                'show_heading' => false,
+                'documents' => $pleadingChildren,
             ];
         }
 
-        $otherAluDocuments = $aluDocuments
-            ->reject(fn ($document) => in_array($document->id, $groupedIds, true))
-            ->values();
-
-        if ($otherAluDocuments->isNotEmpty()) {
-            $groups[] = [
-                'key' => 'alu_others',
-                'label' => 'Others',
-                'level' => $hasPleadingDocuments ? 2 : 0,
-                'documents' => $otherAluDocuments,
-            ];
-        }
-
-        return array_merge($groups, self::topLevelNonAluGroups($documents));
-    }
-
-    private static function pleadingGroupLabel(Collection $pleadingDocuments): string
-    {
-        $labels = $pleadingDocuments
-            ->pluck('pleading_type')
-            ->unique()
-            ->map(fn ($type) => self::PLEADING_LABELS[$type] ?? null)
-            ->filter()
-            ->values();
-
-        return $labels->isNotEmpty()
-            ? $labels->join(' / ')
-            : 'Pleading Document';
-    }
-
-    private static function topLevelNonAluGroups(Collection $documents): array
-    {
         $nonAluDocuments = $documents
             ->reject(fn ($document) => self::isAluDocument($document))
             ->values();
 
-        $groups = [];
-
-        $sourceGroups = [
-            [
-                'key' => 'hu_orders_notices',
-                'label' => 'HU Orders and Notices',
-                'filter' => fn ($document) => (bool) $document->uploader?->isHearingUnit(),
-            ],
-            [
-                'key' => 'party_filings',
-                'label' => 'Party Filings',
-                'filter' => fn ($document) => self::isPartyDocument($document),
-            ],
-            [
-                'key' => 'other_documents',
-                'label' => 'Other Documents',
-                'filter' => fn ($document) => true,
-            ],
-        ];
-
-        $groupedIds = [];
-        foreach ($sourceGroups as $sourceGroup) {
-            $groupDocuments = $nonAluDocuments
-                ->reject(fn ($document) => in_array($document->id, $groupedIds, true))
-                ->filter($sourceGroup['filter'])
-                ->values();
-
-            if ($groupDocuments->isEmpty()) {
-                continue;
-            }
-
-            $groupedIds = array_merge($groupedIds, $groupDocuments->pluck('id')->all());
+        if ($nonAluDocuments->isNotEmpty()) {
             $groups[] = [
-                'key' => $sourceGroup['key'],
-                'label' => $sourceGroup['label'],
+                'key' => 'case_filings',
+                'label' => 'Case Filings',
                 'level' => 0,
-                'documents' => $groupDocuments,
+                'show_heading' => false,
+                'documents' => $nonAluDocuments,
             ];
         }
 
         return $groups;
     }
 
+    private static function chronological(Collection $documents): Collection
+    {
+        return $documents->sort(fn ($left, $right) => self::compareChronologically($left, $right))->values();
+    }
+
+    private static function compareChronologically($left, $right): int
+    {
+        $dateComparison = $left->uploaded_at <=> $right->uploaded_at;
+
+        return $dateComparison !== 0
+            ? $dateComparison
+            : ((int) $left->id <=> (int) $right->id);
+    }
+
     private static function isAluDocument($document): bool
     {
         return in_array(self::documentUploaderRole($document), self::ALU_ROLES, true);
-    }
-
-    private static function isPartyDocument($document): bool
-    {
-        return in_array(self::documentUploaderRole($document), ['party', 'external_attorney', 'interested_party'], true);
     }
 
     private static function documentUploaderRole($document): string
