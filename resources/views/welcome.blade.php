@@ -249,20 +249,20 @@
                         <h3 class="text-xl font-semibold text-gray-900 mb-4">Legal Resources, Instructions and Guideline</h3>
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Information for Parties</h3>
                         <div class="space-y-3">
-                            <a href="https://nmonesource.com/nmos/en/a/s/index.do?cont=chapter+72+water+code" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Water Code - NMSA 1978, Chapter 72
+                            <a href="https://nmonesource.com/nmos/nmsa-unanno/en/item/18575/index.do#!fragment/zoupio-_Toc233806439/BQCwhgziBcwMYgK4DsDWszIQewE4BUBTADwBdoAvbRABwEtsBaAfX2zgCYBmLgDgAYAbABYuATgCUAGmTZShCAEVEhXAE9oAck1SIhMLgTLVG7bv2GQAZTykAQhoBKAUQAyzgGoBBAHIBhZylSMAAjaFJ2CQkgA" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Water Law - Chapter 72
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c25" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                General Provisions - 19.25.1 NMAC
+                                Administration and Use of Water - General Provisions - 19.25.1 NMAC
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c25p1" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 Hearing Unit Procedures - 19.25.2 NMAC
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c26" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Surface Water Rules - Title 19 Chapter 26
+                                Surface Water Rules - 19.26.1 NMAC
                             </a>
                             <a href="https://nmonesource.com/nmos/nmac/en/item/18057/index.do#t19c27" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Underground Water Rules - Title 19 Chapter 27
+                                Groundwater Rules - 19.27.1 NMAC
                             </a>
                             <a href="{{ asset('documents/Instructions for Parties in State Engineer Administrative Hearings_Rev_11_2_22.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 Instructions for Parties in State Engineer Administrative Hearings Rev 11-2-22

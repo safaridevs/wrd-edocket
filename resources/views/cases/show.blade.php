@@ -961,7 +961,7 @@
                                             by {{ $latestDocCorrection->requestedBy->getDisplayName() }}
                                         @endif
                                         @if($latestDocCorrection->resubmitted_at)
-                                            â€¢ Corrected submission received {{ $latestDocCorrection->resubmitted_at->format('M j, Y g:i A') }}
+                                            &bull; Corrected submission received {{ $latestDocCorrection->resubmitted_at->format('M j, Y g:i A') }}
                                         @endif
                                     </div>
                                 </div>

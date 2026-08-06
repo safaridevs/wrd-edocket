@@ -65,6 +65,7 @@
                 <select name="role" required class="mt-1 block w-full border-gray-300 rounded-md">
                     <option value="applicant" {{ $party->role === 'applicant' ? 'selected' : '' }} class="regular-role">Applicant</option>
                     <option value="protestant" {{ $party->role === 'protestant' ? 'selected' : '' }}>Protestant</option>
+                    <option value="intervenor" {{ $party->role === 'intervenor' ? 'selected' : '' }}>Intervenor</option>
                     <option value="respondent" {{ $party->role === 'respondent' ? 'selected' : '' }} class="compliance-role" style="display: none;">Respondent</option>
                 </select>
             </div>
@@ -142,70 +143,3 @@
     <!-- Hidden field to ensure type is submitted -->
     <input type="hidden" name="type" value="{{ $party->person->type }}">
 </form>
-
-<script>
-// Initialize role filtering on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateEditRoleOptions();
-});
-
-function updateEditRoleOptions() {
-    const caseType = '{{ $case->case_type }}';
-    const roleSelect = document.querySelector('select[name="role"]');
-    const complianceRoles = document.querySelectorAll('.compliance-role');
-    const regularRoles = document.querySelectorAll('.regular-role');
-
-    if (caseType === 'compliance') {
-        complianceRoles.forEach(option => option.style.display = 'block');
-        regularRoles.forEach(option => option.style.display = 'none');
-        if (roleSelect && (roleSelect.value === 'applicant' || !roleSelect.value)) {
-            roleSelect.value = 'respondent';
-        }
-    } else {
-        complianceRoles.forEach(option => option.style.display = 'none');
-        regularRoles.forEach(option => option.style.display = 'block');
-        if (roleSelect && (roleSelect.value === 'respondent' || !roleSelect.value)) {
-            roleSelect.value = 'applicant';
-        }
-    }
-}
-
-function toggleEditPartyType(select) {
-    const individualFields = document.getElementById('editIndividualFields');
-    const companyFields = document.getElementById('editCompanyFields');
-
-    if (select.value === 'individual') {
-        individualFields.classList.remove('hidden');
-        companyFields.classList.add('hidden');
-    } else {
-        individualFields.classList.add('hidden');
-        companyFields.classList.remove('hidden');
-    }
-}
-
-function updateParty(event, partyId) {
-    event.preventDefault();
-
-    const formData = new FormData(event.target);
-
-    fetch(`/cases/{{ $case->id }}/parties/${partyId}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Failed to update party: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to update party');
-    });
-}
-</script>

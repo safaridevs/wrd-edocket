@@ -335,6 +335,7 @@
                                     <select name="role" id="add-party-role" required class="mt-1 block w-full border-gray-300 rounded-md">
                                         <option value="applicant" class="regular-role">Applicant</option>
                                         <option value="protestant">Protestant</option>
+                                        <option value="intervenor">Intervenor</option>
                                         <option value="respondent" class="compliance-role">Respondent</option>
                                     </select>
                                 </div>
@@ -616,6 +617,7 @@
                 .then(response => response.text())
                 .then(html => {
                     document.getElementById('editPartyContent').innerHTML = html;
+                    initializeEditPartyModal();
                     document.getElementById('editPartyModal').classList.remove('hidden');
                 })
                 .catch(error => {
@@ -626,6 +628,72 @@
 
         function hideEditPartyModal() {
             document.getElementById('editPartyModal').classList.add('hidden');
+        }
+
+        function initializeEditPartyModal() {
+            updateEditRoleOptions();
+        }
+
+        function updateEditRoleOptions() {
+            const caseType = '{{ $case->case_type }}';
+            const editPartyContent = document.getElementById('editPartyContent');
+            const roleSelect = editPartyContent.querySelector('select[name="role"]');
+            const complianceRoles = editPartyContent.querySelectorAll('.compliance-role');
+            const regularRoles = editPartyContent.querySelectorAll('.regular-role');
+
+            if (caseType === 'compliance') {
+                complianceRoles.forEach(option => option.style.display = 'block');
+                regularRoles.forEach(option => option.style.display = 'none');
+                if (roleSelect && (roleSelect.value === 'applicant' || !roleSelect.value)) {
+                    roleSelect.value = 'respondent';
+                }
+            } else {
+                complianceRoles.forEach(option => option.style.display = 'none');
+                regularRoles.forEach(option => option.style.display = 'block');
+                if (roleSelect && (roleSelect.value === 'respondent' || !roleSelect.value)) {
+                    roleSelect.value = 'applicant';
+                }
+            }
+        }
+
+        function toggleEditPartyType(select) {
+            const editPartyContent = document.getElementById('editPartyContent');
+            const individualFields = editPartyContent.querySelector('#editIndividualFields');
+            const companyFields = editPartyContent.querySelector('#editCompanyFields');
+
+            if (select.value === 'individual') {
+                individualFields.classList.remove('hidden');
+                companyFields.classList.add('hidden');
+            } else {
+                individualFields.classList.add('hidden');
+                companyFields.classList.remove('hidden');
+            }
+        }
+
+        function updateParty(event, partyId) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+
+            fetch(`/cases/{{ $case->id }}/parties/${partyId}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Failed to update party: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update party');
+            });
         }
 
         function removeParty(partyId) {

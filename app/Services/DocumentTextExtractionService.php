@@ -8,7 +8,9 @@ use ZipArchive;
 
 class DocumentTextExtractionService
 {
-    public function extract(Document $document): array
+    private const MIN_SEARCHABLE_TEXT_LENGTH = 20;
+
+    public function extract(Document $document, bool $allowOcr = false): array
     {
         $path = $this->documentPath($document);
 
@@ -20,7 +22,7 @@ class DocumentTextExtractionService
         $mime = strtolower((string) $document->mime);
 
         if ($extension === 'pdf' || $mime === 'application/pdf') {
-            return $this->extractPdf($path);
+            return $this->extractPdf($path, $allowOcr);
         }
 
         if ($extension === 'docx' || str_contains($mime, 'wordprocessingml')) {
@@ -49,12 +51,39 @@ class DocumentTextExtractionService
         return null;
     }
 
-    private function extractPdf(string $path): array
+    private function extractPdf(string $path, bool $allowOcr): array
     {
         if (!$this->commandAvailable('pdftotext')) {
+            if ($allowOcr && $this->commandAvailable('ocrmypdf')) {
+                return $this->extractPdfWithOcr($path);
+            }
+
             return $this->result('unsupported', null, null, 'Install Poppler pdftotext on the server to index searchable PDF text.');
         }
 
+        $result = $this->extractPdfText($path);
+
+        if ($result['status'] === 'indexed' && $this->hasSearchableText($result['text'])) {
+            return $result;
+        }
+
+        if (!$allowOcr) {
+            if ($result['status'] !== 'indexed') {
+                return $result;
+            }
+
+            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Re-run indexing with --ocr after OCRmyPDF is installed.');
+        }
+
+        if (!$this->commandAvailable('ocrmypdf')) {
+            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Install OCRmyPDF and re-run indexing with --ocr.');
+        }
+
+        return $this->extractPdfWithOcr($path);
+    }
+
+    private function extractPdfText(string $path): array
+    {
         $output = [];
         $exitCode = 1;
 
@@ -65,6 +94,55 @@ class DocumentTextExtractionService
         }
 
         return $this->result('indexed', $this->cleanText(implode("\n", $output)), 'pdftotext');
+    }
+
+    private function extractPdfWithOcr(string $path): array
+    {
+        $tempDirectory = storage_path('app/search-ocr');
+        if (!is_dir($tempDirectory) && !mkdir($tempDirectory, 0775, true) && !is_dir($tempDirectory)) {
+            return $this->result('failed', null, 'ocrmypdf', 'Could not create temporary OCR directory.');
+        }
+
+        $token = bin2hex(random_bytes(8));
+        $ocrPdf = $tempDirectory . DIRECTORY_SEPARATOR . "{$token}.pdf";
+        $sidecarText = $tempDirectory . DIRECTORY_SEPARATOR . "{$token}.txt";
+        $output = [];
+        $exitCode = 1;
+
+        $command = implode(' ', [
+            'ocrmypdf',
+            '--skip-text',
+            '--optimize', '0',
+            '--sidecar', escapeshellarg($sidecarText),
+            escapeshellarg($path),
+            escapeshellarg($ocrPdf),
+            '2>&1',
+        ]);
+
+        try {
+            @exec($command, $output, $exitCode);
+
+            if ($exitCode !== 0) {
+                return $this->result('failed', null, 'ocrmypdf', trim(implode("\n", $output)) ?: 'OCRmyPDF could not extract text from this PDF.');
+            }
+
+            $text = is_file($sidecarText) ? file_get_contents($sidecarText) : null;
+            $text = $this->cleanText($text === false ? null : $text);
+
+            if (!$this->hasSearchableText($text)) {
+                return $this->result('failed', $text, 'ocrmypdf', 'OCR completed, but no searchable text was found.');
+            }
+
+            return $this->result('ocr_indexed', $text, 'ocrmypdf');
+        } finally {
+            if (is_file($ocrPdf)) {
+                @unlink($ocrPdf);
+            }
+
+            if (is_file($sidecarText)) {
+                @unlink($sidecarText);
+            }
+        }
     }
 
     private function extractDocx(string $path): array
@@ -127,6 +205,11 @@ class DocumentTextExtractionService
         $text = preg_replace("/\n{3,}/", "\n\n", $text) ?? $text;
 
         return trim($text);
+    }
+
+    private function hasSearchableText(?string $text): bool
+    {
+        return mb_strlen(trim((string) $text)) >= self::MIN_SEARCHABLE_TEXT_LENGTH;
     }
 
     private function commandAvailable(string $command): bool

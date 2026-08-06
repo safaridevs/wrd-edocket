@@ -1181,7 +1181,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent',
+            'role' => 'required|in:applicant,protestant,intervenor,aggrieved_party,respondent',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',
@@ -1329,7 +1329,7 @@ class CaseController extends Controller
         $party = $case->parties()->findOrFail($partyId);
 
         $validated = $request->validate([
-            'role' => 'required|in:applicant,protestant,aggrieved_party,respondent',
+            'role' => 'required|in:applicant,protestant,intervenor,aggrieved_party,respondent',
             'type' => 'required|in:individual,company',
             'prefix' => 'nullable|string|max:10',
             'first_name' => 'nullable|string|max:255',

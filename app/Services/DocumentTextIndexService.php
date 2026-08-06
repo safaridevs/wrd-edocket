@@ -14,9 +14,9 @@ class DocumentTextIndexService
 {
     public function __construct(private DocumentTextExtractionService $extractor) {}
 
-    public function index(Document $document): DocumentText
+    public function index(Document $document, bool $allowOcr = false): DocumentText
     {
-        $result = $this->extractor->extract($document);
+        $result = $this->extractor->extract($document, $allowOcr);
 
         return DocumentText::updateOrCreate(
             ['document_id' => $document->id],

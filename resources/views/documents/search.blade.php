@@ -52,7 +52,7 @@
                                             </h3>
                                             @if($textIndexAvailable)
                                                 <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-                                                    {{ $textIndex?->extraction_status ? ucfirst($textIndex->extraction_status) : 'Not indexed' }}
+                                                    {{ $textIndex?->extraction_status ? \Illuminate\Support\Str::headline($textIndex->extraction_status) : 'Not indexed' }}
                                                 </span>
                                             @endif
                                         </div>

@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 class IndexDocumentText extends Command
 {
-    protected $signature = 'documents:index-text {--document= : Index one document ID} {--limit= : Maximum number of documents to index} {--force : Re-index documents that already have text index rows}';
+    protected $signature = 'documents:index-text {--document= : Index one document ID} {--limit= : Maximum number of documents to index} {--force : Re-index documents that already have text index rows} {--ocr : Use OCRmyPDF for scanned PDFs when normal text extraction finds no text}';
 
     protected $description = 'Extract searchable text from stored documents into the document_texts table';
 
@@ -33,10 +33,12 @@ class IndexDocumentText extends Command
         $indexed = 0;
         $failed = 0;
 
-        $query->chunkById(50, function ($documents) use ($indexService, &$indexed, &$failed) {
+        $allowOcr = (bool) $this->option('ocr');
+
+        $query->chunkById(50, function ($documents) use ($indexService, $allowOcr, &$indexed, &$failed) {
             foreach ($documents as $document) {
                 try {
-                    $textIndex = $indexService->index($document);
+                    $textIndex = $indexService->index($document, $allowOcr);
                     $indexed++;
 
                     $this->line("{$document->id}: {$textIndex->extraction_status}");
