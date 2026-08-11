@@ -150,7 +150,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2" onclick="event.stopPropagation()">
                                 <a href="{{ route('cases.show', $case) }}" class="text-blue-600 hover:text-blue-900">View</a>
 
-                                @if($case->status === 'draft' && auth()->user()->canCreateCase())
+                                @if($case->status === 'draft' && auth()->user()->canManageDraftCase($case))
                                 <form action="{{ route('cases.destroy', $case) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this draft case?');">
                                     @csrf
                                     @method('DELETE')

@@ -271,7 +271,7 @@
                 </div>
                 @endif
 
-                @if(auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))
+                @if(auth()->user()->canManageDraftCase($case))
                 <div class="mt-4 flex space-x-3">
                     <a href="{{ route('cases.edit', $case) }}" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm transition-colors">
                         {{ $case->status === 'rejected' ? 'Fix & Resubmit Case' : 'Edit Case' }}
@@ -388,14 +388,12 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Parties & Service List</h3>
                     <div class="flex items-center gap-2">
-                        @if(auth()->user()->isHearingUnit())
-                            <a href="{{ route('cases.service-list.download', $case) }}" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-200">
-                                Download Service List
-                            </a>
-                        @endif
-                        @if(auth()->user()->canCreateCase() || auth()->user()->isHearingUnit())
+                        <a href="{{ route('cases.service-list.download', $case) }}" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-200">
+                            Download Service List
+                        </a>
+                        @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
                             <a href="{{ route('cases.parties.manage', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
-                                {{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Parties' : 'Manage Parties' }}
+                                {{ auth()->user()->canManageDraftCase($case) || auth()->user()->isHearingUnit() ? 'Manage Parties' : 'View Parties' }}
                             </a>
                         @endif
                     </div>
@@ -660,52 +658,14 @@
                     </div>
                     <div>
                         <h4 class="font-medium mb-2">Service List</h4>
-                        @php
-                            $renderedServiceEmails = $case->serviceList
-                                ->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION')
-                                ->pluck('email')
-                                ->filter()
-                                ->map(fn($email) => strtolower(trim($email)));
-                        @endphp
-                        @foreach($case->serviceList->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION') as $service)
-                        <div class="py-2 border-b">
-                            <div class="font-medium">{{ $service->person->full_name }}</div>
-                            <div class="text-sm text-gray-600">{{ $service->email }} • {{ ucfirst($service->service_method) }}</div>
-                        </div>
-                        @endforeach
-
-                        @foreach($case->aluClerks as $clerk)
-                            @php $email = strtolower(trim($clerk->email ?? '')); @endphp
-                            @if($email !== '' && !$renderedServiceEmails->contains($email))
-                                <div class="py-2 border-b">
-                                    <div class="font-medium">{{ $clerk->getDisplayName() }}</div>
-                                    <div class="text-sm text-gray-600">{{ $clerk->email }} • {{ $clerk->isALUParalegal() ? 'ALU Paralegal' : 'ALU Clerk' }}</div>
-                                </div>
-                                @php $renderedServiceEmails->push($email); @endphp
-                            @endif
-                        @endforeach
-
-                        @foreach($case->aluAttorneys as $attorney)
-                            @php $email = strtolower(trim($attorney->email ?? '')); @endphp
-                            @if($email !== '' && !$renderedServiceEmails->contains($email))
-                                <div class="py-2 border-b">
-                                    <div class="font-medium">{{ $attorney->getDisplayName() }}</div>
-                                    <div class="text-sm text-gray-600">{{ $attorney->email }} • ALU Attorney</div>
-                                </div>
-                                @php $renderedServiceEmails->push($email); @endphp
-                            @endif
-                        @endforeach
-
-                        @foreach($case->wrds as $wrd)
-                            @php $email = strtolower(trim($wrd->email ?? '')); @endphp
-                            @if($email !== '' && !$renderedServiceEmails->contains($email))
-                                <div class="py-2 border-b">
-                                    <div class="font-medium">{{ $wrd->getDisplayName() }}</div>
-                                    <div class="text-sm text-gray-600">{{ $wrd->email }} • WRD Expert</div>
-                                </div>
-                                @php $renderedServiceEmails->push($email); @endphp
-                            @endif
-                        @endforeach
+                        @forelse($resolvedServiceList as $recipient)
+                            <div class="py-2 border-b">
+                                <div class="font-medium">{{ $recipient['name'] }}</div>
+                                <div class="text-sm text-gray-600">{{ $recipient['email'] }} • {{ $recipient['service_label'] }}</div>
+                            </div>
+                        @empty
+                            <p class="text-gray-500 text-sm">No service-list recipients.</p>
+                        @endforelse
                     </div>
                 </div>
             </div>
@@ -925,7 +885,7 @@
                             </a>
                             @endif
 
-                            @if(auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected']))
+                            @if(auth()->user()->canManageDraftCase($case))
                             <button onclick="deleteDocument({{ $doc->id }})" class="text-red-600 hover:text-red-800 text-sm" title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -2028,89 +1988,7 @@
     </div>
     @endif
 
-    <!-- Upload Document Modal -->
-    <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
-                <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)" data-loading-form>
-                        @csrf
-                        <input type="hidden" name="time_sensitive_notice" id="timeSensitiveNoticeInput" value="0">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                                <select name="doc_type" class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
-                                    <option value="">Select document type...</option>
-                                    @foreach($documentTypes as $docType)
-                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
-                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
-                                       required
-                                       class="block w-full border-gray-300 rounded-md"
-                                       placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
-                                       oninput="updateFilenamePreview()">
-                                <p class="mt-1 text-sm text-amber-700">The title must be the exact same as what is listed as the document title.</p>
-                            </div>
-
-                            <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
-                                <p class="text-xs font-medium text-blue-800 mb-1">Filename Preview:</p>
-                                <p id="previewText" class="text-sm text-blue-900 font-mono"></p>
-                            </div>
-
-                            <div id="pleadingTypeSection" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type</label>
-                                <select name="pleading_type" class="block w-full border-gray-300 rounded-md">
-                                    <option value="none">None</option>
-                                    <option value="request_to_docket">Request to Docket</option>
-                                    <option value="request_pre_hearing">Request for Pre-Hearing</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
-                                <input type="file" name="document[]" required accept="{{ auth()->user()->isHearingUnit() ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' }}" multiple
-                                       class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
-                                <p class="text-xs text-gray-500 mt-1">
-                                    @if(auth()->user()->isHearingUnit())
-                                        Upload PDF orders or notices. The system will apply the electronic stamp and return a preview before notifications are sent.
-                                    @else
-                                        Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)
-                                    @endif
-                                </p>
-                            </div>
-
-                            @if(auth()->user()->isHearingUnit())
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Notification Message</label>
-                                <textarea name="notification_message" rows="4" maxlength="5000"
-                                          class="block w-full border-gray-300 rounded-md"
-                                          placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
-                                <p class="text-xs text-gray-500 mt-1">This message is saved for the service-list notification and can be reviewed before final issuance.</p>
-                            </div>
-                            @endif
-
-                        </div>
-
-                        <div class="flex justify-end space-x-3 mt-6">
-                            <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
-                                Cancel
-                            </button>
-                            <button type="submit" data-loading-text="{{ auth()->user()->isHearingUnit() ? 'Generating preview...' : 'Filing document...' }}" class="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                                <span data-button-label>{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('cases.documents.partials.upload-modal')
 
 
     <!-- Add Paralegal Modal -->
@@ -2124,45 +2002,54 @@
                         <input type="hidden" name="type" value="individual">
                         <div class="space-y-4">
                             @php
-                                $existingAluParalegalEmails = \App\Models\User::whereIn('id', \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')->pluck('user_id'))
-                                    ->pluck('email')
-                                    ->filter()
-                                    ->values();
-                                $existingParalegals = \App\Models\Person::whereHas('caseParties', function ($query) {
-                                    $query->where('role', 'paralegal');
-                                })->orWhereIn('email', $existingAluParalegalEmails)
-                                ->orderBy('last_name')
-                                ->orderBy('first_name')
-                                ->get();
+                                if ($userIsAssignedAluAttorney) {
+                                    $existingParalegals = \App\Models\User::whereCurrentRole('alu_paralegal')
+                                        ->where('is_active', true)
+                                        ->orderBy('name')
+                                        ->get();
+                                } else {
+                                    $existingParalegals = \App\Models\Person::whereHas('caseParties', function ($query) {
+                                        $query->where('role', 'paralegal');
+                                    })->orderBy('last_name')
+                                    ->orderBy('first_name')
+                                    ->get();
+                                }
                             @endphp
 
                             <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
                                 <div class="flex flex-col md:flex-row md:items-center gap-3">
                                     <label class="inline-flex items-center">
-                                        <input type="radio" name="paralegal_mode" value="existing" class="mr-2" onchange="toggleParalegalMode()" {{ $existingParalegals->isNotEmpty() ? 'checked' : '' }}>
+                                        <input type="radio" name="paralegal_mode" value="existing" class="mr-2" onchange="toggleParalegalMode()" {{ $userIsAssignedAluAttorney || $existingParalegals->isNotEmpty() ? 'checked' : '' }}>
                                         <span class="text-sm font-medium">Use Existing Paralegal</span>
                                     </label>
+                                    @unless($userIsAssignedAluAttorney)
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="paralegal_mode" value="new" class="mr-2" onchange="toggleParalegalMode()" {{ $existingParalegals->isEmpty() ? 'checked' : '' }}>
                                         <span class="text-sm font-medium">Create New Paralegal</span>
                                     </label>
+                                    @endunless
                                 </div>
 
-                                <div id="existingParalegalSection" class="mt-4 {{ $existingParalegals->isEmpty() ? 'hidden' : '' }}">
+                                <div id="existingParalegalSection" class="mt-4 {{ !$userIsAssignedAluAttorney && $existingParalegals->isEmpty() ? 'hidden' : '' }}">
                                     <label class="block text-sm font-medium mb-1">Existing Paralegal</label>
-                                    <select name="existing_person_id" id="existingParalegalSelect" class="w-full border-gray-300 rounded-md" onchange="toggleParalegalMode()">
+                                    <select name="{{ $userIsAssignedAluAttorney ? 'existing_user_id' : 'existing_person_id' }}" id="existingParalegalSelect" class="w-full border-gray-300 rounded-md" onchange="toggleParalegalMode()">
                                         <option value="">Select existing paralegal...</option>
-                                        @foreach($existingParalegals as $paralegalPerson)
-                                        <option value="{{ $paralegalPerson->id }}">
-                                            {{ $paralegalPerson->full_name }}{{ $paralegalPerson->email ? ' - ' . $paralegalPerson->email : '' }}
+                                        @foreach($existingParalegals as $paralegal)
+                                        <option value="{{ $paralegal->id }}">
+                                            {{ $userIsAssignedAluAttorney ? $paralegal->name : $paralegal->full_name }}{{ $paralegal->email ? ' - ' . $paralegal->email : '' }}
                                         </option>
                                         @endforeach
                                     </select>
-                                    <p class="text-xs text-gray-500 mt-1">Select an existing paralegal to reuse their saved person record.</p>
+                                    @if($userIsAssignedAluAttorney && $existingParalegals->isEmpty())
+                                        <p class="text-sm text-amber-700 mt-2">No active ALU paralegal accounts are available.</p>
+                                    @endif
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ $userIsAssignedAluAttorney ? 'Select an active ALU paralegal account.' : 'Select an existing paralegal to reuse their saved person record.' }}
+                                    </p>
                                 </div>
                             </div>
 
-                            <div id="newParalegalFields" class="{{ $existingParalegals->isNotEmpty() ? 'hidden' : '' }}">
+                            <div id="newParalegalFields" class="{{ $userIsAssignedAluAttorney || $existingParalegals->isNotEmpty() ? 'hidden' : '' }}">
                                 <div class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>

@@ -29,12 +29,13 @@
                         @error('wrd_ids')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
+                        <p class="mt-2 text-xs text-gray-500">Leave all boxes unchecked to remove the WRD expert assignment.</p>
                     </div>
 
                     <div class="flex justify-end space-x-3">
                         <a href="{{ route('cases.show', $case) }}" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</a>
                         <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                            {{ $case->assignedWrd ? 'Update Assignment' : 'Assign WRD' }}
+                            Save Assignment
                         </button>
                     </div>
                 </form>

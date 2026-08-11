@@ -171,7 +171,20 @@ class User extends Authenticatable
     // Permission methods
     public function canCreateCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal']);
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty']);
+    }
+
+    public function canManageDraftCase(CaseModel $case): bool
+    {
+        if (!in_array($case->status, ['draft', 'rejected'], true)) {
+            return false;
+        }
+
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty'], true)) {
+            return true;
+        }
+
+        return false;
     }
 
     public function canReadCase(): bool
@@ -225,7 +238,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal'])) {
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty'])) {
             return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu']);
         }
 
@@ -256,7 +269,7 @@ class User extends Authenticatable
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'party']) || $this->isAttorney();
+        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'party']) || $this->isAttorney();
     }
 
     public function canAccessCase(CaseModel $case): bool
@@ -302,17 +315,17 @@ class User extends Authenticatable
 
     public function canManageUsers(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignAttorneys(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function attorneyRecord()
@@ -349,7 +362,7 @@ class User extends Authenticatable
 
     public function canAssignHydrologyExperts(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAssignParalegal(): bool
@@ -359,7 +372,7 @@ class User extends Authenticatable
 
     public function canTransmitMaterials(): bool
     {
-        return in_array($this->getCurrentRole(), ['wrd', 'wrap_dir', 'alu_clerk', 'alu_paralegal']);
+        return in_array($this->getCurrentRole(), ['wrd', 'wrap_dir', 'alu_clerk', 'alu_paralegal', 'alu_atty']);
     }
 
     public function canModifyPersons(): bool

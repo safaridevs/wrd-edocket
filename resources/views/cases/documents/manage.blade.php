@@ -326,6 +326,9 @@
                                             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                                                 <div class="text-sm font-semibold text-amber-900">Stamped preview ready for HU review</div>
                                                 <p class="mt-1 text-sm text-amber-800">Open the stamped PDF preview. Service-list notifications will not be sent until you click Issue & Notify.</p>
+                                                <p class="mt-1 text-xs {{ $resolvedServiceList->where('email', '!=', '')->isEmpty() ? 'font-medium text-red-700' : 'text-amber-700' }}">
+                                                    {{ $resolvedServiceList->where('email', '!=', '')->count() }} service-list {{ $resolvedServiceList->where('email', '!=', '')->count() === 1 ? 'recipient' : 'recipients' }} currently have an email address.
+                                                </p>
                                                 <form method="POST" action="{{ route('cases.documents.issue-stamped', [$case, $document]) }}" class="mt-3 space-y-3 hu-issue-form" data-loading-form>
                                                     @csrf
                                                     <div>
@@ -478,7 +481,7 @@
                 <div class="p-6">
                     <h3 class="text-lg font-medium mb-3">Confirm Issue & Notify</h3>
                     <p class="text-sm text-gray-700 mb-5">
-                        Issue this stamped document and notify the service list?
+                        Issue this stamped document and notify {{ $resolvedServiceList->where('email', '!=', '')->count() }} service-list {{ $resolvedServiceList->where('email', '!=', '')->count() === 1 ? 'recipient' : 'recipients' }}?
                     </p>
                     <div class="flex justify-end space-x-3">
                         <button type="button" onclick="hideIssueNotifyModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
@@ -559,89 +562,7 @@
         </div>
     </div>
 
-    <!-- Upload Document Modal -->
-    <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-screen overflow-y-auto">
-                <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</h3>
-                    <form id="uploadForm" action="{{ route('cases.documents.store', $case) }}" method="POST" enctype="multipart/form-data" onsubmit="return confirmUpload(event)" data-loading-form>
-                        @csrf
-                        <input type="hidden" name="time_sensitive_notice" id="timeSensitiveNoticeInput" value="0">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Type</label>
-                                <select name="doc_type" class="block w-full border-gray-300 rounded-md" onchange="togglePleadingType()">
-                                    <option value="">Select document type...</option>
-                                    @foreach($documentTypes as $docType)
-                                    <option value="{{ $docType->code }}" data-is-pleading="{{ $docType->is_pleading ? 'true' : 'false' }}">{{ \Illuminate\Support\Str::title($docType->name) }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Document Title *</label>
-                                <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
-                                       required
-                                       class="block w-full border-gray-300 rounded-md"
-                                       placeholder="e.g., Motion to Dismiss for Lack of Jurisdiction"
-                                       oninput="updateFilenamePreview()">
-                                <p class="mt-1 text-sm text-amber-700">The title must be the exact same as what is listed as the document title.</p>
-                            </div>
-
-                            <div id="filenamePreview" class="hidden bg-blue-50 border border-blue-200 rounded-md p-3">
-                                <p class="text-xs font-medium text-blue-800 mb-1">Filename Preview:</p>
-                                <p id="previewText" class="text-sm text-blue-900 font-mono"></p>
-                            </div>
-
-                            <div id="pleadingTypeSection" class="hidden">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Pleading Type</label>
-                                <select name="pleading_type" class="block w-full border-gray-300 rounded-md">
-                                    <option value="none">None</option>
-                                    <option value="request_to_docket">Request to Docket</option>
-                                    <option value="request_pre_hearing">Request for Pre-Hearing</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Files *</label>
-                                <input type="file" name="document[]" required accept="{{ auth()->user()->isHearingUnit() ? '.pdf' : '.pdf,.doc,.docx,.jpg,.jpeg,.png' }}" multiple
-                                       class="block w-full border-gray-300 rounded-md" onchange="validateFiles(this)">
-                                <p class="text-xs text-gray-500 mt-1">
-                                    @if(auth()->user()->isHearingUnit())
-                                        Upload PDF orders or notices. The system will apply the electronic stamp and return a preview before notifications are sent.
-                                    @else
-                                        Select multiple files. Supported formats: PDF, DOC, DOCX, JPG, PNG (Max: 200MB each)
-                                    @endif
-                                </p>
-                            </div>
-
-                            @if(auth()->user()->isHearingUnit())
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Notification Message</label>
-                                <textarea name="notification_message" rows="4" maxlength="5000"
-                                          class="block w-full border-gray-300 rounded-md"
-                                          placeholder="Optional message to include with the service-list notification, such as conference links, instructions, or deadlines."></textarea>
-                                <p class="text-xs text-gray-500 mt-1">This message is saved for the service-list notification and can be reviewed before final issuance.</p>
-                            </div>
-                            @endif
-
-                        </div>
-
-                        <div class="flex justify-end space-x-3 mt-6">
-                            <button type="button" onclick="hideUploadModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">
-                                Cancel
-                            </button>
-                            <button type="submit" data-loading-text="{{ auth()->user()->isHearingUnit() ? 'Generating preview...' : 'Filing document...' }}" class="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
-                                <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                                <span data-button-label>{{ auth()->user()->isHearingUnit() ? 'Generate Stamped Preview' : 'File Document' }}</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('cases.documents.partials.upload-modal')
 
     <script>
         // Track viewed documents in session storage
@@ -691,10 +612,14 @@
         });
 
         function updateFilenamePreview() {
-            const docTypeSelect = document.querySelector('select[name="doc_type"]');
+            const docTypeSelect = document.querySelector('#uploadModal select[name="doc_type"]');
             const customTitleInput = document.getElementById('customTitleInput');
             const previewDiv = document.getElementById('filenamePreview');
             const previewText = document.getElementById('previewText');
+
+            if (!docTypeSelect || !customTitleInput || !previewDiv || !previewText) {
+                return;
+            }
 
             const docType = docTypeSelect.options[docTypeSelect.selectedIndex]?.text || '';
             const customTitle = customTitleInput.value.trim();
@@ -716,6 +641,8 @@
         function hideUploadModal() {
             document.getElementById('uploadModal').classList.add('hidden');
             document.getElementById('uploadForm').reset();
+            document.getElementById('pleadingTypeSection')?.classList.add('hidden');
+            document.getElementById('filenamePreview')?.classList.add('hidden');
         }
 
         let pendingIssueNotifyForm = null;
@@ -791,13 +718,18 @@
         }
 
         function togglePleadingType() {
-            const select = document.querySelector('select[name="doc_type"]');
-            const selectedOption = select.options[select.selectedIndex];
+            const select = document.querySelector('#uploadModal select[name="doc_type"]');
             const pleadingSection = document.getElementById('pleadingTypeSection');
 
-            if (selectedOption && selectedOption.dataset.isPleading === 'true') {
+            if (!select) {
+                return;
+            }
+
+            const selectedOption = select.options[select.selectedIndex];
+
+            if (pleadingSection && selectedOption && selectedOption.dataset.isPleading === 'true') {
                 pleadingSection.classList.remove('hidden');
-            } else {
+            } else if (pleadingSection) {
                 pleadingSection.classList.add('hidden');
             }
 

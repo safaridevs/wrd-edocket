@@ -14,6 +14,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\CaseStorageService;
+use App\Services\ServiceListResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -26,7 +27,8 @@ class CaseController extends Controller
 {
     public function __construct(
         private CaseService $caseService,
-        private CaseStorageService $caseStorageService
+        private CaseStorageService $caseStorageService,
+        private ServiceListResolver $serviceListResolver
     ) {}
 
     public function index(Request $request)
@@ -133,10 +135,20 @@ class CaseController extends Controller
         }
 
         if (isset($assignedTypesByRole[$currentRole])) {
-            return CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
-                $assignmentQuery->where('user_id', $user->id)
-                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
-            })->whereNotIn('status', ['draft']);
+            if ($currentRole !== 'alu_atty') {
+                return CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
+                    $assignmentQuery->where('user_id', $user->id)
+                        ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+                })->whereNotIn('status', ['draft']);
+            }
+
+            return CaseModel::where(function ($caseQuery) use ($user, $assignedTypesByRole, $currentRole) {
+                $caseQuery->where('created_by_user_id', $user->id)
+                    ->orWhereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
+                        $assignmentQuery->where('user_id', $user->id)
+                            ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+                    });
+            });
         }
 
         return $user->createdCases();
@@ -196,10 +208,20 @@ class CaseController extends Controller
         }
 
         if (isset($assignedTypesByRole[$currentRole])) {
-            return CaseModel::whereHas('assignments', function ($query) use ($assignedTypesByRole, $currentRole, $user) {
-                $query->where('user_id', $user->id)
-                    ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
-            })->whereNotIn('status', ['draft']);
+            if ($currentRole !== 'alu_atty') {
+                return CaseModel::whereHas('assignments', function ($query) use ($assignedTypesByRole, $currentRole, $user) {
+                    $query->where('user_id', $user->id)
+                        ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+                })->whereNotIn('status', ['draft']);
+            }
+
+            return CaseModel::where(function ($caseQuery) use ($assignedTypesByRole, $currentRole, $user) {
+                $caseQuery->where('created_by_user_id', $user->id)
+                    ->orWhereHas('assignments', function ($query) use ($assignedTypesByRole, $currentRole, $user) {
+                        $query->where('user_id', $user->id)
+                            ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
+                    });
+            });
         }
 
         if ($user->isHearingUnit()) {
@@ -221,8 +243,12 @@ class CaseController extends Controller
             return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
-        if (in_array($currentRole, ['party', 'external_attorney', 'alu_atty', 'wrd', 'hydrology_expert', 'alu_clerk', 'alu_paralegal'], true)) {
+        if (in_array($currentRole, ['party', 'external_attorney', 'wrd', 'hydrology_expert', 'alu_clerk', 'alu_paralegal'], true)) {
             return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
+        }
+
+        if ($currentRole === 'alu_atty') {
+            return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
         return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
@@ -253,6 +279,14 @@ class CaseController extends Controller
     public function store(StoreCaseRequest $request)
     {
         $validated = $request->validated();
+
+        if (Auth::user()->isALUAttorney()) {
+            $validated['assigned_attorneys'] = collect($validated['assigned_attorneys'] ?? [])
+                ->push(Auth::id())
+                ->unique()
+                ->values()
+                ->all();
+        }
 
         // Log raw request data for debugging
         \Log::info('Raw request parties:', ['parties' => $request->input('parties')]);
@@ -387,26 +421,14 @@ class CaseController extends Controller
         $documentTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
             ->dropdownOrder()
             ->get();
+        $resolvedServiceList = $this->serviceListResolver->resolve($case);
 
-        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'pendingAluAcceptanceDocuments', 'documentTypes'));
+        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'pendingAluAcceptanceDocuments', 'documentTypes', 'resolvedServiceList'));
     }
 
     public function downloadServiceList(CaseModel $case)
     {
-        if (!Auth::user()->isHearingUnit()) {
-            abort(403);
-        }
-
-        if ($case->status === 'draft') {
-            abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
-        }
-
-        $case->load(['parties.person', 'serviceList.person']);
-
-        $serviceEntries = $case->serviceList
-            ->reject(fn($service) => strtoupper(trim((string) ($service->person->organization ?? ''))) === 'WATER RIGHTS DIVISION')
-            ->sortBy(fn($service) => strtolower((string) ($service->person->full_name ?? $service->email)))
-            ->values();
+        $serviceEntries = $this->serviceListResolver->resolve($case);
 
         $filename = sprintf('case-%s-service-list.csv', str_replace(['\\', '/'], '-', $case->case_no));
 
@@ -433,27 +455,18 @@ class CaseController extends Controller
             ]);
 
             foreach ($serviceEntries as $service) {
-                $person = $service->person;
-                $roles = $case->parties
-                    ->where('person_id', $service->person_id)
-                    ->pluck('role')
-                    ->filter()
-                    ->unique()
-                    ->map(fn($role) => ucfirst(str_replace('_', ' ', $role)))
-                    ->implode(', ');
-
                 fputcsv($handle, [
                     $case->case_no,
-                    $person?->full_name ?? '',
-                    $person?->organization ?? '',
-                    $person?->address_line1 ?? '',
-                    $person?->address_line2 ?? '',
-                    $person?->city ?? '',
-                    $person?->state ?? '',
-                    $person?->zip ?? '',
-                    $service->email ?? '',
-                    $roles,
-                    $service->service_method ?? '',
+                    $service['name'],
+                    $service['organization'],
+                    $service['address_line1'],
+                    $service['address_line2'],
+                    $service['city'],
+                    $service['state'],
+                    $service['zip'],
+                    $service['email'],
+                    $service['role'],
+                    $service['service_method'],
                 ]);
             }
 
@@ -463,7 +476,7 @@ class CaseController extends Controller
 
     public function edit(CaseModel $case)
     {
-        if (!Auth::user()->canCreateCase() || !in_array($case->status, ['draft', 'rejected'])) {
+        if (!Auth::user()->canManageDraftCase($case)) {
             abort(403);
         }
 
@@ -481,11 +494,7 @@ class CaseController extends Controller
 
     public function update(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canCreateCase() && !Auth::user()->canSubmitToHU()) {
-            abort(403);
-        }
-
-        if (!in_array($case->status, ['draft', 'rejected']) && !Auth::user()->canSubmitToHU()) {
+        if (!Auth::user()->canManageDraftCase($case)) {
             abort(403);
         }
 
@@ -704,7 +713,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'expert_ids' => 'required|array|min:1',
+            'expert_ids' => 'nullable|array',
             'expert_ids.*' => 'exists:users,id'
         ]);
 
@@ -712,7 +721,7 @@ class CaseController extends Controller
         $case->assignments()->where('assignment_type', 'hydrology_expert')->delete();
 
         // Add new assignments
-        foreach ($validated['expert_ids'] as $expertId) {
+        foreach ($validated['expert_ids'] ?? [] as $expertId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
                 'user_id' => $expertId,
@@ -721,7 +730,11 @@ class CaseController extends Controller
             ]);
         }
 
-        return redirect()->route('cases.show', $case)->with('success', 'Hydrology experts assigned successfully.');
+        $message = empty($validated['expert_ids'])
+            ? 'Hydrology expert assignments removed successfully.'
+            : 'Hydrology experts assigned successfully.';
+
+        return redirect()->route('cases.show', $case)->with('success', $message);
     }
 
     public function assignAluClerkForm(CaseModel $case)
@@ -776,13 +789,13 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'wrd_ids' => 'required|array|min:1',
+            'wrd_ids' => 'nullable|array',
             'wrd_ids.*' => 'exists:users,id'
         ]);
 
         $case->assignments()->where('assignment_type', 'wrd')->delete();
 
-        foreach ($validated['wrd_ids'] as $wrdId) {
+        foreach ($validated['wrd_ids'] ?? [] as $wrdId) {
             CaseAssignment::create([
                 'case_id' => $case->id,
                 'user_id' => $wrdId,
@@ -791,7 +804,11 @@ class CaseController extends Controller
             ]);
         }
 
-        return redirect()->route('cases.show', $case)->with('success', 'WRDs assigned successfully.');
+        $message = empty($validated['wrd_ids'])
+            ? 'WRD expert assignments removed successfully.'
+            : 'WRD experts assigned successfully.';
+
+        return redirect()->route('cases.show', $case)->with('success', $message);
     }
 
     public function notifyParties(Request $request, CaseModel $case)
@@ -970,7 +987,7 @@ class CaseController extends Controller
 
     public function assignPartyAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1038,7 +1055,7 @@ class CaseController extends Controller
 
     public function removeAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1164,19 +1181,20 @@ class CaseController extends Controller
 
     public function manageParties(CaseModel $case)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canWriteCase() && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
         $case->load(['parties.person', 'serviceList.person']);
         $attorneys = Person::counselDirectory()->get();
+        $resolvedServiceList = $this->serviceListResolver->resolve($case);
 
-        return view('cases.parties.manage', compact('case', 'attorneys'));
+        return view('cases.parties.manage', compact('case', 'attorneys', 'resolvedServiceList'));
     }
 
     public function storeParty(Request $request, CaseModel $case)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1310,7 +1328,7 @@ class CaseController extends Controller
 
     public function editParty(CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1322,7 +1340,7 @@ class CaseController extends Controller
 
     public function updateParty(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1399,7 +1417,7 @@ class CaseController extends Controller
 
     public function destroyParty(CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canCreateCase() && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
             abort(403);
         }
 
@@ -1426,7 +1444,9 @@ class CaseController extends Controller
         ]);
         $userRole = Auth::user()->getCurrentRole();
         $documentTypes = \App\Models\DocumentType::forRole($userRole)->dropdownOrder()->get();
-        return view('cases.documents.manage', compact('case', 'documentTypes'));
+        $resolvedServiceList = $this->serviceListResolver->resolve($case);
+
+        return view('cases.documents.manage', compact('case', 'documentTypes', 'resolvedServiceList'));
     }
 
     public function storeDocument(Request $request, CaseModel $case)
@@ -1726,26 +1746,7 @@ class CaseController extends Controller
 
     private function serviceNotificationEmails(CaseModel $case): array
     {
-        $case->loadMissing(['serviceList.person', 'assignments.user']);
-        $emails = [];
-
-        foreach ($case->serviceList as $serviceEntry) {
-            if (strtoupper(trim((string) ($serviceEntry->person?->organization ?? ''))) === 'WATER RIGHTS DIVISION') {
-                continue;
-            }
-
-            $this->addNotificationEmail($emails, $serviceEntry->email ?: $serviceEntry->person?->email);
-        }
-
-        foreach ($case->assignments as $assignment) {
-            if (!in_array($assignment->assignment_type, ['alu_clerk', 'alu_paralegal', 'alu_atty', 'alu_attorney', 'wrd'], true)) {
-                continue;
-            }
-
-            $this->addNotificationEmail($emails, $assignment->user?->email);
-        }
-
-        return array_values($emails);
+        return $this->serviceListResolver->emails($case);
     }
 
     private function partyAndServiceNotificationEmails(CaseModel $case): array
@@ -2439,7 +2440,7 @@ class CaseController extends Controller
         $document = $case->documents()->findOrFail($documentId);
 
         // Allow ALU clerks to delete documents from draft/rejected cases
-        if (!((auth()->user()->canCreateCase() && in_array($case->status, ['draft', 'rejected'])) ||
+        if (!((auth()->user()->canManageDraftCase($case)) ||
               auth()->user()->getCurrentRole() === 'admin' ||
               $document->uploaded_by_user_id === auth()->id())) {
             abort(403);
@@ -2588,6 +2589,7 @@ class CaseController extends Controller
 
         $validated = $request->validate([
             'existing_person_id' => 'nullable|exists:persons,id',
+            'existing_user_id' => 'nullable|exists:users,id',
             'type' => 'nullable|in:individual',
             'prefix' => 'nullable|string|max:255',
             'first_name' => 'nullable|string|max:255',
@@ -2607,9 +2609,29 @@ class CaseController extends Controller
             'notes' => 'nullable|string'
         ]);
 
+        $selectedAluParalegal = null;
+
+        if ($isAssignedAluAttorney) {
+            if (empty($validated['existing_user_id'])) {
+                return back()->withErrors(['existing_user_id' => 'Select an ALU paralegal.'])->withInput();
+            }
+
+            $selectedAluParalegal = User::whereKey($validated['existing_user_id'])
+                ->whereCurrentRole('alu_paralegal')
+                ->where('is_active', true)
+                ->first();
+
+            if (!$selectedAluParalegal) {
+                return back()->withErrors(['existing_user_id' => 'The selected user is not an active ALU paralegal.'])->withInput();
+            }
+        }
+
         $usingExistingParalegal = !empty($validated['existing_person_id']);
 
-        if ($usingExistingParalegal) {
+        if ($selectedAluParalegal) {
+            $person = null;
+            $paralegalUser = $selectedAluParalegal;
+        } elseif ($usingExistingParalegal) {
             $person = \App\Models\Person::findOrFail($validated['existing_person_id']);
 
             if (blank($person->email)) {
@@ -2667,25 +2689,27 @@ class CaseController extends Controller
             }
         }
 
-        // Ensure the paralegal has a login-capable user account.
-        $paralegalUser = User::firstOrCreate(
-            ['email' => $person->email],
-            [
-                'name' => $person->full_name,
-                'password' => Hash::make(Str::random(32)),
-                'role' => 'party',
-                'is_active' => true,
-            ]
-        );
+        if (!$selectedAluParalegal) {
+            // Ensure an external paralegal has a login-capable user account.
+            $paralegalUser = User::firstOrCreate(
+                ['email' => $person->email],
+                [
+                    'name' => $person->full_name,
+                    'password' => Hash::make(Str::random(32)),
+                    'role' => 'party',
+                    'is_active' => true,
+                ]
+            );
 
-        if (!$paralegalUser->is_active) {
-            $paralegalUser->update(['is_active' => true]);
-        }
+            if (!$paralegalUser->is_active) {
+                $paralegalUser->update(['is_active' => true]);
+            }
 
-        if (blank($paralegalUser->name)) {
-            $paralegalUser->update([
-                'name' => $person->full_name,
-            ]);
+            if (blank($paralegalUser->name)) {
+                $paralegalUser->update([
+                    'name' => $person->full_name,
+                ]);
+            }
         }
 
         if ($isOutsideCounsel) {
@@ -2727,13 +2751,17 @@ class CaseController extends Controller
             ]);
         }
 
-        Password::sendResetLink(['email' => $paralegalUser->email]);
+        if (!$selectedAluParalegal) {
+            Password::sendResetLink(['email' => $paralegalUser->email]);
+        }
 
         app(\App\Services\NotificationService::class)->notify(
-            $person,
+            $selectedAluParalegal ?: $person,
             'paralegal_added',
             'Paralegal Access Added',
-            "You have been added as a paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents for the represented party. If you have not signed in before, use Forgot Password with this email address to set your password.",
+            $selectedAluParalegal
+                ? "You have been assigned as an ALU paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents."
+                : "You have been added as a paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents for the represented party. If you have not signed in before, use Forgot Password with this email address to set your password.",
             $case
         );
 
@@ -2791,7 +2819,7 @@ class CaseController extends Controller
 
     public function destroy(CaseModel $case)
     {
-        if (!Auth::user()->canCreateCase() || $case->status !== 'draft') {
+        if (!Auth::user()->canManageDraftCase($case) || $case->status !== 'draft') {
             abort(403, 'Only draft cases can be deleted.');
         }
 
