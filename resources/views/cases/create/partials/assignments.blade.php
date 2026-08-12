@@ -1,9 +1,9 @@
 @if(auth()->user()->canAssignAttorneys())
 @php
-    $availableAttorneys = \App\Models\User::whereAnyCurrentRole(['alu_atty', 'external_attorney'])->orderBy('name')->get();
+    $availableAttorneys = \App\Models\User::whereAnyCurrentRole(['alu_atty', 'contract_attorney'])->orderBy('name')->get();
     $availableClerks = \App\Models\User::whereAnyCurrentRole(['alu_clerk', 'alu_paralegal'])->orderBy('name')->get();
     $selectedAttorneyIds = collect(old('assigned_attorneys', []))
-        ->when(auth()->user()->isALUAttorney(), fn ($ids) => $ids->push(auth()->id()))
+        ->when(auth()->user()->isALUAttorney() || auth()->user()->isContractAttorney(), fn ($ids) => $ids->push(auth()->id()))
         ->map(fn ($id) => (string) $id)
         ->unique()
         ->values()
@@ -48,7 +48,7 @@
                                    name="assigned_attorneys[]"
                                    value="{{ $attorney->id }}"
                                    {{ in_array($attorneyId, $selectedAttorneyIds, true) ? 'checked' : '' }}
-                                   {{ auth()->user()->isALUAttorney() && (int) $attorney->id === (int) auth()->id() ? 'disabled' : '' }}
+                                   {{ (auth()->user()->isALUAttorney() || auth()->user()->isContractAttorney()) && (int) $attorney->id === (int) auth()->id() ? 'disabled' : '' }}
                                    class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                    data-assignment-checkbox
                                    data-assignment-item-label="{{ $attorney->name }}">
@@ -56,10 +56,10 @@
                                 <span class="block truncate font-medium text-gray-900">{{ $attorney->name }}</span>
                                 <span class="block truncate text-xs text-gray-600">
                                     {{ $attorney->email }}
-                                    @if(auth()->user()->isALUAttorney() && (int) $attorney->id === (int) auth()->id())
+                                    @if((auth()->user()->isALUAttorney() || auth()->user()->isContractAttorney()) && (int) $attorney->id === (int) auth()->id())
                                         <span class="ml-1 font-medium text-green-700">Creating attorney</span>
                                     @endif
-                                    @if($attorney->isExternalAttorney())
+                                    @if($attorney->isContractAttorney())
                                         <span class="ml-1 font-medium text-indigo-600">Contract</span>
                                     @endif
                                 </span>

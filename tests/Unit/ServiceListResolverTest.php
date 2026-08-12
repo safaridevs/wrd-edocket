@@ -27,7 +27,7 @@ class ServiceListResolverTest extends TestCase
         ]));
         $case->setRelation('serviceList', new Collection([$saved, $excluded]));
         $case->setRelation('assignments', new Collection([
-            $this->assignment(40, 'alu_atty', 'Assigned Attorney', 'attorney@example.com'),
+            $this->assignment(40, 'alu_atty', 'Assigned Attorney', 'attorney@example.com', 'contract_attorney'),
             $this->assignment(41, 'wrd', 'Duplicate Party', 'party@example.com'),
             $this->assignment(42, 'hydrology_expert', 'Hydrologist', 'hydrology@example.com'),
         ]));
@@ -38,6 +38,7 @@ class ServiceListResolverTest extends TestCase
         $this->assertSame(['service_list', 'assignment'], $recipients->pluck('source')->all());
         $this->assertTrue($recipients->first()['is_primary']);
         $this->assertSame('Applicant', $recipients->first()['role']);
+        $this->assertSame('Contract Attorney', $recipients->last()['service_label']);
     }
 
     public function test_emails_returns_the_same_normalized_recipient_set(): void
@@ -99,9 +100,12 @@ class ServiceListResolverTest extends TestCase
         return $party;
     }
 
-    private function assignment(int $id, string $type, string $name, string $email): CaseAssignment
+    private function assignment(int $id, string $type, string $name, string $email, ?string $role = null): CaseAssignment
     {
         $user = new User(['name' => $name, 'email' => $email]);
+        if ($role) {
+            $user->setRawAttributes(array_merge($user->getAttributes(), ['role' => $role]), true);
+        }
         $user->id = $id + 100;
 
         $assignment = new CaseAssignment(['assignment_type' => $type]);

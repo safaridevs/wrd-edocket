@@ -592,7 +592,7 @@
                                                 <div class="rounded-lg border border-blue-100 bg-blue-50 p-3">
                                                     <div class="font-medium text-gray-900">
                                                         {{ $attorney->getDisplayName() }}
-                                                        @if($attorney->isExternalAttorney())
+                                                        @if($attorney->isContractAttorney())
                                                             <span class="ml-2 text-xs font-normal text-indigo-700">WRD contract representative</span>
                                                         @endif
                                                     </div>
@@ -615,7 +615,7 @@
                             $userIsCounsel = auth()->user()->isAttorney() && $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;
                             })->isNotEmpty();
-                            $userIsAssignedAluAttorney = (auth()->user()->isALUAttorney() || auth()->user()->isExternalAttorney()) && $case->aluAttorneys->contains('id', auth()->id());
+                            $userIsAssignedAluAttorney = (auth()->user()->isALUAttorney() || auth()->user()->isContractAttorney()) && $case->aluAttorneys->contains('id', auth()->id());
 
                             $counselParty = $userIsCounsel ? $case->parties->where('role', 'counsel')->filter(function($party) {
                                 return $party->person->email === auth()->user()->email;

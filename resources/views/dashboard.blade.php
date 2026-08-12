@@ -40,6 +40,7 @@
                                     $dashboardRole = auth()->user()->getCurrentRole();
                                     $assignedTypesByRole = [
                                         'alu_atty' => ['alu_atty', 'alu_attorney'],
+                                        'contract_attorney' => ['alu_atty', 'alu_attorney'],
                                         'wrd' => ['wrd'],
                                         'hydrology_expert' => ['hydrology_expert'],
                                         'alu_clerk' => ['alu_clerk'],
@@ -91,6 +92,14 @@
                                                       });
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         }
+                                    } elseif ($dashboardRole === 'contract_attorney') {
+                                        $myCases = \App\Models\CaseModel::where(function($caseQuery) use ($assignedTypesByRole, $dashboardRole) {
+                                            $caseQuery->where('created_by_user_id', auth()->id())
+                                                ->orWhereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
+                                                    $query->where('user_id', auth()->id())
+                                                        ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
+                                                });
+                                        })->count();
                                     } elseif (isset($assignedTypesByRole[$dashboardRole])) {
                                         $myCases = \App\Models\CaseModel::whereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
                                             $query->where('user_id', auth()->id())
@@ -179,6 +188,7 @@
                                 $dashboardRole = auth()->user()->getCurrentRole();
                                 $assignedTypesByRole = [
                                     'alu_atty' => ['alu_atty', 'alu_attorney'],
+                                    'contract_attorney' => ['alu_atty', 'alu_attorney'],
                                     'wrd' => ['wrd'],
                                     'hydrology_expert' => ['hydrology_expert'],
                                     'alu_clerk' => ['alu_clerk'],
@@ -242,6 +252,16 @@
                                           ->withCount('documents')
                                           ->latest()->take(5)->get();
                                     }
+                                } elseif ($dashboardRole === 'contract_attorney') {
+                                    $recentCases = \App\Models\CaseModel::where(function($caseQuery) use ($assignedTypesByRole, $dashboardRole) {
+                                        $caseQuery->where('created_by_user_id', auth()->id())
+                                            ->orWhereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
+                                                $query->where('user_id', auth()->id())
+                                                    ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
+                                            });
+                                    })->with('parties.person', 'oseFileNumbers')
+                                      ->withCount('documents')
+                                      ->latest()->take(5)->get();
                                 } elseif (isset($assignedTypesByRole[$dashboardRole])) {
                                     $recentCases = \App\Models\CaseModel::whereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
                                             $query->where('user_id', auth()->id())

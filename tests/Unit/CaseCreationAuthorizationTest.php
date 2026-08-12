@@ -10,14 +10,15 @@ use PHPUnit\Framework\TestCase;
 
 class CaseCreationAuthorizationTest extends TestCase
 {
-    public function test_alu_attorneys_can_create_cases_but_contract_attorneys_cannot(): void
+    public function test_alu_and_contract_attorneys_can_create_cases_but_external_attorneys_cannot(): void
     {
         $this->assertTrue($this->user('alu_clerk', 1)->canCreateCase());
         $this->assertTrue($this->user('alu_paralegal', 2)->canCreateCase());
         $this->assertTrue($this->user('alu_atty', 3)->canCreateCase());
-        $this->assertFalse($this->user('external_attorney', 4)->canCreateCase());
-        $this->assertFalse($this->user('party', 5)->canCreateCase());
-        $this->assertFalse($this->user('hu_admin', 6)->canCreateCase());
+        $this->assertTrue($this->user('contract_attorney', 4)->canCreateCase());
+        $this->assertFalse($this->user('external_attorney', 5)->canCreateCase());
+        $this->assertFalse($this->user('party', 6)->canCreateCase());
+        $this->assertFalse($this->user('hu_admin', 7)->canCreateCase());
     }
 
     public function test_alu_attorney_has_the_same_draft_access_as_alu_paralegal(): void
@@ -56,6 +57,37 @@ class CaseCreationAuthorizationTest extends TestCase
         $this->assertTrue($this->user('alu_clerk', 21)->canManageDraftCase($draft));
         $this->assertTrue($this->user('alu_paralegal', 22)->canManageDraftCase($draft));
         $this->assertFalse($this->user('external_attorney', 23)->canManageDraftCase($draft));
+    }
+
+    public function test_contract_attorney_can_manage_own_draft_without_user_administration(): void
+    {
+        $contractAttorney = $this->user('contract_attorney', 40);
+        $ownDraft = $this->case('draft', 40);
+
+        $this->assertTrue($contractAttorney->canManageDraftCase($ownDraft));
+        $this->assertTrue($contractAttorney->canAssignAttorneys());
+        $this->assertTrue($contractAttorney->canAssignHydrologyExperts());
+        $this->assertFalse($contractAttorney->canManageUsers());
+    }
+
+    public function test_contract_attorney_is_limited_to_created_or_assigned_cases(): void
+    {
+        $contractAttorney = $this->user('contract_attorney', 50);
+
+        $assignedDraft = $this->case('draft', 99);
+        $assignedDraft->setRelation('assignments', new Collection([
+            $this->assignment(50, 'alu_atty'),
+        ]));
+
+        $unrelatedDraft = $this->case('draft', 99);
+        $unrelatedDraft->setRelation('assignments', new Collection([
+            $this->assignment(51, 'alu_atty'),
+        ]));
+
+        $this->assertTrue($contractAttorney->canManageDraftCase($assignedDraft));
+        $this->assertTrue($contractAttorney->canAccessCase($assignedDraft));
+        $this->assertFalse($contractAttorney->canManageDraftCase($unrelatedDraft));
+        $this->assertFalse($contractAttorney->canAccessCase($unrelatedDraft));
     }
 
     public function test_alu_attorney_matches_alu_paralegal_assignment_and_admin_capabilities(): void

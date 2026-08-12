@@ -349,7 +349,7 @@ class CaseModel extends Model
         }
 
         // Parties, attorneys, and paralegals can upload if case allows it
-        if (in_array($currentRole, ['party', 'external_attorney'], true) && $this->status === 'active') {
+        if (in_array($currentRole, ['party', 'external_attorney', 'contract_attorney'], true) && $this->status === 'active') {
             // Check if user is a party, counsel, or paralegal on this case
             $isPartyMember = $this->parties()->whereHas('person', function($query) use ($user) {
                 $query->where('email', $user->email);

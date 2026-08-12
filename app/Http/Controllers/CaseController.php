@@ -36,6 +36,7 @@ class CaseController extends Controller
         $user = Auth::user();
         $assignedTypesByRole = [
             'alu_atty' => ['alu_atty', 'alu_attorney'],
+            'contract_attorney' => ['alu_atty', 'alu_attorney'],
             'wrd' => ['wrd'],
             'hydrology_expert' => ['hydrology_expert'],
             'alu_clerk' => ['alu_clerk'],
@@ -116,7 +117,7 @@ class CaseController extends Controller
             return CaseModel::whereNotIn('status', ['draft']);
         }
 
-        if ($user->canAssignAttorneys()) {
+        if ($user->canAssignAttorneys() && !$user->isContractAttorney()) {
             return CaseModel::query();
         }
 
@@ -135,7 +136,7 @@ class CaseController extends Controller
         }
 
         if (isset($assignedTypesByRole[$currentRole])) {
-            if ($currentRole !== 'alu_atty') {
+            if (!in_array($currentRole, ['alu_atty', 'contract_attorney'], true)) {
                 return CaseModel::whereHas('assignments', function ($assignmentQuery) use ($user, $assignedTypesByRole, $currentRole) {
                     $assignmentQuery->where('user_id', $user->id)
                         ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
@@ -208,7 +209,7 @@ class CaseController extends Controller
         }
 
         if (isset($assignedTypesByRole[$currentRole])) {
-            if ($currentRole !== 'alu_atty') {
+            if (!in_array($currentRole, ['alu_atty', 'contract_attorney'], true)) {
                 return CaseModel::whereHas('assignments', function ($query) use ($assignedTypesByRole, $currentRole, $user) {
                     $query->where('user_id', $user->id)
                         ->whereIn('assignment_type', $assignedTypesByRole[$currentRole]);
@@ -239,7 +240,7 @@ class CaseController extends Controller
             return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
-        if ($user->canAssignAttorneys()) {
+        if ($user->canAssignAttorneys() && !$user->isContractAttorney()) {
             return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
@@ -247,7 +248,7 @@ class CaseController extends Controller
             return ['submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
-        if ($currentRole === 'alu_atty') {
+        if (in_array($currentRole, ['alu_atty', 'contract_attorney'], true)) {
             return ['draft', 'submitted_to_hu', 'active', 'closed', 'archived', 'rejected'];
         }
 
@@ -280,7 +281,7 @@ class CaseController extends Controller
     {
         $validated = $request->validated();
 
-        if (Auth::user()->isALUAttorney()) {
+        if (Auth::user()->isALUAttorney() || Auth::user()->isContractAttorney()) {
             $validated['assigned_attorneys'] = collect($validated['assigned_attorneys'] ?? [])
                 ->push(Auth::id())
                 ->unique()
@@ -377,10 +378,10 @@ class CaseController extends Controller
             abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
         }
 
-        $restrictedCaseRoles = ['party', 'interested_party', 'external_attorney'];
+        $restrictedCaseRoles = ['party', 'interested_party', 'external_attorney', 'contract_attorney'];
 
         // Parties and external participants cannot see draft cases
-        if (in_array(Auth::user()->getCurrentRole(), $restrictedCaseRoles, true) && $case->status === 'draft') {
+        if (in_array(Auth::user()->getCurrentRole(), ['party', 'interested_party', 'external_attorney'], true) && $case->status === 'draft') {
             abort(403, 'Draft cases are not accessible to parties and attorneys.');
         }
 
@@ -652,18 +653,28 @@ class CaseController extends Controller
 
     public function assignAttorneyForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
-        $attorneys = \App\Models\User::whereAnyCurrentRole(['alu_atty', 'external_attorney'])->orderBy('name')->get();
+        $attorneys = \App\Models\User::whereAnyCurrentRole(['alu_atty', 'contract_attorney'])->orderBy('name')->get();
         return view('cases.assign-attorney', compact('case', 'attorneys'));
     }
 
     public function assignAttorney(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
+        }
+
+        if (Auth::user()->isContractAttorney()) {
+            $request->merge([
+                'attorney_ids' => collect($request->input('attorney_ids', []))
+                    ->push(Auth::id())
+                    ->unique()
+                    ->values()
+                    ->all(),
+            ]);
         }
 
         $validated = $request->validate([
@@ -698,7 +709,7 @@ class CaseController extends Controller
 
     public function assignHydrologyExpertForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignHydrologyExperts()) {
+        if (!Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -708,7 +719,7 @@ class CaseController extends Controller
 
     public function assignHydrologyExpert(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignHydrologyExperts()) {
+        if (!Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -739,7 +750,7 @@ class CaseController extends Controller
 
     public function assignAluClerkForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -749,7 +760,7 @@ class CaseController extends Controller
 
     public function assignAluClerk(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -774,7 +785,7 @@ class CaseController extends Controller
 
     public function assignWrdForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -784,7 +795,7 @@ class CaseController extends Controller
 
     public function assignWrd(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys()) {
+        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -1181,7 +1192,7 @@ class CaseController extends Controller
 
     public function manageParties(CaseModel $case)
     {
-        if (!auth()->user()->canWriteCase() && !auth()->user()->isHearingUnit()) {
+        if ((!auth()->user()->canWriteCase() && !auth()->user()->isHearingUnit()) || !auth()->user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -1434,6 +1445,10 @@ class CaseController extends Controller
 
     public function manageDocuments(CaseModel $case)
     {
+        if (!Auth::user()->canAccessCase($case)) {
+            abort(403);
+        }
+
         $case->load([
             'documents.uploader',
             'documents.correctionCycles.requestedBy',
@@ -2574,7 +2589,7 @@ class CaseController extends Controller
             $q->where('email', $user->email);
         })->first();
         $isOutsideCounsel = (bool) $outsideCounselParty;
-        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isExternalAttorney()) && $case->assignments()
+        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isContractAttorney()) && $case->assignments()
             ->where('assignment_type', 'alu_atty')
             ->where('user_id', $user->id)
             ->exists();
@@ -2772,7 +2787,7 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
-        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isExternalAttorney()) && $case->assignments()
+        $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isContractAttorney()) && $case->assignments()
             ->where('assignment_type', 'alu_atty')
             ->where('user_id', $user->id)
             ->exists();

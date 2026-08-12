@@ -80,6 +80,12 @@ class ServiceListResolver
             }
 
             $label = self::ASSIGNMENT_LABELS[$assignment->assignment_type];
+            $userRole = $user?->relationLoaded('roleRelation')
+                ? $user->roleRelation?->name
+                : $user?->getRawOriginal('role');
+            if ($userRole === 'contract_attorney') {
+                $label = 'Contract Attorney';
+            }
             $recipients->push([
                 'name' => $user?->getDisplayName() ?? '',
                 'organization' => '',

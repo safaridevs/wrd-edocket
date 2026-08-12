@@ -64,7 +64,7 @@
                                                 <span class="block truncate font-medium text-gray-900">{{ $attorneyName }}</span>
                                                 <span class="block truncate text-xs text-gray-500">
                                                     {{ $attorneyMeta ?: 'No email listed' }}
-                                                    @if($attorney->isExternalAttorney())
+                                                    @if($attorney->isContractAttorney())
                                                         <span class="ml-1 font-medium text-indigo-600">Contract</span>
                                                     @endif
                                                 </span>
@@ -89,7 +89,7 @@
                                            class="rounded border-gray-300 text-blue-600 mr-2">
                                     <span class="text-sm">
                                         {{ $attorney->getDisplayName() }} ({{ $attorney->initials }})
-                                        @if($attorney->isExternalAttorney())
+                                        @if($attorney->isContractAttorney())
                                             <span class="text-xs text-indigo-600">Contract</span>
                                         @endif
                                     </span>

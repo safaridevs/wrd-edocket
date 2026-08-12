@@ -105,7 +105,7 @@ class DocumentTextIndexService
 
     private function scopeAccessibleCases(Builder $query, User $user): void
     {
-        if (!in_array($user->getCurrentRole(), ['party', 'interested_party', 'external_attorney'], true)) {
+        if (!in_array($user->getCurrentRole(), ['party', 'interested_party', 'external_attorney', 'contract_attorney'], true)) {
             return;
         }
 
