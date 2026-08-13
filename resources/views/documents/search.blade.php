@@ -1,7 +1,6 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Document Search</h2>
-    </x-slot>
+@extends(Auth::check() ? 'layouts.app' : 'layouts.public')
+
+@section('content')
 
     <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
@@ -61,7 +60,7 @@
 
                                         @if($document->case)
                                             <p class="mt-2 text-sm text-gray-700">
-                                                <a href="{{ route('cases.show', $document->case) }}" class="font-medium text-blue-700 hover:text-blue-900">
+                                                <a href="{{ Auth::check() ? route('cases.show', $document->case) : route('public.cases.show', $document->case) }}" class="font-medium text-blue-700 hover:text-blue-900">
                                                     {{ $document->case->case_no }}
                                                 </a>
                                                 <span class="text-gray-400">/</span>
@@ -84,10 +83,12 @@
                                     </div>
 
                                     <div class="flex shrink-0 gap-3">
-                                        <a href="{{ route('documents.preview', $document) }}" target="_blank" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                                            Preview
-                                        </a>
-                                        <a href="{{ route('documents.download', $document) }}" class="inline-flex items-center justify-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
+                                        @auth
+                                            <a href="{{ route('documents.preview', $document) }}" target="_blank" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                                Preview
+                                            </a>
+                                        @endauth
+                                        <a href="{{ Auth::check() ? route('documents.download', $document) : route('public.documents.download', $document) }}" class="inline-flex items-center justify-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700">
                                             Download
                                         </a>
                                     </div>
@@ -110,4 +111,4 @@
             @endif
         </div>
     </div>
-</x-app-layout>
+@endsection

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'OSE E-Docket') }} - Public Case Search</title>
+    <title>{{ config('app.name', 'OSE E-Docket') }} - Public Records Search</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -25,12 +25,13 @@
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         <div>
                             <h1 class="text-xl font-bold text-gray-900">New Mexico OSE</h1>
-                            <p class="text-sm text-blue-600 font-medium">Public Case Search</p>
+                            <p class="text-sm text-blue-600 font-medium">Public Records Search</p>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
                     <a href="{{ route('public.cases.index') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Cases</a>
+                    <a href="{{ route('documents.search') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Documents</a>
                     @guest
                         <a href="{{ route('login') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-semibold text-sm whitespace-nowrap">Login</a>
                     @endguest
@@ -77,6 +78,7 @@
                     <h4 class="text-md font-semibold mb-4 text-white">Quick Links</h4>
                     <div class="text-blue-100 text-sm space-y-2">
                         <a href="{{ route('public.cases.index') }}" class="block hover:text-white transition-colors">🔍 Search Cases</a>
+                        <a href="{{ route('documents.search') }}" class="block hover:text-white transition-colors">Search Documents</a>
                         @guest
                             <a href="{{ route('login') }}" class="block hover:text-white transition-colors">👤 Login</a>
                             <a href="{{ route('register') }}" class="block hover:text-white transition-colors">📝 Register Account</a>

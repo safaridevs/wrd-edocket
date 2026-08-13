@@ -56,6 +56,9 @@
                         <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
                             Browse Cases
                         </a>
+                        <a href="{{ route('documents.search') }}" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors border border-blue-600">
+                            Search Documents
+                        </a>
                         @guest
                         <a href="{{ route('register') }}" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors border border-blue-600">
                             Create Account

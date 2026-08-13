@@ -37,7 +37,9 @@ class DocumentController extends Controller
         $documents = null;
 
         if ($query !== '') {
-            $documents = $this->documentTextIndexService->search(Auth::user(), $query);
+            $documents = Auth::check()
+                ? $this->documentTextIndexService->search(Auth::user(), $query)
+                : $this->documentTextIndexService->searchPublic($query);
         }
 
         return view('documents.search', [

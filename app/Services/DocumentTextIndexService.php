@@ -48,13 +48,32 @@ class DocumentTextIndexService
 
     public function search(User $user, string $term, int $perPage = 15): LengthAwarePaginator
     {
+        return $this->searchQuery($term)
+            ->whereHas('case', fn (Builder $query) => $this->scopeAccessibleCases($query, $user))
+            ->latest('uploaded_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function searchPublic(string $term, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->searchQuery($term)
+            ->where('approved', true)
+            ->where('stamped', true)
+            ->whereHas('case', fn (Builder $query) => $query->where('status', 'active'))
+            ->latest('uploaded_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    private function searchQuery(string $term): Builder
+    {
         $term = trim($term);
         $like = '%' . $this->escapeLike($term) . '%';
         $hasTextIndex = $this->isTextIndexAvailable();
 
         $query = Document::query()
             ->with($hasTextIndex ? ['case', 'documentType', 'textIndex'] : ['case', 'documentType'])
-            ->whereHas('case', fn (Builder $query) => $this->scopeAccessibleCases($query, $user))
             ->where(function (Builder $query) use ($like, $hasTextIndex) {
                 $query->where('original_filename', 'like', $like)
                     ->orWhere('custom_title', 'like', $like)
@@ -69,12 +88,9 @@ class DocumentTextIndexService
                         $textQuery->where('content_text', 'like', $like);
                     });
                 }
-            })
-            ->latest('uploaded_at');
+            });
 
-        return $query
-            ->paginate($perPage)
-            ->withQueryString();
+        return $query;
     }
 
     public function isTextIndexAvailable(): bool

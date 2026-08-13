@@ -12,7 +12,15 @@
                 </div>
 
                 <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                @php
+                    $canViewReports = Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']);
+                    $canViewFilingHistory = Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']);
+                    $canManageUsers = Auth::user()->canManageUsers();
+                    $canManageDocumentTypes = Auth::user()->hasAnyRole(['hu_admin']);
+                    $hasCaseWork = Auth::user()->canCreateCase() || $canViewReports || $canViewFilingHistory;
+                    $hasAdministration = $canManageUsers || $canManageDocumentTypes;
+                @endphp
+                <div class="hidden sm:-my-px sm:ms-8 sm:flex sm:items-center sm:gap-6">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
@@ -25,37 +33,46 @@
                         {{ __('Document Search') }}
                     </x-nav-link>
 
-                    @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))
-                        <x-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')">
-                            {{ __('Report') }}
-                        </x-nav-link>
+                    @if($hasCaseWork)
+                        <x-dropdown align="left" width="48">
+                            <x-slot name="trigger">
+                                <button class="inline-flex h-16 items-center gap-1 border-b-2 px-1 text-sm font-medium transition {{ request()->routeIs('reports.*', 'audit.*', 'cases.create') ? 'border-indigo-400 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+                                    Case Work
+                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </x-slot>
+                            <x-slot name="content">
+                                @if(Auth::user()->canCreateCase())
+                                    <x-dropdown-link :href="route('cases.create')">New Case</x-dropdown-link>
+                                @endif
+                                @if($canViewReports)
+                                    <x-dropdown-link :href="route('reports.index')">Reports</x-dropdown-link>
+                                @endif
+                                @if($canViewFilingHistory)
+                                    <x-dropdown-link :href="route('audit.notifications')">Filing History</x-dropdown-link>
+                                @endif
+                            </x-slot>
+                        </x-dropdown>
                     @endif
 
-                    @if(Auth::user()->canCreateCase())
-                        <x-nav-link :href="route('cases.create')" :active="request()->routeIs('cases.create')">
-                            {{ __('New Case') }}
-                        </x-nav-link>
-                    @endif
-
-                    @if(Auth::user()->canManageUsers())
-                        <x-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
-                            {{ __('IT Admin') }}
-                        </x-nav-link>
-                        <x-nav-link :href="route('admin.notifications')" :active="request()->routeIs('admin.notifications')">
-                            {{ __('Email Issues') }}
-                        </x-nav-link>
-                    @endif
-
-                    @if(Auth::user()->hasAnyRole(['hu_admin']))
-                        <x-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">
-                            {{ __('Document Types') }}
-                        </x-nav-link>
-                    @endif
-
-                    @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
-                        <x-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
-                            {{ __('Filing History') }}
-                        </x-nav-link>
+                    @if($hasAdministration)
+                        <x-dropdown align="left" width="48">
+                            <x-slot name="trigger">
+                                <button class="inline-flex h-16 items-center gap-1 border-b-2 px-1 text-sm font-medium transition {{ request()->routeIs('admin.*') ? 'border-indigo-400 text-gray-900' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}">
+                                    Administration
+                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </x-slot>
+                            <x-slot name="content">
+                                @if($canManageUsers)
+                                    <x-dropdown-link :href="route('admin.users')">Users</x-dropdown-link>
+                                    <x-dropdown-link :href="route('admin.notifications')">Email Issues</x-dropdown-link>
+                                @endif
+                                @if($canManageDocumentTypes)
+                                    <x-dropdown-link :href="route('admin.document-types')">Document Types</x-dropdown-link>
+                                @endif
+                            </x-slot>
+                        </x-dropdown>
                     @endif
                 </div>
             </div>
@@ -168,9 +185,13 @@
                 {{ __('Document Search') }}
             </x-responsive-nav-link>
 
-            @if(Auth::user()->hasAnyRole(['admin', 'hu_admin', 'hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty']))
+            @if($hasCaseWork)
+                <div class="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Case Work</div>
+            @endif
+
+            @if($canViewReports)
                 <x-responsive-nav-link :href="route('reports.index')" :active="request()->routeIs('reports.*')">
-                    {{ __('Report') }}
+                    {{ __('Reports') }}
                 </x-responsive-nav-link>
             @endif
 
@@ -180,26 +201,31 @@
                 </x-responsive-nav-link>
             @endif
 
-                @if(Auth::user()->canManageUsers())
+            @if($canViewFilingHistory)
+                <x-responsive-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
+                    {{ __('Filing History') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if($hasAdministration)
+                <div class="px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Administration</div>
+            @endif
+
+                @if($canManageUsers)
                     <x-responsive-nav-link :href="route('admin.users')" :active="request()->routeIs('admin.*')">
-                        {{ __('Admin') }}
+                        {{ __('Users') }}
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('admin.notifications')" :active="request()->routeIs('admin.notifications')">
                         {{ __('Email Issues') }}
                     </x-responsive-nav-link>
                 @endif
 
-            @if(Auth::user()->hasAnyRole(['hu_admin']))
+            @if($canManageDocumentTypes)
                 <x-responsive-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">
                     {{ __('Document Types') }}
                 </x-responsive-nav-link>
             @endif
 
-            @if(Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']))
-                <x-responsive-nav-link :href="route('audit.notifications')" :active="request()->routeIs('audit.*')">
-                    {{ __('Filing History') }}
-                </x-responsive-nav-link>
-            @endif
         </div>
 
         <!-- Responsive Settings Options -->
