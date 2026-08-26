@@ -173,7 +173,7 @@ class User extends Authenticatable
     // Permission methods
     public function canCreateCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney']);
     }
 
     public function canManageDraftCase(CaseModel $case): bool
@@ -182,7 +182,7 @@ class User extends Authenticatable
             return false;
         }
 
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty'], true)) {
+        if (in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty'], true)) {
             return true;
         }
 
@@ -201,7 +201,7 @@ class User extends Authenticatable
 
     public function canWriteCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'hu_admin', 'hu_clerk']);
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'hu_admin', 'hu_clerk']);
     }
 
     public function canAcceptFilings(): bool
@@ -221,13 +221,13 @@ class User extends Authenticatable
 
     public function canFileToCase(): bool
     {
-        return in_array($this->getCurrentRole(), ['party', 'external_attorney', 'contract_attorney'], true) || $this->isAttorney() || $this->isALUAttorney();
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'party', 'external_attorney', 'contract_attorney'], true) || $this->isAttorney() || $this->isALUAttorney();
     }
 
     public function canUploadDocuments(): bool
     {
         // ALU staff and HU staff can always upload
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party', 'external_attorney']) || $this->isHearingUnit()) {
+        if (in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party', 'external_attorney']) || $this->isHearingUnit()) {
             return true;
         }
         
@@ -245,13 +245,39 @@ class User extends Authenticatable
             return true;
         }
 
-        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty'])) {
+        if ($this->isALUManagingAtty()) {
+            return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu', 'active'], true);
+        }
+
+        if (in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true)) {
+            if ($case->status === 'active') {
+                return $this->hasAluSupportAssignment($case);
+            }
+
             return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu']);
         }
 
+        if ($this->isALUAttorney()) {
+            if ($case->status === 'active') {
+                return $this->hasWrdAttorneyAssignment($case);
+            }
+
+            return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu'], true);
+        }
+
         if ($this->isContractAttorney()) {
+            $capacity = $this->contractAttorneyCapacity($case);
+
+            if ($capacity === 'conflict') {
+                return false;
+            }
+
+            if ($case->status === 'active') {
+                return in_array($capacity, ['wrd', 'private_counsel'], true);
+            }
+
             return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu'], true)
-                && $this->canAccessCase($case);
+                && in_array($capacity, ['creator', 'wrd'], true);
         }
 
         if ($this->getCurrentRole() === 'party') {
@@ -272,7 +298,7 @@ class User extends Authenticatable
             return $case->status === 'active' && $this->canAccessCase($case);
         }
 
-        if ($this->isAttorney() || $this->isALUAttorney() || $this->isParalegal()) {
+        if ($this->isAttorney() || $this->isParalegal()) {
             return $case->status === 'active' && $this->canAccessCase($case);
         }
 
@@ -281,7 +307,48 @@ class User extends Authenticatable
 
     public function canSubmitToHU(): bool
     {
-        return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party']) || $this->isAttorney();
+        return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party']) || $this->isAttorney();
+    }
+
+    public function canManageCaseParties(CaseModel $case): bool
+    {
+        if (in_array($case->status, ['closed', 'archived'], true)) {
+            return false;
+        }
+
+        if ($this->isHearingUnit()) {
+            return true;
+        }
+
+        if ($this->isALUManagingAtty()) {
+            return in_array($case->status, ['draft', 'rejected', 'submitted_to_hu'], true);
+        }
+
+        return $this->canManageDraftCase($case);
+    }
+
+    public function documentFilingRoles(?CaseModel $case = null): array
+    {
+        if ($this->isALUManagingAtty()) {
+            return ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty'];
+        }
+
+        if ($this->isContractAttorney() && $case) {
+            return $this->contractAttorneyCapacity($case) === 'private_counsel'
+                ? ['external_attorney']
+                : ['contract_attorney'];
+        }
+
+        return [$this->getCurrentRole()];
+    }
+
+    public function aluSupportAssignmentType(): ?string
+    {
+        return match ($this->getCurrentRole()) {
+            'alu_clerk' => 'alu_clerk',
+            'alu_paralegal' => 'alu_paralegal',
+            default => null,
+        };
     }
 
     public function canAccessCase(CaseModel $case): bool
@@ -292,8 +359,14 @@ class User extends Authenticatable
         }
 
         if ($this->isContractAttorney()) {
-            return (int) $case->created_by_user_id === (int) $this->id
-                || $this->hasWrdAttorneyAssignment($case);
+            $capacity = $this->contractAttorneyCapacity($case);
+
+            if ($capacity === 'conflict') {
+                return false;
+            }
+
+            return in_array($capacity, ['creator', 'wrd'], true)
+                || ($capacity === 'private_counsel' && $case->status !== 'draft');
         }
 
         // Check if user email matches any person in the case (direct party, counsel, or paralegal)
@@ -338,6 +411,72 @@ class User extends Authenticatable
 
         return $case->assignments()
             ->whereIn('assignment_type', ['alu_atty', 'alu_attorney'])
+            ->where('user_id', $this->id)
+            ->exists();
+    }
+
+    public function hasPrivateCounselRelationship(CaseModel $case): bool
+    {
+        $email = strtolower(trim((string) $this->email));
+
+        if ($email === '') {
+            return false;
+        }
+
+        if ($case->relationLoaded('parties')) {
+            return $case->parties->contains(function (CaseParty $party) use ($email) {
+                return $party->isPrivateCounsel()
+                    && $party->relationLoaded('person')
+                    && strtolower(trim((string) $party->person?->email)) === $email;
+            });
+        }
+
+        if (!$case->exists) {
+            return false;
+        }
+
+        return CaseParty::privateCounselForEmail($case, $email) !== null;
+    }
+
+    public function contractAttorneyCapacity(CaseModel $case): ?string
+    {
+        if (!$this->isContractAttorney()) {
+            return null;
+        }
+
+        $isWrdRepresentative = $this->hasWrdAttorneyAssignment($case);
+        $isPrivateCounsel = $this->hasPrivateCounselRelationship($case);
+
+        if ($isWrdRepresentative && $isPrivateCounsel) {
+            return 'conflict';
+        }
+
+        if ($isWrdRepresentative) {
+            return 'wrd';
+        }
+
+        if ($isPrivateCounsel) {
+            return 'private_counsel';
+        }
+
+        return (int) $case->created_by_user_id === (int) $this->id ? 'creator' : null;
+    }
+
+    private function hasAluSupportAssignment(CaseModel $case): bool
+    {
+        $assignmentTypes = $this->isALUParalegal()
+            ? ['alu_paralegal', 'alu_clerk']
+            : ['alu_clerk'];
+
+        if ($case->relationLoaded('assignments')) {
+            return $case->assignments->contains(function (CaseAssignment $assignment) use ($assignmentTypes) {
+                return (int) $assignment->user_id === (int) $this->id
+                    && in_array($assignment->assignment_type, $assignmentTypes, true);
+            });
+        }
+
+        return $case->assignments()
+            ->whereIn('assignment_type', $assignmentTypes)
             ->where('user_id', $this->id)
             ->exists();
     }

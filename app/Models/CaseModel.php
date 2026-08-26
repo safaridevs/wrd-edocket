@@ -42,6 +42,34 @@ class CaseModel extends Model
         'metadata' => 'array'
     ];
 
+    public function scopeAccessibleToContractAttorney(Builder $query, User $user): Builder
+    {
+        $email = strtolower(trim((string) $user->email));
+
+        return $query->where(function (Builder $caseQuery) use ($user, $email) {
+            $caseQuery->where('created_by_user_id', $user->id)
+                ->orWhereHas('assignments', function (Builder $assignmentQuery) use ($user) {
+                    $assignmentQuery->where('user_id', $user->id)
+                        ->whereIn('assignment_type', ['alu_atty', 'alu_attorney']);
+                });
+
+            if ($email !== '') {
+                $caseQuery->orWhere(function (Builder $privateCaseQuery) use ($email) {
+                    $privateCaseQuery->where('status', '!=', 'draft')
+                        ->whereHas('parties', function (Builder $partyQuery) use ($email) {
+                            $partyQuery->where('role', 'counsel')
+                                ->where(function (Builder $capacityQuery) {
+                                    $capacityQuery->where('representation_capacity', CaseParty::CAPACITY_PRIVATE_COUNSEL)
+                                        ->orWhereNull('representation_capacity');
+                                })->whereHas('person', function (Builder $personQuery) use ($email) {
+                                    $personQuery->whereRaw('LOWER(email) = ?', [$email]);
+                                });
+                        });
+                });
+            }
+        });
+    }
+
     // Handle JSON for SQL Server compatibility
     public function getMetadataAttribute($value)
     {

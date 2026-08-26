@@ -32,11 +32,16 @@ class DocumentType extends Model
 
     public function scopeForRole($query, $roleName)
     {
+        return $query->forRoles([$roleName]);
+    }
+
+    public function scopeForRoles($query, array $roleNames)
+    {
         return $query->where('is_active', true)
-                    ->where(function ($query) use ($roleName) {
+                    ->where(function ($query) use ($roleNames) {
                         $query->where('code', 'other')
-                            ->orWhereHas('roles', function($q) use ($roleName) {
-                                $q->where('name', $roleName);
+                            ->orWhereHas('roles', function($q) use ($roleNames) {
+                                $q->whereIn('name', $roleNames);
                             });
                     });
     }

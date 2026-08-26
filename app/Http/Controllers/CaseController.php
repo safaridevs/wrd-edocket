@@ -121,6 +121,10 @@ class CaseController extends Controller
             return CaseModel::query();
         }
 
+        if ($user->isContractAttorney()) {
+            return CaseModel::accessibleToContractAttorney($user);
+        }
+
         if (in_array($currentRole, ['party', 'external_attorney'], true)) {
             return CaseModel::whereNotIn('status', ['draft'])
                 ->where(function ($caseQuery) use ($user) {
@@ -157,6 +161,10 @@ class CaseController extends Controller
 
     private function buildMyCasesQuery(User $user, array $assignedTypesByRole, string $currentRole)
     {
+        if ($user->isContractAttorney()) {
+            return CaseModel::accessibleToContractAttorney($user);
+        }
+
         if (in_array($currentRole, ['party', 'external_attorney'], true)) {
             if ($user->isExternalAttorney()) {
                 return CaseModel::whereNotIn('status', ['draft'])
@@ -264,8 +272,7 @@ class CaseController extends Controller
         $basinCodes = \App\Models\OseBasinCode::orderBy('initial')->get();
         $attorneys = Person::counselDirectory()->get();
 
-        $userRole = Auth::user()->getCurrentRole();
-        $documentTypes = \App\Models\DocumentType::forRole($userRole)
+        $documentTypes = \App\Models\DocumentType::forRoles(Auth::user()->documentFilingRoles())
             ->dropdownOrder()
             ->get();
         $pleadingDocs = $documentTypes
@@ -315,10 +322,17 @@ class CaseController extends Controller
             // Handle ALU clerk/paralegal assignments
             if (isset($validated['assigned_clerks']) && !empty($validated['assigned_clerks'])) {
                 foreach ($validated['assigned_clerks'] as $clerkId) {
+                    $clerk = User::findOrFail($clerkId);
+                    $assignmentType = $clerk->aluSupportAssignmentType();
+
+                    if (!$assignmentType) {
+                        throw new \InvalidArgumentException('Only ALU clerks and paralegals may be assigned as ALU support staff.');
+                    }
+
                     CaseAssignment::create([
                         'case_id' => $case->id,
                         'user_id' => $clerkId,
-                        'assignment_type' => 'alu_clerk',
+                        'assignment_type' => $assignmentType,
                         'assigned_by' => Auth::id()
                     ]);
                 }
@@ -419,7 +433,7 @@ class CaseController extends Controller
             ->with('uploader.roleRelation')
             ->orderByDesc('uploaded_at')
             ->get();
-        $documentTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
+        $documentTypes = \App\Models\DocumentType::forRoles(Auth::user()->documentFilingRoles($case))
             ->dropdownOrder()
             ->get();
         $resolvedServiceList = $this->serviceListResolver->resolve($case);
@@ -569,7 +583,7 @@ class CaseController extends Controller
             // Update status based on action
             if ($validated['action'] === 'submit' && in_array($case->status, ['draft', 'rejected'])) {
                 // Validate submission requirements
-                $validationErrors = $this->validateSubmissionRequirements($case);
+                $validationErrors = $this->validateSubmissionRequirements($case, Auth::user());
                 if (!empty($validationErrors)) {
                     return back()->withInput()->withErrors(['submission' => implode(' ', $validationErrors)]);
                 }
@@ -769,13 +783,27 @@ class CaseController extends Controller
             'clerk_ids.*' => 'exists:users,id'
         ]);
 
-        $case->assignments()->where('assignment_type', 'alu_clerk')->delete();
+        $supportUsers = User::whereIn('id', $validated['clerk_ids'])->get()->keyBy('id');
+
+        if ($supportUsers->count() !== count(array_unique($validated['clerk_ids']))) {
+            return back()->withErrors(['clerk_ids' => 'One or more selected ALU support users could not be found.']);
+        }
+
+        foreach ($supportUsers as $supportUser) {
+            if (!$supportUser->aluSupportAssignmentType()) {
+                return back()->withErrors(['clerk_ids' => 'Only ALU clerks and paralegals may be assigned as ALU support staff.']);
+            }
+        }
+
+        $case->assignments()->whereIn('assignment_type', ['alu_clerk', 'alu_paralegal'])->delete();
 
         foreach ($validated['clerk_ids'] as $clerkId) {
+            $supportUser = $supportUsers->get((int) $clerkId) ?? $supportUsers->get((string) $clerkId);
+
             CaseAssignment::create([
                 'case_id' => $case->id,
                 'user_id' => $clerkId,
-                'assignment_type' => 'alu_clerk',
+                'assignment_type' => $supportUser->aluSupportAssignmentType(),
                 'assigned_by' => Auth::id()
             ]);
         }
@@ -843,7 +871,11 @@ class CaseController extends Controller
     {
         if (!Auth::user()->canUploadDocumentsToCase($case)) {
             if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
-                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
+                abort(403, 'You must be assigned as an ALU clerk or paralegal to file documents in this active case.');
+            }
+
+            if (in_array(Auth::user()->getCurrentRole(), ['alu_atty', 'contract_attorney'], true) && $case->status === 'active') {
+                abort(403, 'You must be assigned as an attorney to file documents in this active case.');
             }
 
             if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
@@ -998,7 +1030,7 @@ class CaseController extends Controller
 
     public function assignPartyAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1066,7 +1098,7 @@ class CaseController extends Controller
 
     public function removeAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1205,7 +1237,7 @@ class CaseController extends Controller
 
     public function storeParty(Request $request, CaseModel $case)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1339,7 +1371,7 @@ class CaseController extends Controller
 
     public function editParty(CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1351,7 +1383,7 @@ class CaseController extends Controller
 
     public function updateParty(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1428,7 +1460,7 @@ class CaseController extends Controller
 
     public function destroyParty(CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageDraftCase($case) && !auth()->user()->isHearingUnit()) {
+        if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
         }
 
@@ -1457,8 +1489,7 @@ class CaseController extends Controller
             'documents.correctionCycles.replacementDocument',
             'documents.correctionCycles.items.resolvedBy',
         ]);
-        $userRole = Auth::user()->getCurrentRole();
-        $documentTypes = \App\Models\DocumentType::forRole($userRole)->dropdownOrder()->get();
+        $documentTypes = \App\Models\DocumentType::forRoles(Auth::user()->documentFilingRoles($case))->dropdownOrder()->get();
         $resolvedServiceList = $this->serviceListResolver->resolve($case);
 
         return view('cases.documents.manage', compact('case', 'documentTypes', 'resolvedServiceList'));
@@ -1468,7 +1499,11 @@ class CaseController extends Controller
     {
         if (!Auth::user()->canUploadDocumentsToCase($case)) {
             if (in_array(Auth::user()->getCurrentRole(), ['alu_clerk', 'alu_paralegal'], true) && $case->status === 'active') {
-                abort(403, 'ALU clerks and paralegals cannot upload documents after a case becomes active.');
+                abort(403, 'You must be assigned as an ALU clerk or paralegal to file documents in this active case.');
+            }
+
+            if (in_array(Auth::user()->getCurrentRole(), ['alu_atty', 'contract_attorney'], true) && $case->status === 'active') {
+                abort(403, 'You must be assigned as an attorney to file documents in this active case.');
             }
 
             if (in_array(Auth::user()->getCurrentRole(), ['party', 'external_attorney'], true) || Auth::user()->isAttorney() || Auth::user()->isALUAttorney() || Auth::user()->isParalegal()) {
@@ -1478,7 +1513,7 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $validDocTypes = \App\Models\DocumentType::forRole(Auth::user()->getCurrentRole())
+        $validDocTypes = \App\Models\DocumentType::forRoles(Auth::user()->documentFilingRoles($case))
             ->pluck('code')
             ->push('other')
             ->unique()
@@ -2550,13 +2585,13 @@ class CaseController extends Controller
         return back()->with('error', 'Unable to reopen case.');
     }
 
-    private function validateSubmissionRequirements(CaseModel $case): array
+    private function validateSubmissionRequirements(CaseModel $case, User $user): array
     {
 
         $errors = [];
 
         // Check if ALU Attorney is assigned
-        if (!$case->aluAttorneys || $case->aluAttorneys->count() === 0) {
+        if ((!$case->aluAttorneys || $case->aluAttorneys->count() === 0) && !$user->isALUManagingAtty()) {
             $errors[] = 'ALU Attorney must be assigned before submission.';
         }
 

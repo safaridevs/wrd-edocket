@@ -393,7 +393,7 @@
                         </a>
                         @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
                             <a href="{{ route('cases.parties.manage', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
-                                {{ auth()->user()->canManageDraftCase($case) || auth()->user()->isHearingUnit() ? 'Manage Parties' : 'View Parties' }}
+                                {{ auth()->user()->canManageCaseParties($case) ? 'Manage Parties' : 'View Parties' }}
                             </a>
                         @endif
                     </div>
@@ -734,7 +734,7 @@
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
                         @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
-                        <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ (auth()->user()->canCreateCase() && !in_array($case->status, ['draft', 'rejected'])) ? 'View Documents' : 'Manage Documents' }}</a>
+                        <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ auth()->user()->canUploadDocumentsToCase($case) ? 'Manage Documents' : 'View Documents' }}</a>
                         @endif
                         @if(!in_array($case->status, ['closed', 'archived']))
                             @if(auth()->user()->canUploadDocumentsToCase($case))

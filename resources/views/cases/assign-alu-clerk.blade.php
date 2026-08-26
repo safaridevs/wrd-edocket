@@ -14,13 +14,18 @@
 
                 <form action="{{ route('cases.assign-alu-clerk.store', $case) }}" method="POST">
                     @csrf
+                    @php
+                        $selectedSupportIds = $case->assignments()
+                            ->whereIn('assignment_type', ['alu_clerk', 'alu_paralegal'])
+                            ->pluck('user_id');
+                    @endphp
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Select ALU Clerks / Paralegals</label>
                         <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-md p-3">
                             @foreach($clerks as $clerk)
                                 <label class="flex items-center">
                                     <input type="checkbox" name="clerk_ids[]" value="{{ $clerk->id }}" 
-                                           {{ $case->aluClerks->contains($clerk->id) ? 'checked' : '' }}
+                                           {{ $selectedSupportIds->contains($clerk->id) ? 'checked' : '' }}
                                            class="rounded border-gray-300 text-blue-600 mr-2">
                                     <span class="text-sm">{{ $clerk->name }} ({{ $clerk->email }}) @if($clerk->isALUParalegal()) <span class="text-xs text-indigo-600">Paralegal</span> @endif</span>
                                 </label>

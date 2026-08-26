@@ -125,6 +125,12 @@ class DocumentTextIndexService
             return;
         }
 
+        if ($user->isContractAttorney()) {
+            $query->accessibleToContractAttorney($user);
+
+            return;
+        }
+
         $email = strtolower(trim((string) $user->email));
 
         $query->where(function (Builder $accessQuery) use ($email, $user) {
