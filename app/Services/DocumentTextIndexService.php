@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\IndexScannedPdfText;
 use App\Models\Document;
 use App\Models\DocumentText;
 use App\Models\User;
@@ -37,7 +38,18 @@ class DocumentTextIndexService
         }
 
         try {
-            $this->index($document);
+            $textIndex = $this->index($document);
+
+            if ($textIndex->extraction_status === 'ocr_required' && $this->extractor->isOcrEnabled()) {
+                try {
+                    IndexScannedPdfText::dispatch($document->id)->afterCommit();
+                } catch (\Throwable $e) {
+                    Log::warning('Scanned-PDF OCR could not be queued; the document remains saved', [
+                        'document_id' => $document->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         } catch (\Throwable $e) {
             Log::warning('Document text indexing failed', [
                 'document_id' => $document->id,

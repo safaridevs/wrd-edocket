@@ -42,6 +42,18 @@ return [
         'timeout' => env('PDF_CONVERSION_TIMEOUT', 60),
     ],
 
+    'document_ocr' => [
+        'enabled' => env('DOCUMENT_OCR_ENABLED', false),
+        'python' => env('DOCUMENT_OCR_PYTHON', 'python'),
+        'script' => env('DOCUMENT_OCR_SCRIPT', 'tools/ocr/extract_pdf.py'),
+        'tesseract' => env('DOCUMENT_OCR_TESSERACT'),
+        'poppler' => env('DOCUMENT_OCR_POPPLER'),
+        'language' => env('DOCUMENT_OCR_LANGUAGE', 'eng'),
+        'dpi' => env('DOCUMENT_OCR_DPI', 300),
+        'max_pages' => env('DOCUMENT_OCR_MAX_PAGES', 500),
+        'timeout' => env('DOCUMENT_OCR_TIMEOUT', 600),
+    ],
+
     'contact' => [
         'hu_email' => env('HU_CONTACT_EMAIL', 'hu.admin@ose.nm.gov'),
         'support_email' => env('SUPPORT_EMAIL', 'support@ose.nm.gov'),
