@@ -1,20 +1,27 @@
 <?php
 
+use App\Support\SchemaCompat;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // Drop index first
-        DB::statement("DROP INDEX case_parties_case_id_role_index ON case_parties");
-        
-        // SQL Server doesn't support MODIFY, need to use ALTER COLUMN
-        DB::statement("ALTER TABLE case_parties ALTER COLUMN role VARCHAR(50)");
-        
+        // Drop index first so the column type can be altered
+        SchemaCompat::dropIndexIfExists('case_parties', 'case_parties_case_id_role_index');
+
+        Schema::table('case_parties', function (Blueprint $table) {
+            $table->string('role', 50)->change();
+        });
+
         // Recreate index
-        DB::statement("CREATE INDEX case_parties_case_id_role_index ON case_parties (case_id, role)");
+        SchemaCompat::createIndexIfMissing(
+            'case_parties',
+            'case_parties_case_id_role_index',
+            ['case_id', 'role']
+        );
     }
 
     public function down(): void

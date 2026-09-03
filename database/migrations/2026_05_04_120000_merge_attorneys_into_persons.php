@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SchemaCompat;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -183,18 +184,6 @@ return new class extends Migration
 
     private function dropForeignKeysForColumn(string $table, string $column): void
     {
-        $constraints = DB::select("
-            SELECT fk.name
-            FROM sys.foreign_keys fk
-            INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
-            INNER JOIN sys.tables t ON fkc.parent_object_id = t.object_id
-            INNER JOIN sys.columns c ON fkc.parent_object_id = c.object_id AND fkc.parent_column_id = c.column_id
-            WHERE t.name = ?
-              AND c.name = ?
-        ", [$table, $column]);
-
-        foreach ($constraints as $constraint) {
-            DB::statement("ALTER TABLE {$table} DROP CONSTRAINT [{$constraint->name}]");
-        }
+        SchemaCompat::dropForeignKeysForColumn($table, $column);
     }
 };

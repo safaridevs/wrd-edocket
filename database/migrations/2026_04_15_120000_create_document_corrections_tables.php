@@ -40,7 +40,9 @@ return new class extends Migration
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['document_correction_id', 'sort_order']);
+            // Named explicitly: the auto-generated name is 65 characters, one over
+            // MySQL's identifier limit. SQL Server and Postgres would accept it.
+            $table->index(['document_correction_id', 'sort_order'], 'document_correction_items_correction_sort_index');
         });
     }
 
