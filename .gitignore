@@ -3,6 +3,11 @@
 .env
 .env.backup
 .env.production
+# Developer-supplied env files carry live credentials; keep the example only.
+.env.*
+!.env.example
+# Same, for developer copies without the leading dot (env.julius).
+/env.*
 .phpactor.json
 .phpunit.result.cache
 /.fleet

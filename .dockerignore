@@ -1,0 +1,41 @@
+# Never bake configuration or credentials into the image. The rendered .env is
+# bind-mounted at run time (see deploy/*.docker-compose.yaml).
+.env
+.env.*
+.env_*
+env.*
+!.env.example
+
+# Rebuilt inside the image.
+vendor
+node_modules
+public/build
+public/hot
+public/storage
+
+# Runtime state.
+storage/app/*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/framework/testing/*
+bootstrap/cache/*.php
+
+# Local development harness and deploy-time files (never needed inside the image).
+docker-compose.yml
+docker-compose.override.yml
+docker/php
+deploy
+
+.git
+.gitattributes
+.github
+.idea
+.vscode
+.fleet
+.phpunit.result.cache
+.phpactor.json
+*.md
+!README.md
+tests/Browser

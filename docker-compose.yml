@@ -1,0 +1,78 @@
+
+# Local development and cross-driver testing harness.
+# The app container carries pdo_sqlite, pdo_mysql, pdo_pgsql and pdo_sqlsrv so
+# the same migration history can be exercised against every supported driver.
+
+services:
+  app:
+    build: ./docker/php
+    working_dir: /app
+    volumes:
+      - .:/app
+    # Kept on 8000 to match the origins allowed in vite.config.js.
+    ports:
+      - "8000:8000"
+    # Deliberately no DB_* here: real environment variables win over .env in
+    # Laravel, so hardcoding them would silently ignore your .env. Set DB_HOST
+    # to the service name (mysql, postgres or mssql) in .env instead.
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    depends_on:
+      - mysql
+      - postgres
+      - mssql
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: edocket_wrd
+      MYSQL_USER: edocket
+      MYSQL_PASSWORD: secret
+    ports:
+      - "33061:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-psecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: edocket_wrd
+      POSTGRES_USER: edocket
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "54321:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edocket -d edocket_wrd"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Str0ng!Passw0rd"
+      MSSQL_PID: Developer
+    ports:
+      - "14331:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1'"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mysql-data:
+  postgres-data:
+  mssql-data:

@@ -1,0 +1,24 @@
+# E-Docket QAT stack. Copied by ose_edocket.groovy to
+# /opt/apps/edocket/qat/docker-compose.yaml on the QAT host and started with
+#   IMAGE_TAG=<tag> docker compose --env-file .env_docker_compose --file docker-compose.yaml up -d
+# Relative paths resolve against that directory.
+#
+# name: is mandatory. Without it compose derives the project from the directory
+# ("qat"), which wrats2 also uses, and `down --remove-orphans` for one app
+# would remove the other's containers. See ~/ose-engineering/port-register.md.
+name: edocket-qat
+
+services:
+  app:
+    image: edocket-app:${IMAGE_TAG}
+    container_name: edocket-qat
+    ports:
+      - "${EDOCKET_APP_PORT}:80"
+    volumes:
+      # Rendered by Jenkins from deploy/.env_QAT + credentials; read-only so
+      # nothing in the container can rewrite it (key:generate included).
+      - ./.env:/var/www/html/.env:ro
+      # Document store and logs outlive the container.
+      - ${EDOCKET_APP_STORAGE}:/var/www/html/storage/app
+      - ${EDOCKET_APP_LOGS}:/var/www/html/storage/logs
+    restart: unless-stopped
