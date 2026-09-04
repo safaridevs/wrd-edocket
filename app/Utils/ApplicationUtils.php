@@ -8,8 +8,6 @@ use App\Providers\RouteServiceProvider;
 use App\Templates\LoanApp\PDFTemplateStateLetterhead;
 use DateTime;
 use Exception;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +16,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Mpdf\MpdfException;
-use SodiumException;
 
 /**
  * Class ApplicationUtils
@@ -146,99 +143,6 @@ class ApplicationUtils
     }
 
     /**
-     * @throws GuzzleException
-     * @throws Exception
-     */
-    private function getKey(): string
-    {
-        $client = new Client();
-        $response = $client->request('GET', 'http://coderepo:8088');
-        $statusCode = $response->getStatusCode();
-        if ($statusCode != 200) {
-            throw new Exception ("Error getting key for env");
-        }
-        $body = $response->getBody()->getContents();
-        $jsonObj = json_decode($body);
-        return substr($jsonObj->{'data'}, 0, 32);
-    }
-
-    /**
-     * Encrypt a message
-     *
-     * @param string $message - message to encrypt
-     * @return string
-     * @throws SodiumException
-     * @throws Exception
-     * @throws GuzzleException
-     */
-    function safeEncrypt(string $message): string
-    {
-        $key = $this->getKey();
-        $nonce = random_bytes(
-            SODIUM_CRYPTO_SECRETBOX_NONCEBYTES
-        );
-
-        $cipher = base64_encode(
-            $nonce .
-            sodium_crypto_secretbox(
-                $message,
-                $nonce,
-                $key
-            )
-        );
-        sodium_memzero($message);
-        sodium_memzero($key);
-        return $cipher;
-    }
-
-    /**
-     * Decrypt a message
-     *
-     * @param string $encrypted - message encrypted with safeEncrypt()
-     * @return string
-     * @throws SodiumException
-     * @throws Exception|GuzzleException
-     */
-    function safeDecrypt(string $encrypted): string
-    {
-        $key = $this->getKey();
-        $decoded = base64_decode($encrypted);
-        if ($decoded === false) {
-            throw new Exception('encoding failed');
-        }
-        if (mb_strlen($decoded, '8bit') < (SODIUM_CRYPTO_SECRETBOX_NONCEBYTES + SODIUM_CRYPTO_SECRETBOX_MACBYTES)) {
-            throw new Exception('Scream bloody murder, the message was truncated');
-        }
-        $nonce = mb_substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, '8bit');
-        $ciphertext = mb_substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES, null, '8bit');
-
-        $plain = sodium_crypto_secretbox_open(
-            $ciphertext,
-            $nonce,
-            $this->getKey()
-        );
-        if ($plain === false) {
-            throw new Exception('the message was tampered with in transit');
-        }
-        sodium_memzero($ciphertext);
-        sodium_memzero($key);
-        return $plain;
-    }
-
-    /**
-     * Handle properties
-     * if property begins with ENC_PREFIX decrypt else return property
-     * @throws GuzzleException
-     * @throws SodiumException
-     */
-    public function handleProperty(string $property): string
-    {
-        return (substr($property, 0, 4) == env('ENC_PREFIX')) ?
-            $this->safeDecrypt(substr($property, 4)) : $property;
-    }
-
-
-    /**
      * Get a list of month names in order
      * @return array
      */
@@ -290,7 +194,7 @@ class ApplicationUtils
      * @return DateTime[] - start and end dates of quarter (in calendar year format)
      * @throws Exception
      */
-    public function getQuarterDates(int $year, bool $isFiscalYear = true, int $quarter = null): array
+    public function getQuarterDates(int $year, bool $isFiscalYear = true, ?int $quarter = null): array
     {
         if ($isFiscalYear) {
             return match ($quarter) {
@@ -364,7 +268,7 @@ class ApplicationUtils
      * @return string
      */
     public function getDateTimeFormat(DateTime $inputDateTime, string $format,
-                                      string   $modifyValue = null, string $modifyUnit = null): string
+                                      ?string  $modifyValue = null, ?string $modifyUnit = null): string
     {
         if ($modifyValue && $modifyUnit) {
             return $inputDateTime->modify($modifyValue . ' ' . $modifyUnit)->format($format);
@@ -399,8 +303,8 @@ class ApplicationUtils
      * @param string|null $nullText The string to return if the input value is null. Defaults to 'Null'.
      * @return string|null The string representation of the boolean value.
      */
-    function convertBooleanToString(bool   $inputBoolean = null, string $yesText = ApplicationConstants::YES,
-                                    string $noText = ApplicationConstants::NO, string $nullText = null): ?string
+    function convertBooleanToString(?bool  $inputBoolean = null, string $yesText = ApplicationConstants::YES,
+                                    string $noText = ApplicationConstants::NO, ?string $nullText = null): ?string
     {
         if ($inputBoolean === true) {
             return $yesText;

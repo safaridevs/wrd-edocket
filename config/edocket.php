@@ -42,6 +42,16 @@ return [
         'timeout' => env('PDF_CONVERSION_TIMEOUT', 60),
     ],
 
+    // IMAP mailbox polled by email:process-bounces. Read through config so the
+    // values survive `config:cache` (env() returns null once config is cached).
+    'bounce_mail' => [
+        'host' => env('BOUNCE_MAIL_HOST'),
+        'port' => env('BOUNCE_MAIL_PORT', 993),
+        'encryption' => env('BOUNCE_MAIL_ENCRYPTION', 'ssl'),
+        'username' => env('BOUNCE_MAIL_USERNAME'),
+        'password' => env('BOUNCE_MAIL_PASSWORD'),
+    ],
+
     'contact' => [
         'hu_email' => env('HU_CONTACT_EMAIL', 'hu.admin@ose.nm.gov'),
         'support_email' => env('SUPPORT_EMAIL', 'support@ose.nm.gov'),

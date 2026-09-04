@@ -62,8 +62,9 @@ class CustomAuthController extends Controller
                 Auth::login($user);
                 return true;
             }
-        } catch (\Exception $e) {
-            // LDAP failed, continue to regular auth
+        } catch (\Throwable $e) {
+            // LDAP failed, continue to regular auth. Throwable rather than
+            // Exception so a missing ext-ldap (an Error) also falls back.
             \Log::info('LDAP authentication failed: ' . $e->getMessage());
         }
         

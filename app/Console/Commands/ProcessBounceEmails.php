@@ -16,12 +16,12 @@ class ProcessBounceEmails extends Command
         try {
             $cm = new ClientManager();
             $client = $cm->make([
-                'host' => env('BOUNCE_MAIL_HOST'),
-                'port' => env('BOUNCE_MAIL_PORT', 993),
-                'encryption' => env('BOUNCE_MAIL_ENCRYPTION', 'ssl'),
+                'host' => config('edocket.bounce_mail.host'),
+                'port' => config('edocket.bounce_mail.port'),
+                'encryption' => config('edocket.bounce_mail.encryption'),
                 'validate_cert' => true,
-                'username' => env('BOUNCE_MAIL_USERNAME'),
-                'password' => env('BOUNCE_MAIL_PASSWORD'),
+                'username' => config('edocket.bounce_mail.username'),
+                'password' => config('edocket.bounce_mail.password'),
                 'protocol' => 'imap'
             ]);
 

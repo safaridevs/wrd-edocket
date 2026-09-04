@@ -1,8 +1,5 @@
 <?php
 
-use App\Utils\ApplicationUtils;
-
-$applicationUtils = new ApplicationUtils();
 return [
 
     /*
@@ -33,11 +30,11 @@ return [
 
         'default' => [
             'hosts' => [env('LDAP_HOST', 'ose.frose.local')],
-            'username' => $applicationUtils->handleProperty(env('LDAP_USERNAME')),
-            'password' => $applicationUtils->handleProperty(env('LDAP_PASSWORD')),
-            'options' => [
-                LDAP_OPT_REFERRALS => 0,
-            ],
+            'username' => env('LDAP_USERNAME'),
+            'password' => env('LDAP_PASSWORD'),
+            // Guarded so the application still boots without ext-ldap loaded;
+            // authentication then falls back to the database guard.
+            'options' => defined('LDAP_OPT_REFERRALS') ? [LDAP_OPT_REFERRALS => 0] : [],
             'port' => env('LDAP_PORT', 389),
             'base_dn' => env('LDAP_BASE_DN', 'dc=local,dc=com'),
             'timeout' => env('LDAP_TIMEOUT', 5),
