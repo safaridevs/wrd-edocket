@@ -9,16 +9,63 @@
 name: edocket-uat
 
 services:
+  # Renders the application .env from .env.template + Azure Key Vault into the
+  # `secrets` tmpfs volume, then stays up. Host network because the Azure Arc
+  # identity endpoint listens on the host loopback only; it publishes nothing.
+  # Runs as root to read the Arc challenge token (root/himds group readable).
+  secrets:
+    image: edocket-app:${IMAGE_TAG}
+    container_name: edocket-uat-secrets
+    entrypoint: ["/usr/local/bin/edocket-secrets"]
+    network_mode: host
+    environment:
+      SECRETS_PREFIX: edocket-uat
+      SECRETS_VAULT: ${SECRETS_VAULT}
+      SECRETS_REFRESH_SECONDS: ${SECRETS_REFRESH_SECONDS:-0}
+      AZURE_AUTH: ${AZURE_AUTH:-arc}
+      AZURE_KEYVAULT_URL: ${AZURE_KEYVAULT_URL:-}
+      AZURE_KEYVAULT_RESOURCE: ${AZURE_KEYVAULT_RESOURCE:-https://vault.azure.net}
+      AZURE_AUTHORITY_HOST: ${AZURE_AUTHORITY_HOST:-https://login.microsoftonline.com}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+    volumes:
+      - ./.env.template:/etc/edocket/env.template:ro
+      # Arc managed identity challenge tokens (absent and empty when Arc is not installed).
+      - /var/opt/azcmagent/tokens:/var/opt/azcmagent/tokens:ro
+      # Service-principal certificate for AZURE_AUTH=certificate: <dir>/client.pem
+      - ${EDOCKET_IDENTITY_DIR}:/etc/edocket/identity:ro
+      - secrets:/run/edocket
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /run/edocket/.env"]
+      interval: 5s
+      timeout: 3s
+      retries: 36
+      start_period: 5s
+    restart: unless-stopped
+
   app:
     image: edocket-app:${IMAGE_TAG}
     container_name: edocket-uat
+    depends_on:
+      secrets:
+        condition: service_healthy
     ports:
       - "${EDOCKET_APP_PORT}:80"
     volumes:
-      # Rendered by Jenkins from deploy/.env_UAT + credentials; read-only so
-      # nothing in the container can rewrite it (key:generate included).
-      - ./.env:/var/www/html/.env:ro
+      # Rendered .env, read-only: nothing in the container can rewrite it
+      # (key:generate included). /var/www/html/.env symlinks into it.
+      - secrets:/run/edocket:ro
       # Document store and logs outlive the container.
       - ${EDOCKET_APP_STORAGE}:/var/www/html/storage/app
       - ${EDOCKET_APP_LOGS}:/var/www/html/storage/logs
     restart: unless-stopped
+
+volumes:
+  # RAM only: the rendered secrets never touch the host disk and vanish on reboot,
+  # when the secrets service renders them again.
+  secrets:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=1m,mode=0750,uid=0,gid=33"

@@ -5,10 +5,22 @@
 set -eu
 cd /var/www/html
 
-if [ ! -f .env ]; then
-    echo "edocket: /var/www/html/.env is missing -- the compose file bind-mounts the rendered .env; see deploy/README.md" >&2
-    exit 1
-fi
+# /var/www/html/.env is a symlink to /run/edocket/.env, rendered from Azure Key
+# Vault by the `secrets` service into the tmpfs volume both containers share.
+# compose `depends_on: service_healthy` normally guarantees it exists before we
+# start; after a host reboot Docker's restart policy brings both containers back
+# without that ordering, so wait for it here as well.
+WAIT="${SECRETS_WAIT_SECONDS:-120}"
+i=0
+while [ ! -s /run/edocket/.env ]; do
+    if [ "$i" -ge "$WAIT" ]; then
+        echo "edocket: /run/edocket/.env not rendered after ${WAIT}s -- check 'docker logs edocket-<env>-secrets'; see deploy/SECRETS.md" >&2
+        exit 1
+    fi
+    [ "$i" -eq 0 ] && echo "edocket: waiting for the secrets service to render .env"
+    i=$((i + 1))
+    sleep 1
+done
 
 # storage/app and storage/logs are bind mounts. When the host directory did not
 # exist, Docker created it root-owned, which Apache (www-data) cannot write to.

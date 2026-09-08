@@ -291,9 +291,10 @@ as healthy, then run the `CREATE DATABASE` snippet above.
 
 QAT and UAT run as a Docker container built from the root `Dockerfile` by the
 `ose_edocket` Jenkins job (`Jenkins_Pipelines/ose_edocket.groovy`). Per-
-environment config lives in `deploy/`; secrets come from Jenkins credentials.
-See [deploy/README.md](deploy/README.md) for the host prerequisites and the
-deploy flow, and [deploy/SECRETS.md](deploy/SECRETS.md) for the credentials.
+environment config lives in `deploy/`; secrets come from Azure Key Vault at
+container start, never through git or Jenkins. See
+[deploy/README.md](deploy/README.md) for the host prerequisites and the deploy
+flow, and [deploy/SECRETS.md](deploy/SECRETS.md) for the vault setup.
 
 ---
 

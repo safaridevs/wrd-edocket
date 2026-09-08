@@ -17,7 +17,13 @@ echo "Stopping current stack"
 compose down --remove-orphans
 
 echo "Starting ${IMAGE_TAG}"
-compose up -d
+# `up` starts the secrets service, waits for it to report the rendered .env
+# (depends_on: service_healthy), then starts the app.
+if ! compose up -d --wait --wait-timeout 240; then
+    echo "Stack did not become healthy; recent container logs:"
+    compose logs --tail=100
+    exit 1
+fi
 
 PORT=$(grep -E '^EDOCKET_APP_PORT=' "${REMOTE_PATH}/.env_docker_compose" | cut -d= -f2)
 echo "Waiting for http://localhost:${PORT}/up"
