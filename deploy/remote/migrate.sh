@@ -25,5 +25,7 @@ if ! compose up -d --wait --wait-timeout 180 secrets; then
 fi
 
 echo "Migrating with ${IMAGE_TAG}"
-compose run --rm --no-deps --entrypoint "" app \
-    php artisan migrate --force --no-interaction
+# Through the entrypoint, not around it: it waits for the rendered .env, fixes
+# ownership on the bind mounts, and runs artisan as www-data so anything it
+# creates (laravel.log) stays writable by Apache afterwards.
+compose run --rm --no-deps app artisan migrate --force --no-interaction

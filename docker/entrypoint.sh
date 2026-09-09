@@ -24,16 +24,30 @@ done
 
 # storage/app and storage/logs are bind mounts. When the host directory did not
 # exist, Docker created it root-owned, which Apache (www-data) cannot write to.
-# Only the mount points are chowned, never recursively: the document store can
-# hold a lot of files, and everything inside was written by www-data anyway.
-for d in storage/app storage/app/private storage/app/public storage/logs; do
+# The document store is chowned at the mount point only, never recursively: it
+# can hold a lot of files, and everything inside was written by www-data anyway.
+for d in storage/app storage/app/private storage/app/public; do
     mkdir -p "$d"
     chown www-data:www-data "$d"
 done
+# Logs are small, so repair them recursively: anything that ran artisan as root
+# (an ad-hoc `docker run`) leaves a root-owned laravel.log that Apache cannot
+# append to.
+mkdir -p storage/logs
+chown -R www-data:www-data storage/logs
+
+# `edocket-entrypoint artisan <args>` runs an artisan command as www-data after
+# the same setup, so files it creates (laravel.log, storage/app/*) have the
+# right owner. deploy/remote/migrate.sh uses it for `migrate --force`.
+if [ "${1:-}" = "artisan" ]; then
+    shift
+    echo "edocket: php artisan $*"
+    exec runuser -u www-data -- php artisan "$@"
+fi
 
 # Compiled views are rebuilt per image; config is deliberately NOT cached
 # because a few call sites still read env() at run time (see deploy/README.md).
-su -s /bin/sh www-data -c 'php artisan view:clear -q && php artisan view:cache -q' || true
+runuser -u www-data -- sh -c 'php artisan view:clear -q && php artisan view:cache -q' || true
 
 # Migrations are run explicitly by the pipeline (Run Migrations stage), not here,
 # so a container restart never touches the schema.

@@ -127,14 +127,19 @@ the older code tolerates the schema before switching.
 docker logs edocket-qat-secrets                  # vault fetch: token, names, errors
 docker logs -f edocket-qat                       # apache, worker and scheduler output
 tail -f /opt/apps/edocket/qat/logs/laravel.log        # application log
-docker exec -it edocket-qat php artisan about    # config, version stamp, drivers
-docker exec -it edocket-qat php artisan documents:index-text --limit=50
+docker exec -it edocket-qat runuser -u www-data -- php artisan about   # run artisan as www-data, never as root
+docker exec -it edocket-qat runuser -u www-data -- php artisan documents:index-text --limit=50
 ```
 
 `config:cache` is deliberately not run. A few call sites still read `env()`
 outside `config/` (`ApplicationUtils::getUsername()` reads `LDAP_ENGINE`,
 `authenticate()` reads `JWT_SECRET`), and a cached config makes those return
 null. Move them into `config/` before enabling it.
+
+Always run artisan inside the container as `www-data` (as above). Run as root,
+it creates root-owned files under `storage/` that Apache can no longer write,
+which shows up as "laravel.log could not be opened in append mode". The
+entrypoint repairs `storage/logs` on the next start, but not `storage/app`.
 
 OCR (`documents:index-text --ocr`) needs OCRmyPDF, which is not in the image
 by default. Build with `--build-arg WITH_OCR=true` to include it (about 400MB).
