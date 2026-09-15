@@ -61,6 +61,14 @@ class DocumentTextIndexService
     public function search(User $user, string $term, int $perPage = 15): LengthAwarePaginator
     {
         return $this->searchQuery($term)
+            ->when(!$user->isHearingUnit(), function (Builder $query) {
+                $query->where(function (Builder $visibilityQuery) {
+                    $visibilityQuery
+                        ->where('filing_context', '!=', Document::FILING_CONTEXT_HEARING_UNIT)
+                        ->orWhereNull('filing_context')
+                        ->orWhere('approved', true);
+                });
+            })
             ->whereHas('case', fn (Builder $query) => $this->scopeAccessibleCases($query, $user))
             ->latest('uploaded_at')
             ->paginate($perPage)

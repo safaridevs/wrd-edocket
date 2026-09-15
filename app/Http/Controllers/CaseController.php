@@ -17,6 +17,7 @@ use App\Services\CaseStorageService;
 use App\Services\ServiceListResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
@@ -276,7 +277,7 @@ class CaseController extends Controller
             ->dropdownOrder()
             ->get();
         $pleadingDocs = $documentTypes
-            ->where('is_pleading', true);
+            ->whereIn('code', ['request_pre_hearing', 'request_to_docket']);
         $optionalDocs = $documentTypes
             ->where('is_pleading', false)
             ->where('category', 'case_creation');
@@ -290,6 +291,14 @@ class CaseController extends Controller
 
         if (Auth::user()->isALUAttorney() || Auth::user()->isContractAttorney()) {
             $validated['assigned_attorneys'] = collect($validated['assigned_attorneys'] ?? [])
+                ->push(Auth::id())
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if (Auth::user()->isALUParalegal()) {
+            $validated['assigned_clerks'] = collect($validated['assigned_clerks'] ?? [])
                 ->push(Auth::id())
                 ->unique()
                 ->values()
@@ -416,7 +425,7 @@ class CaseController extends Controller
             'aluClerks',
             'wrds',
             'assignments.user',
-            'documents.uploader',
+            'documents.uploader.roleRelation',
             'parties.person',
             'parties.attorneys.person',
             'parties.agents.person',
@@ -427,6 +436,7 @@ class CaseController extends Controller
             'rejections.resubmittedBy',
             'rejections.items.resolvedBy',
         ]);
+        $this->hidePendingHearingUnitDocuments($case);
         $submissionNotificationRecipients = $this->caseService->getSubmissionNotificationOptions();
         $acceptanceNotificationRecipients = $this->caseService->getAcceptanceNotificationOptions($case);
         $pendingAluAcceptanceDocuments = $case->pendingAluDocumentsForAcceptance()
@@ -458,14 +468,14 @@ class CaseController extends Controller
             fputcsv($handle, [
                 'Case Number',
                 'Name',
-                'Organization',
+                'Phone Number',
                 'Address Line 1',
                 'Address Line 2',
                 'City',
                 'State',
                 'ZIP',
                 'Email',
-                'Role',
+                'Party Designation',
                 'Service Method',
             ]);
 
@@ -473,7 +483,7 @@ class CaseController extends Controller
                 fputcsv($handle, [
                     $case->case_no,
                     $service['name'],
-                    $service['organization'],
+                    $service['phone'],
                     $service['address_line1'],
                     $service['address_line2'],
                     $service['city'],
@@ -902,7 +912,7 @@ class CaseController extends Controller
             'notification_message' => 'nullable|string|max:5000',
         ], [
             'documents.other.*.file.*.mimes' => Auth::user()->isHearingUnit()
-                ? 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
+                ? 'Hearing Unit orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
                 : 'Documents must be PDF, DOC, or DOCX files.',
         ]);
 
@@ -1015,6 +1025,10 @@ class CaseController extends Controller
 
     public function showAttorneyManagement(CaseModel $case, $partyId)
     {
+        if (!auth()->user()->canManageCaseParties($case)) {
+            abort(403);
+        }
+
         $party = $case->parties()->with(['person', 'attorneys.person'])->findOrFail($partyId);
         $selectedEmails = $party->attorneys
             ->map(fn($attorneyParty) => strtolower(trim((string) $attorneyParty->person?->email)))
@@ -1069,7 +1083,7 @@ class CaseController extends Controller
                 ]);
             }
 
-            \App\Models\CaseParty::firstOrCreate([
+            $counselParty = \App\Models\CaseParty::firstOrCreate([
                 'case_id' => $case->id,
                 'person_id' => $attorneyPerson->id,
                 'role' => 'counsel',
@@ -1078,6 +1092,20 @@ class CaseController extends Controller
                 'service_enabled' => true,
                 'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
             ]);
+
+            if ($counselParty->wasRecentlyCreated) {
+                AuditLog::log('add_case_participant', auth()->user(), $case, [
+                    'participant' => $attorneyPerson->full_name,
+                    'role' => 'Counsel',
+                    'represented_party' => $party->person->full_name,
+                    'effective_at' => $counselParty->effective_at?->toIso8601String(),
+                ]);
+
+                if ($case->status === 'active') {
+                    app(\App\Services\NotificationService::class)
+                        ->notifyCounselParticipationChanged($attorneyPerson, $case, true);
+                }
+            }
 
             \App\Models\ServiceList::firstOrCreate([
                 'case_id' => $case->id,
@@ -1130,7 +1158,19 @@ class CaseController extends Controller
         }
 
         foreach ($counselParties as $counselParty) {
-            $counselParty->delete();
+            $counselParty->terminateParticipation((int) auth()->id());
+
+            AuditLog::log('remove_case_participant', auth()->user(), $case, [
+                'participant' => $counselParty->person?->full_name,
+                'role' => 'Counsel',
+                'represented_party' => $party->person?->full_name,
+                'terminated_at' => $counselParty->terminated_at?->toIso8601String(),
+            ]);
+
+            if ($case->status === 'active' && $counselParty->person) {
+                app(\App\Services\NotificationService::class)
+                    ->notifyCounselParticipationChanged($counselParty->person, $case, false);
+            }
 
             $personStillUsed = $case->parties()
                 ->where('person_id', $counselParty->person_id)
@@ -1319,6 +1359,12 @@ class CaseController extends Controller
                 'service_enabled' => true
             ]);
 
+            AuditLog::log('add_case_participant', auth()->user(), $case, [
+                'participant' => $person->full_name,
+                'role' => ucwords(str_replace('_', ' ', $clientParty->role)),
+                'effective_at' => $clientParty->effective_at?->toIso8601String(),
+            ]);
+
             // Handle attorney representation
             if ($this->hasNewCounselData($validated) ||
                 ($request->has('attorney_id') && !empty($request->attorney_id))) {
@@ -1331,7 +1377,7 @@ class CaseController extends Controller
                         ]);
                     }
 
-                    \App\Models\CaseParty::firstOrCreate([
+                    $counselParty = \App\Models\CaseParty::firstOrCreate([
                         'case_id' => $case->id,
                         'person_id' => $attorneyPerson->id,
                         'role' => 'counsel',
@@ -1340,6 +1386,20 @@ class CaseController extends Controller
                         'service_enabled' => true,
                         'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
                     ]);
+
+                    if ($counselParty->wasRecentlyCreated) {
+                        AuditLog::log('add_case_participant', auth()->user(), $case, [
+                            'participant' => $attorneyPerson->full_name,
+                            'role' => 'Counsel',
+                            'represented_party' => $person->full_name,
+                            'effective_at' => $counselParty->effective_at?->toIso8601String(),
+                        ]);
+
+                        if ($case->status === 'active') {
+                            app(\App\Services\NotificationService::class)
+                                ->notifyCounselParticipationChanged($attorneyPerson, $case, true);
+                        }
+                    }
 
                     \App\Models\ServiceList::firstOrCreate([
                         'case_id' => $case->id,
@@ -1466,11 +1526,40 @@ class CaseController extends Controller
 
         $party = $case->parties()->findOrFail($partyId);
 
-        // Remove from service list
-        $case->serviceList()->where('person_id', $party->person_id)->delete();
+        DB::transaction(function () use ($case, $party) {
+            $representatives = $case->parties()
+                ->where('client_party_id', $party->id)
+                ->get();
 
-        // Remove party
-        $party->delete();
+            foreach ($representatives as $representative) {
+                $representative->terminateParticipation((int) auth()->id());
+
+                AuditLog::log('remove_case_participant', auth()->user(), $case, [
+                    'participant' => $representative->person?->full_name,
+                    'role' => ucwords(str_replace('_', ' ', $representative->role)),
+                    'represented_party' => $party->person?->full_name,
+                    'terminated_at' => $representative->terminated_at?->toIso8601String(),
+                ]);
+
+                if ($case->status === 'active' && $representative->role === 'counsel' && $representative->person) {
+                    app(\App\Services\NotificationService::class)
+                        ->notifyCounselParticipationChanged($representative->person, $case, false);
+                }
+
+                if (!$case->parties()->where('person_id', $representative->person_id)->exists()) {
+                    $case->serviceList()->where('person_id', $representative->person_id)->delete();
+                }
+            }
+
+            $case->serviceList()->where('person_id', $party->person_id)->delete();
+            $party->terminateParticipation((int) auth()->id());
+
+            AuditLog::log('remove_case_participant', auth()->user(), $case, [
+                'participant' => $party->person?->full_name,
+                'role' => ucwords(str_replace('_', ' ', $party->role)),
+                'terminated_at' => $party->terminated_at?->toIso8601String(),
+            ]);
+        });
 
         return response()->json(['success' => true]);
     }
@@ -1482,17 +1571,32 @@ class CaseController extends Controller
         }
 
         $case->load([
-            'documents.uploader',
+            'documents.uploader.roleRelation',
             'documents.correctionCycles.requestedBy',
             'documents.correctionCycles.resubmittedBy',
             'documents.correctionCycles.acceptedBy',
             'documents.correctionCycles.replacementDocument',
             'documents.correctionCycles.items.resolvedBy',
         ]);
+        $this->hidePendingHearingUnitDocuments($case);
         $documentTypes = \App\Models\DocumentType::forRoles(Auth::user()->documentFilingRoles($case))->dropdownOrder()->get();
         $resolvedServiceList = $this->serviceListResolver->resolve($case);
 
         return view('cases.documents.manage', compact('case', 'documentTypes', 'resolvedServiceList'));
+    }
+
+    private function hidePendingHearingUnitDocuments(CaseModel $case): void
+    {
+        if (Auth::user()->isHearingUnit() || !$case->relationLoaded('documents')) {
+            return;
+        }
+
+        $case->setRelation(
+            'documents',
+            $case->documents
+                ->reject(fn (Document $document) => $document->isPendingHearingUnitDocument())
+                ->values()
+        );
     }
 
     public function storeDocument(Request $request, CaseModel $case)
@@ -1538,7 +1642,7 @@ class CaseController extends Controller
         ], [
             'document.required' => 'Select at least one document to upload.',
             'document.*.mimes' => Auth::user()->isHearingUnit()
-                ? 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
+                ? 'Hearing Unit orders and notices must be uploaded as PDF files so the electronic stamp can be applied.'
                 : 'Documents must be PDF, DOC, DOCX, JPG, JPEG, or PNG files.',
         ]);
 
@@ -1685,8 +1789,8 @@ class CaseController extends Controller
                     ? 'Stamped preview generated. Review the PDF, then click Issue & Notify to send it to the service list.'
                     : "{$uploadedCount} stamped previews generated. Review each PDF, then click Issue & Notify to send service-list notifications.")
                 : ($uploadedCount === 1
-                    ? 'Document uploaded successfully and is pending HU acceptance.'
-                    : "{$uploadedCount} documents uploaded successfully and are pending HU acceptance.");
+                    ? 'Document uploaded successfully and is pending Hearing Unit acceptance.'
+                    : "{$uploadedCount} documents uploaded successfully and are pending Hearing Unit acceptance.");
 
             if ($timeSensitiveNoticeCount > 0) {
                 $message .= " {$timeSensitiveNoticeCount} recipient(s) notified of the time-sensitive filing.";
@@ -1713,11 +1817,15 @@ class CaseController extends Controller
         }
 
         $notificationService = app(\App\Services\NotificationService::class);
-        $documentList = $documents
-            ->map(fn (Document $document) => '- ' . ($document->custom_title ?: $document->doc_type_label))
-            ->implode("\n");
-
         if ($uploader->isHearingUnit()) {
+            $documentList = $documents
+                ->map(function (Document $document) {
+                    $title = $document->custom_title ?: $document->doc_type_label;
+
+                    return "- {$title}\n  View document: " . route('documents.preview', $document);
+                })
+                ->implode("\n");
+
             $message = "The Hearing Unit has issued or filed document(s) in case {$case->case_no}.\n\nDocuments:\n{$documentList}";
 
             if (trim((string) $customMessage) !== '') {
@@ -1736,6 +1844,10 @@ class CaseController extends Controller
 
             return;
         }
+
+        $documentList = $documents
+            ->map(fn (Document $document) => '- ' . ($document->custom_title ?: $document->doc_type_label))
+            ->implode("\n");
 
         $huUsers = User::whereAnyCurrentRole(['hu_admin', 'hu_clerk'])
             ->where('is_active', true)
@@ -1880,15 +1992,32 @@ class CaseController extends Controller
         $document = $case->documents()->with('uploader.roleRelation')->findOrFail($documentId);
 
         if (!$this->isPendingHuIssue($document)) {
-            return back()->withErrors(['error' => 'Only pending HU stamped previews can be issued.']);
+            return back()->withErrors(['error' => 'Only pending Hearing Unit stamped previews can be issued.']);
+        }
+
+        $issuedAt = now();
+
+        try {
+            $stampingService = app(\App\Services\PdfStampingService::class);
+            $stampingService->finalizeHearingUnitIssuance($document, auth()->user(), $issuedAt);
+        } catch (\Throwable $e) {
+            \Log::error('Final Hearing Unit issuance stamp failed', [
+                'case_id' => $case->id,
+                'document_id' => $document->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['error' => 'The final issuance timestamp could not be applied. The document was not issued. Please try again.']);
         }
 
         $document->update([
             'approved' => true,
             'approved_by_user_id' => auth()->id(),
-            'approved_at' => now(),
+            'approved_at' => $issuedAt,
             'rejected_reason' => null,
         ]);
+
+        $stampingService->discardIssuanceSource($document);
 
         $customMessage = trim((string) ($validated['notification_message'] ?? ''));
         if ($customMessage === '') {
@@ -1917,7 +2046,7 @@ class CaseController extends Controller
         $document = $case->documents()->findOrFail($documentId);
 
         if ($this->isHuIssuedDocument($document)) {
-            return response()->json(['success' => false, 'error' => 'HU-issued documents are already issued and do not require acceptance.']);
+            return response()->json(['success' => false, 'error' => 'Hearing Unit-issued documents are already issued and do not require acceptance.']);
         }
 
         // Check case status - allow submitted_to_hu and active
@@ -1993,7 +2122,7 @@ class CaseController extends Controller
 
         $document = $case->documents()->findOrFail($documentId);
         if ($this->isHuIssuedDocument($document)) {
-            return response()->json(['success' => false, 'error' => 'HU-issued documents cannot be rejected.'], 422);
+            return response()->json(['success' => false, 'error' => 'Hearing Unit-issued documents cannot be rejected.'], 422);
         }
 
         $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
@@ -2053,7 +2182,7 @@ class CaseController extends Controller
 
         $document = $case->documents()->findOrFail($documentId);
         if ($this->isHuIssuedDocument($document)) {
-            return response()->json(['success' => false, 'error' => 'HU-issued documents do not use the correction workflow.'], 422);
+            return response()->json(['success' => false, 'error' => 'Hearing Unit-issued documents do not use the correction workflow.'], 422);
         }
 
         $summary = $validated['reason_summary'] ?? $validated['reason'] ?? null;
@@ -2146,6 +2275,9 @@ class CaseController extends Controller
         $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
         $path = $file->storeAs($storageFolder, $storedFilename, 'public');
 
+        $stampingService = app(\App\Services\PdfStampingService::class);
+        $stampingService->discardIssuanceSource($document);
+
         $document->update([
             'custom_title' => $validated['custom_title'],
             'original_filename' => $originalFilename,
@@ -2192,7 +2324,7 @@ class CaseController extends Controller
             'superseded_storage_uri' => $oldStorageUri,
         ]);
 
-        return redirect()->route('cases.documents.manage', $case)->with('success', 'Corrected document submitted and is pending HU review.');
+        return redirect()->route('cases.documents.manage', $case)->with('success', 'Corrected document submitted and is pending Hearing Unit review.');
     }
 
     public function stampDocument(CaseModel $case, $documentId)
@@ -2204,7 +2336,7 @@ class CaseController extends Controller
         $document = $case->documents()->findOrFail($documentId);
 
         if ($this->isHuIssuedDocument($document)) {
-            return response()->json(['success' => false, 'error' => 'HU-issued documents do not need to be stamped.']);
+            return response()->json(['success' => false, 'error' => 'Hearing Unit-issued documents do not need to be stamped.']);
         }
 
         $isPendingHuUpload = $this->isPendingHuUpload($document);
@@ -2214,7 +2346,7 @@ class CaseController extends Controller
         // In active cases, any accepted document can be stamped.
         // Before a case is active, stamping remains limited to accepted pleading documents.
         if (!$canStamp) {
-            return response()->json(['success' => false, 'error' => 'Only pending HU uploads, accepted documents in active cases, or accepted pleading documents, can be stamped']);
+            return response()->json(['success' => false, 'error' => 'Only pending Hearing Unit uploads, accepted documents in active cases, or accepted pleading documents, can be stamped']);
         }
 
         if ($document->stamped) {
@@ -2255,14 +2387,14 @@ class CaseController extends Controller
         $document = $case->documents()->with('uploader.roleRelation')->findOrFail($documentId);
 
         if (!$this->isPendingHuUpload($document)) {
-            return back()->withErrors(['error' => 'Only HU uploads that still need stamping can be replaced here.']);
+            return back()->withErrors(['error' => 'Only Hearing Unit uploads that still need stamping can be replaced here.']);
         }
 
         $validated = $request->validate([
             'document' => 'required|file|mimes:pdf|max:204800',
         ], [
             'document.required' => 'Choose a corrected PDF to upload.',
-            'document.mimes' => 'HU orders and notices must be uploaded as PDF files so the electronic stamp can be applied.',
+            'document.mimes' => 'Hearing Unit orders and notices must be uploaded as PDF files so the electronic stamp can be applied.',
         ]);
 
         $file = $validated['document'];
@@ -2298,7 +2430,7 @@ class CaseController extends Controller
         }
 
         try {
-            app(\App\Services\PdfStampingService::class)->stampDocument($document->refresh(), $case);
+            $stampingService->stampDocument($document->refresh(), $case);
         } catch (\Throwable $e) {
             \Log::warning('Replacement HU PDF uploaded but automatic PDF stamping failed', [
                 'case_id' => $case->id,
@@ -2334,7 +2466,7 @@ class CaseController extends Controller
             $normalizedItems = collect([[
                 'category' => 'other',
                 'item_note' => $summary,
-                'required_action' => 'Review the correction summary, fix the document, and submit a corrected replacement for HU review.',
+                'required_action' => 'Review the correction summary, fix the document, and submit a corrected replacement for Hearing Unit review.',
                 'sort_order' => 0,
             ]]);
         }
@@ -2562,16 +2694,16 @@ class CaseController extends Controller
             $validated['hu_display_status'] ?? null,
             $validated['hu_display_status_note'] ?? null
         )) {
-            return back()->with('success', 'HU status updated successfully.');
+            return back()->with('success', 'Hearing Unit status updated successfully.');
         }
 
-        return back()->with('error', 'Unable to update HU status.');
+        return back()->with('error', 'Unable to update Hearing Unit status.');
     }
 
     public function reopen(Request $request, CaseModel $case)
     {
         if (auth()->user()->getCurrentRole() !== 'hu_admin') {
-            abort(403, 'Only HU Admin can reopen cases.');
+            abort(403, 'Only Hearing Unit Admin can reopen cases.');
         }
 
         $validated = $request->validate([
@@ -2608,10 +2740,10 @@ class CaseController extends Controller
             }
         }
 
-        // Check if pleading document exists (Request to Docket OR Request for Pre-Hearing)
+        // Check if pleading document exists (Request to Docket OR Request for Pre-Hearing Scheduling Conference)
         $hasPleadingDoc = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_pre_hearing'])->exists();
         if (!$hasPleadingDoc) {
-            $errors[] = 'Either Request to Docket or Request for Pre-Hearing document must be uploaded.';
+            $errors[] = 'Either a Request to Docket or Request for Pre-Hearing Scheduling Conference document must be uploaded.';
         }
         return $errors;
     }
@@ -2850,7 +2982,7 @@ class CaseController extends Controller
             }
 
             $case->serviceList()->where('person_id', $paralegalParty->person_id)->delete();
-            $paralegalParty->delete();
+            $paralegalParty->terminateParticipation((int) $user->id);
         } else {
             $assignment = $case->assignments()
                 ->where('id', $partyId)

@@ -46,8 +46,8 @@
             <div class="flex-1">
                 <div class="font-semibold text-gray-900">Santa Fe Office</div>
                 <div class="text-sm text-gray-600 mt-1">
-                    <div>407 Galisteo St STE 102</div>
-                    <div>Santa Fe, NM 87501</div>
+                    <div>2905 Rodeo Park Drive East, Building 5</div>
+                    <div>Santa Fe, NM 87505</div>
                     <div class="mt-1">Phone: (505) 827-6120</div>
                 </div>
             </div>

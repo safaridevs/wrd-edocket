@@ -66,7 +66,7 @@
                             <p class="mt-1 text-2xl font-semibold text-gray-900">{{ $summary['active'] }}</p>
                         </div>
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">HU Display Status</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Hearing Unit Display Status</p>
                             <p class="mt-1 text-2xl font-semibold text-gray-900">{{ $summary['with_hu_display_status'] }}</p>
                         </div>
                     </div>

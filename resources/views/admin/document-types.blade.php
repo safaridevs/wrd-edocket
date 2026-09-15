@@ -79,7 +79,7 @@
                     @foreach($roles as $role)
                         <label class="flex items-center p-2 rounded border border-gray-200">
                             <input type="checkbox" name="role_ids[]" value="{{ $role->id }}" class="mr-2">
-                            <span class="text-sm text-gray-700">{{ $role->display_name}}</span>
+                            <span class="text-sm text-gray-700">{{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}</span>
                         </label>
                     @endforeach
                 </div>
@@ -122,7 +122,7 @@
                         <div class="flex flex-wrap gap-1">
                             @forelse($docType->roles as $role)
                                 <span class="px-2 py-1 text-xs rounded bg-green-100 text-green-800">
-                                    {{ $role->display_name }}
+                                    {{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}
                                 </span>
                             @empty
                                 <span class="text-xs text-gray-400">No roles assigned</span>
@@ -156,7 +156,7 @@
                 <label class="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer">
                     <input type="checkbox" name="role_ids[]" value="{{ $role->id }}" class="mr-3 h-4 w-4 text-blue-600 rounded">
                     <div>
-                        <div class="text-sm font-medium text-gray-900">{{ $role->display_name }}</div>
+                        <div class="text-sm font-medium text-gray-900">{{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}</div>
                         <div class="text-xs text-gray-500">{{ $role->name }} @if($role->group)({{ $role->group }})@endif</div>
                     </div>
                 </label>

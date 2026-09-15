@@ -12,6 +12,17 @@ use PHPUnit\Framework\TestCase;
 
 class CaseCreationAuthorizationTest extends TestCase
 {
+    public function test_only_internal_alu_and_hearing_unit_roles_can_view_expert_assignments(): void
+    {
+        foreach (['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk'] as $role) {
+            $this->assertTrue($this->user($role, 1)->canViewExpertAssignments(), $role);
+        }
+
+        foreach (['contract_attorney', 'external_attorney', 'party', 'interested_party', 'wrd', 'hydrology_expert'] as $role) {
+            $this->assertFalse($this->user($role, 1)->canViewExpertAssignments(), $role);
+        }
+    }
+
     public function test_alu_and_contract_attorneys_can_create_cases_but_external_attorneys_cannot(): void
     {
         $this->assertTrue($this->user('alu_mgr', 8)->canCreateCase());

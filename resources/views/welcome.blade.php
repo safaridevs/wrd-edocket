@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>OSE E-Docket - New Mexico Office of the State Engineer</title>
+        <title>OSE E-Docket</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="bg-gray-50">
@@ -32,7 +32,7 @@
                                 </a>
                                 @if (Route::has('register'))
                                     <a href="{{ route('register') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                                        Register
+                                        Create Account
                                     </a>
                                 @endif
                             @endauth
@@ -50,20 +50,16 @@
                         OSE E-Docket
                     </h1>
                     <p class="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-                        Access Office of The State Engineer Hearing Unit Cases
+                        Access Office of the State Engineer Hearing Unit Cases
                     </p>
                     <div class="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="{{ route('public.cases.index') }}" class="bg-white text-blue-900 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-                            Browse Cases
+                            Search Cases
                         </a>
                         <a href="{{ route('documents.search') }}" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors border border-blue-600">
                             Search Documents
                         </a>
-                        @guest
-                        <a href="{{ route('register') }}" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors border border-blue-600">
-                            Create Account
-                        </a>
-                        @endguest
+
                     </div>
                 </div>
             </div>
@@ -74,9 +70,6 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-12">
                     <h2 class="text-3xl font-bold text-gray-900 mb-4">Hearing Unit Cases</h2>
-                    <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Browse Hearing Unit cases. All documents and proceedings are available for public review.
-                    </p>
                 </div>
 
                 <div class="bg-white rounded-lg shadow">
@@ -207,7 +200,7 @@
                         </div>
                         <h3 class="text-xl font-semibold text-gray-900 mb-4">About OSE E-Docket</h3>
                         <p class="text-gray-600 mb-4">
-                            The OSE Hearing Unit E-Docket provides public access to water rights hearing cases, pleadings, orders, and related documents from the New Mexico Office of the State Engineer.
+                            OSE E-Docket provides public access to Hearing Unit cases, pleadings, orders, and related documents from the New Mexico Office of the State Engineer.
                         </p>
                         <p class="text-gray-600">
                             This system is under active development to provide comprehensive access to all case materials including applications, protests, compliance orders, and hearing proceedings.
@@ -249,7 +242,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                             </svg>
                         </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Legal Resources, Instructions and Guideline</h3>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Legal Resources, Instructions and Guidelines</h3>
                         <h3 class="text-lg font-semibold text-gray-900 mb-4">Information for Parties</h3>
                         <div class="space-y-3">
                             <a href="https://nmonesource.com/nmos/nmsa-unanno/en/item/18575/index.do#!fragment/zoupio-_Toc233806439/BQCwhgziBcwMYgK4DsDWszIQewE4BUBTADwBdoAvbRABwEtsBaAfX2zgCYBmLgDgAYAbABYuATgCUAGmTZShCAEVEhXAE9oAck1SIhMLgTLVG7bv2GQAZTykAQhoBKAUQAyzgGoBBAHIBhZylSMAAjaFJ2CQkgA" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
@@ -277,6 +270,9 @@
                             <a href="{{ asset('documents/New Mexico Mediation Procedures Act.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 New Mexico Mediation Procedures Act - NMSA 1978, Chapter 44, Art. 7(B)
                             </a>
+                            <a href="https://nmonesource.com/nmos/nmsa/en/item/4374/index.do#a8A" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
+                                Governmental Dispute Resolution Act - NMSA 1978, Chapter 12, Art. 8(A)
+                            </a>
                             <a href="{{ asset('documents/OSE Mediation - NM Law and Mediation.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 OSE Mediation - NM Law and Mediation
                             </a>
@@ -287,9 +283,7 @@
                             <a href="{{ asset('documents/Mediation Guidelines.pdf') }}" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
                                 Mediation Guidelines
                             </a>
-                            <a href="https://nmonesource.com/nmos/nmsa/en/item/4374/index.do#a8A" target="_blank" class="block text-purple-600 hover:text-purple-800 text-sm">
-                                Governmental Dispute Resolution Act - NMSA 1978, Chapter 12, Art. 8(A)
-                            </a>
+
 
                         </div>
                          {{-- <h3 class="text-lg font-semibold text-gray-900 mb-4">Instructions for Parties</h3>

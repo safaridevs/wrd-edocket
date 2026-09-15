@@ -60,7 +60,7 @@
                                 <select id="roleFilter" name="role" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
                                     <option value="">All roles</option>
                                     @foreach($roles as $role)
-                                        <option value="{{ $role->name }}" @selected(($filters['role'] ?? '') === $role->name)>{{ $role->display_name }}</option>
+                                        <option value="{{ $role->name }}" @selected(($filters['role'] ?? '') === $role->name)>{{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -208,7 +208,7 @@
                                 <label class="block text-sm font-medium text-gray-700">Role</label>
                                 <select name="role" id="createUserRole" class="mt-1 block w-full border-gray-300 rounded-md" required onchange="toggleCreateUserProfileFields()">
                                     @foreach($roles as $role)
-                                        <option value="{{ $role->name }}" @selected(old('role') === $role->name)>{{ $role->display_name }}</option>
+                                        <option value="{{ $role->name }}" @selected(old('role') === $role->name)>{{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -329,7 +329,7 @@
                                 <label class="block text-sm font-medium text-gray-700">Role</label>
                                 <select name="role" id="editRole" class="mt-1 block w-full border-gray-300 rounded-md" required>
                                     @foreach($roles as $role)
-                                        <option value="{{ $role->name }}">{{ $role->display_name }}</option>
+                                        <option value="{{ $role->name }}">{{ ['hu_admin' => 'Hearing Unit Admin', 'hu_clerk' => 'Hearing Unit Clerk'][$role->name] ?? $role->display_name }}</option>
                                     @endforeach
                                 </select>
                             </div>

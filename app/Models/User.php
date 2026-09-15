@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -72,6 +73,11 @@ class User extends Authenticatable
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class, 'uploaded_by_user_id');
+    }
+
+    public function serviceProfile(): HasOne
+    {
+        return $this->hasOne(Person::class, 'email', 'email');
     }
 
     public function scopeWhereCurrentRole(Builder $query, string $role): Builder
@@ -489,6 +495,18 @@ class User extends Authenticatable
     public function canAssignExperts(): bool
     {
         return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'hu_admin', 'hu_clerk']);
+    }
+
+    public function canViewExpertAssignments(): bool
+    {
+        return in_array($this->getCurrentRole(), [
+            'alu_mgr',
+            'alu_clerk',
+            'alu_paralegal',
+            'alu_atty',
+            'hu_admin',
+            'hu_clerk',
+        ], true);
     }
 
     public function canAssignAttorneys(): bool

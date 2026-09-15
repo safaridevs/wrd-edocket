@@ -9,7 +9,7 @@
     $activePanel = match (true) {
         session('status') === 'legal-service-profile-updated' => 'legal',
         session('status') === 'password-updated' || $errors->updatePassword->isNotEmpty() => 'security',
-        default => 'account',
+        default => 'legal',
     };
 
     $legalContactName = $person?->full_name ?: $person?->organization;
@@ -71,18 +71,8 @@
                     <nav class="rounded-lg border border-slate-200 bg-white p-2 shadow-sm" aria-label="Profile sections">
                         <button
                             type="button"
-                            x-on:click="activePanel = 'account'"
-                            class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
-                            x-bind:class="activePanel === 'account' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
-                        >
-                            <span>Account</span>
-                            <span class="text-xs" x-bind:class="activePanel === 'account' ? 'text-slate-300' : 'text-slate-400'">Identity</span>
-                        </button>
-
-                        <button
-                            type="button"
                             x-on:click="activePanel = 'legal'"
-                            class="mt-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
+                            class="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition"
                             x-bind:class="activePanel === 'legal' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'"
                         >
                             <span>Contact Information</span>
@@ -113,39 +103,7 @@
 
                 <main class="min-w-0">
                     <section
-                        x-show="activePanel === 'account'"
-                        x-cloak
-                        class="rounded-lg border border-slate-200 bg-white shadow-sm"
-                    >
-                        <div class="border-b border-slate-200 px-6 py-4">
-                            <h3 class="text-base font-semibold text-slate-950">Account Identity</h3>
-                        </div>
-                        <div class="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_260px]">
-                            <div>
-                                @include('profile.partials.update-profile-information-form')
-                            </div>
-                            <aside class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                                <dl class="space-y-4 text-sm">
-                                    <div>
-                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Role</dt>
-                                        <dd class="mt-1 text-slate-900">{{ $currentRole }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Status</dt>
-                                        <dd class="mt-1">
-                                            <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">Active</span>
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Updated</dt>
-                                        <dd class="mt-1 text-slate-900">{{ $user->updated_at->format('M d, Y') }}</dd>
-                                    </div>
-                                </dl>
-                            </aside>
-                        </div>
-                    </section>
-
-                    <section
+                        id="contact-information"
                         x-show="activePanel === 'legal'"
                         x-cloak
                         class="rounded-lg border border-slate-200 bg-white shadow-sm"

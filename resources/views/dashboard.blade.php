@@ -5,17 +5,17 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex items-center justify-between">
                     <div>
+                        @php
+                            $welcomeRoleLabels = [
+                                'hu_admin' => 'Hearing Unit Admin',
+                                'hu_clerk' => 'Hearing Unit Clerk',
+                            ];
+                            $welcomeTitle = auth()->user()->title
+                                ?: ($welcomeRoleLabels[auth()->user()->getCurrentRole()]
+                                    ?? ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())));
+                        @endphp
                         <h1 class="text-2xl font-bold text-gray-900">Welcome back, {{ auth()->user()->name }}</h1>
-                        <p class="text-gray-600 mt-1">
-                            @if(auth()->user()->isAttorney())
-                                Attorney
-                            @elseif(auth()->user()->isParalegal())
-                                Paralegal
-                            @else
-                                {{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}
-                            @endif
-                            • {{ now()->format('l, F j, Y') }}
-                        </p>
+                        <p class="text-gray-600 mt-1">{{ $welcomeTitle }} • {{ now()->format('l, F j, Y') }}</p>
                     </div>
 
                 </div>

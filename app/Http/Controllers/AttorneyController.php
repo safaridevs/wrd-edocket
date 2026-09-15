@@ -2,22 +2,32 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CaseParty;
 use App\Models\CaseModel;
 use App\Models\Person;
 use App\Models\ServiceList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class AttorneyController extends Controller
 {
     public function show(CaseModel $case)
     {
+        if (!auth()->user()->canManageCaseParties($case)) {
+            abort(403);
+        }
+
         return view('cases.attorney-representation', compact('case'));
     }
 
     public function addClient(Request $request, CaseModel $case)
     {
+        if (!auth()->user()->canManageCaseParties($case)) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'client_person_id' => 'required|exists:persons,id',
             'effective_date' => 'required|date',
@@ -42,7 +52,7 @@ class AttorneyController extends Controller
             return redirect()->back()->with('error', 'You are already assigned to represent WRD in this case and cannot also represent a private party.');
         }
 
-        CaseParty::firstOrCreate([
+        $counselParty = CaseParty::firstOrCreate([
             'case_id' => $case->id,
             'person_id' => $attorneyPerson->id,
             'role' => 'counsel',
@@ -50,7 +60,22 @@ class AttorneyController extends Controller
         ], [
             'service_enabled' => true,
             'representation_capacity' => CaseParty::CAPACITY_PRIVATE_COUNSEL,
+            'effective_at' => $validated['effective_date'],
         ]);
+
+        if ($counselParty->wasRecentlyCreated) {
+            AuditLog::log('add_case_participant', auth()->user(), $case, [
+                'participant' => $attorneyPerson->full_name,
+                'role' => 'Counsel',
+                'represented_party' => $clientParty->person?->full_name,
+                'effective_at' => $counselParty->effective_at?->toIso8601String(),
+            ]);
+
+            if ($case->status === 'active') {
+                app(\App\Services\NotificationService::class)
+                    ->notifyCounselParticipationChanged($attorneyPerson, $case, true);
+            }
+        }
 
         ServiceList::firstOrCreate([
             'case_id' => $case->id,
@@ -70,18 +95,37 @@ class AttorneyController extends Controller
     {
         $relationship = CaseParty::where('role', 'counsel')->findOrFail($relationship);
         $case = $relationship->case;
+
+        if (!$case || !auth()->user()->canManageCaseParties($case)) {
+            abort(403);
+        }
+
         $clientParty = $relationship->clientParty;
         $counselPersonId = $relationship->person_id;
 
-        $relationship->delete();
+        DB::transaction(function () use ($relationship, $case, $clientParty, $counselPersonId) {
+            $relationship->terminateParticipation((int) auth()->id());
 
-        if ($case && !$case->parties()->where('person_id', $counselPersonId)->exists()) {
-            ServiceList::where('case_id', $case->id)
-                ->where('person_id', $counselPersonId)
-                ->delete();
-        }
+            AuditLog::log('remove_case_participant', auth()->user(), $case, [
+                'participant' => $relationship->person?->full_name,
+                'role' => 'Counsel',
+                'represented_party' => $clientParty?->person?->full_name,
+                'terminated_at' => $relationship->terminated_at?->toIso8601String(),
+            ]);
 
-        $clientParty?->restoreServiceListIfUnrepresented();
+            if ($case->status === 'active' && $relationship->person) {
+                app(\App\Services\NotificationService::class)
+                    ->notifyCounselParticipationChanged($relationship->person, $case, false);
+            }
+
+            if (!$case->parties()->where('person_id', $counselPersonId)->exists()) {
+                ServiceList::where('case_id', $case->id)
+                    ->where('person_id', $counselPersonId)
+                    ->delete();
+            }
+
+            $clientParty?->restoreServiceListIfUnrepresented();
+        });
 
         return redirect()->back()->with('success', 'Client representation terminated.');
     }
@@ -212,7 +256,7 @@ class AttorneyController extends Controller
             abort(403);
         }
 
-        if ($attorney->caseParties()->exists()) {
+        if ($attorney->caseParties()->withTrashed()->exists()) {
             return back()->with('error', 'Counsel records that are attached to cases cannot be deleted.');
         }
 

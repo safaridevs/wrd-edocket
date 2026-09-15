@@ -61,6 +61,12 @@
                     <x-input-error class="mt-2" :messages="$errors->get('phone_office')" />
                 </div>
 
+                <div>
+                    <x-input-label for="legal_initials" :value="__('Initials')" />
+                    <x-text-input id="legal_initials" name="initials" type="text" class="mt-1 block w-full" :value="old('initials', $user->initials)" maxlength="10" autocomplete="off" />
+                    <x-input-error class="mt-2" :messages="$errors->get('initials')" />
+                </div>
+
                 <div class="md:col-span-2">
                     <x-input-label for="legal_address_line1" :value="__('Address Line 1')" />
                     <x-text-input id="legal_address_line1" name="address_line1" type="text" class="mt-1 block w-full" :value="old('address_line1', $person->address_line1)" autocomplete="address-line1" />
@@ -95,7 +101,7 @@
             </div>
 
             <div class="flex items-center gap-4">
-                <x-primary-button>{{ __('Save Legal Service Profile') }}</x-primary-button>
+                <x-primary-button>{{ __('Save Contact Information') }}</x-primary-button>
 
                 @if (session('status') === 'legal-service-profile-updated')
                     <div
@@ -105,7 +111,7 @@
                         x-init="setTimeout(() => show = false, 3000)"
                         class="flex items-center px-3 py-2 bg-green-100 border border-green-200 text-green-700 rounded-md text-sm"
                     >
-                        {{ __('Legal service profile updated and audited.') }}
+                        {{ __('Contact information updated successfully.') }}
                     </div>
                 @endif
             </div>

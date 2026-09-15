@@ -20,7 +20,7 @@ class ServiceListResolver
         $case->loadMissing([
             'parties.person',
             'serviceList.person',
-            'assignments.user',
+            'assignments.user.serviceProfile',
         ]);
 
         $recipients = collect();
@@ -43,12 +43,18 @@ class ServiceListResolver
                 ->pluck('role')
                 ->filter()
                 ->unique()
-                ->map(fn ($role) => ucfirst(str_replace('_', ' ', $role)))
+                ->map(fn ($role) => ucwords(str_replace('_', ' ', $role)))
                 ->implode(', ');
+
+            $phone = collect([$person?->phone_mobile, $person?->phone_office])
+                ->filter(fn ($number) => filled($number))
+                ->unique()
+                ->implode(' / ');
 
             $recipients->push([
                 'name' => $person?->full_name ?? '',
                 'organization' => $person?->organization ?? '',
+                'phone' => $phone,
                 'address_line1' => $person?->address_line1 ?? '',
                 'address_line2' => $person?->address_line2 ?? '',
                 'city' => $person?->city ?? '',
@@ -73,6 +79,7 @@ class ServiceListResolver
             }
 
             $user = $assignment->user;
+            $person = $user?->serviceProfile;
             $email = $this->normalizeEmail($user?->email);
 
             if ($email === '' || isset($usedEmails[$email])) {
@@ -88,12 +95,16 @@ class ServiceListResolver
             }
             $recipients->push([
                 'name' => $user?->getDisplayName() ?? '',
-                'organization' => '',
-                'address_line1' => '',
-                'address_line2' => '',
-                'city' => '',
-                'state' => '',
-                'zip' => '',
+                'organization' => $person?->organization ?? '',
+                'phone' => collect([$person?->phone_mobile, $person?->phone_office, $user?->phone])
+                    ->filter(fn ($number) => filled($number))
+                    ->unique()
+                    ->implode(' / '),
+                'address_line1' => $person?->address_line1 ?? '',
+                'address_line2' => $person?->address_line2 ?? '',
+                'city' => $person?->city ?? '',
+                'state' => $person?->state ?? '',
+                'zip' => $person?->zip ?? '',
                 'email' => $email,
                 'role' => $label,
                 'service_method' => 'email',

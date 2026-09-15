@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Login - OSE E-Docket System</title>
+    <title>Login - OSE E-Docket</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -14,7 +14,7 @@
             <div class="absolute inset-0 bg-black opacity-20"></div>
             <div class="relative z-10 flex flex-col justify-center px-12 text-white">
                 <div class="mb-8">
-                    <h1 class="text-4xl font-bold mb-4">OSE E-Docket System</h1>
+                    <h1 class="text-4xl font-bold mb-4">OSE E-Docket</h1>
                     <p class="text-xl text-blue-100 mb-6">New Mexico Office of the State Engineer</p>
                     <p class="text-lg text-blue-200 leading-relaxed">
                         Access your water rights hearing cases, upload documents, and track proceedings through our secure electronic docket system.

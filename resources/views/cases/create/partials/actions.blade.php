@@ -15,9 +15,9 @@
         <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
         <span data-button-label>Save Draft</span>
     </button>
-    <button type="button" data-submit-action="submit" data-loading-text="Submitting to HU..." class="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
+    <button type="button" data-submit-action="submit" data-loading-text="Submitting to Hearing Unit..." class="inline-flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">
         <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-        <span data-button-label>Submit to HU</span>
+        <span data-button-label>Submit to Hearing Unit</span>
     </button>
     <a href="{{ route('cases.index') }}" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md transition-colors">
         Cancel

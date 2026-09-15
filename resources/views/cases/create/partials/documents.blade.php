@@ -13,14 +13,29 @@
         </div>
     </div>
 
+    @if($pleadingDocs->count() > 0)
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h4 class="text-lg font-semibold text-slate-950">Initial Pleading / Commencement of Action</h4>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Request for Pre-Hearing Scheduling Conference or Request to Docket.</p>
+            </div>
+            <button type="button" onclick="showCreateDocumentModal('pleading')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                File Document
+            </button>
+        </div>
+        <div id="pleading-documents-list" class="mt-5"></div>
+    </div>
+    @endif
+
     <div id="application-section" class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <h4 class="text-lg font-semibold text-slate-950">Application Document</h4>
+                <h4 class="text-lg font-semibold text-slate-950">Application</h4>
                 <p class="mt-2 text-sm leading-6 text-slate-600">Add the application package for aggrieved or protested cases.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('application')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                File Document
+                Upload
             </button>
         </div>
         <div id="application-documents-list" class="mt-5"></div>
@@ -33,26 +48,11 @@
                 <p class="mt-2 text-sm leading-6 text-slate-600">Choose the compliance filing type, then stage the file package for this case.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('compliance')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                File Document
+                Upload
             </button>
         </div>
         <div id="compliance-documents-list" class="mt-5"></div>
     </div>
-
-    @if($pleadingDocs->count() > 0)
-    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-                <h4 class="text-lg font-semibold text-slate-950">Pleading Document</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Select the pleading type and stage the pleading files through the filing modal.</p>
-            </div>
-            <button type="button" onclick="showCreateDocumentModal('pleading')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
-                File Document
-            </button>
-        </div>
-        <div id="pleading-documents-list" class="mt-5"></div>
-    </div>
-    @endif
 
     @if($optionalDocs->count() > 0)
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -62,7 +62,7 @@
                 <p class="mt-2 text-sm leading-6 text-slate-600">Add as many supporting filings as this intake requires. Each supporting package keeps its own document type and files.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('optional')" class="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
-                Add Supporting Document
+                Upload Supporting Document
             </button>
         </div>
         <div id="optional-documents-list" class="mt-5 space-y-3"></div>
@@ -77,7 +77,7 @@
                 <div class="p-6">
                     <div class="flex items-start justify-between gap-4">
                         <div>
-                            <h3 class="text-lg font-medium text-gray-900">File Document</h3>
+                            <h3 id="createDocumentModalTitle" class="text-lg font-medium text-gray-900">Upload Document</h3>
                             <p id="createDocumentModalSummary" class="mt-2 text-sm text-gray-600">Choose the filing type and upload the files for this case intake step.</p>
                         </div>
                         <button type="button" onclick="hideCreateDocumentModal()" class="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600" aria-label="Close document modal">
@@ -123,7 +123,7 @@
 
                     <div class="mt-6 flex justify-end space-x-3">
                         <button type="button" onclick="hideCreateDocumentModal()" class="rounded-md bg-gray-300 px-4 py-2 text-gray-700 transition hover:bg-gray-400">Cancel</button>
-                        <button type="button" onclick="stageCreateDocument()" class="rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700">File Document</button>
+                        <button id="createDocumentModalSubmitLabel" type="button" onclick="stageCreateDocument()" class="rounded-md bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700">Upload</button>
                     </div>
                 </div>
             </div>

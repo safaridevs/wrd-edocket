@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'OSE E-Docket') }} - Public Records Search</title>
+    <title>OSE E-Docket - Public Records Search</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -24,7 +24,7 @@
                     <div class="flex items-center space-x-3">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         <div>
-                            <h1 class="text-xl font-bold text-gray-900">New Mexico OSE</h1>
+                            <h1 class="text-xl font-bold text-gray-900">OSE E-Docket</h1>
                             <p class="text-sm text-blue-600 font-medium">Public Records Search</p>
                         </div>
                     </div>
@@ -55,7 +55,7 @@
                 <div>
                     <div class="flex items-center space-x-3 mb-4">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-8 w-auto opacity-90">
-                        <h3 class="text-lg font-bold">New Mexico OSE</h3>
+                        <h3 class="text-lg font-bold">OSE E-Docket</h3>
                     </div>
                     <p class="text-blue-100 text-sm leading-relaxed">
                         Protecting, conserving, and managing New Mexico's water resources for current and future generations.

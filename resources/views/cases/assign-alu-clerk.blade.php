@@ -9,7 +9,7 @@
                 <div class="mb-6">
                     <h3 class="text-lg font-medium">Case Information</h3>
                     <p class="text-sm text-gray-600 mt-1">{{ $case->caption }}</p>
-                    <p class="text-sm text-gray-500">Status: {{ ucfirst(str_replace('_', ' ', $case->status)) }}</p>
+                    <p class="text-sm text-gray-500">Status: {{ $case->workflow_status_label }}</p>
                 </div>
 
                 <form action="{{ route('cases.assign-alu-clerk.store', $case) }}" method="POST">

@@ -4,19 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CaseParty extends Model
 {
+    use SoftDeletes;
+
     public const CAPACITY_PRIVATE_COUNSEL = 'private_counsel';
     public const REPRESENTATIVE_ROLES = ['counsel', 'paralegal', 'agent'];
 
     protected $fillable = [
-        'case_id', 'person_id', 'role', 'service_enabled', 'client_party_id', 'representation_capacity'
+        'case_id', 'person_id', 'role', 'service_enabled', 'client_party_id', 'representation_capacity',
+        'effective_at', 'terminated_at', 'terminated_by_user_id',
     ];
 
     protected $casts = [
-        'service_enabled' => 'boolean'
+        'service_enabled' => 'boolean',
+        'effective_at' => 'datetime',
+        'terminated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (CaseParty $party) {
+            $party->effective_at ??= now();
+        });
+    }
 
     public function case(): BelongsTo
     {
@@ -26,6 +40,35 @@ class CaseParty extends Model
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
+    }
+
+    public function terminatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'terminated_by_user_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull($this->getQualifiedDeletedAtColumn());
+    }
+
+    public function scopeHistorical($query)
+    {
+        return $query->withTrashed()->whereNotNull($this->getQualifiedDeletedAtColumn());
+    }
+
+    public function terminateParticipation(?int $userId = null): void
+    {
+        if ($this->trashed()) {
+            return;
+        }
+
+        $this->forceFill([
+            'terminated_at' => now(),
+            'terminated_by_user_id' => $userId,
+        ])->save();
+
+        $this->delete();
     }
 
     public function client(): BelongsTo

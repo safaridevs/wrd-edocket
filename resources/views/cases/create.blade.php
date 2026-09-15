@@ -12,7 +12,7 @@
                     <div class="rounded-3xl border border-slate-200 bg-[linear-gradient(140deg,#0f172a_0%,#1d4ed8_52%,#dbeafe_100%)] p-6 text-white shadow-sm">
                         <p class="text-xs font-semibold uppercase tracking-[0.24em] text-blue-100">Case Intake</p>
                         <h3 class="mt-3 text-2xl font-semibold leading-tight">Build the case in clear stages.</h3>
-                        <p class="mt-3 text-sm leading-6 text-blue-50/90">Move from basics to parties, then documents, and finish with a full review before anything is sent to the Hearing Unit.</p>
+                        <p class="mt-3 text-sm leading-6 text-blue-50/90">Begin by providing the basic characteristics of the case, identify the parties and counsel, and upload all documents to be attached to the initial pleading (i.e. Request for Pre-Hearing Scheduling Conference, Request to Docket).</p>
                     </div>
 
                     <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -31,22 +31,22 @@
                             <button type="button" data-step-target="0" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 1</span>
                                 <span class="mt-1 block text-sm font-semibold text-slate-900">Case Basics</span>
-                                <span class="mt-1 block text-xs text-slate-500">Type, caption, office, and assignments.</span>
+                                <span class="mt-1 block text-xs text-slate-500">Identify the case type, and ALU Attorneys and Paralegals assigned to the matter.</span>
                             </button>
                             <button type="button" data-step-target="1" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 2</span>
                                 <span class="mt-1 block text-sm font-semibold text-slate-900">Parties & Counsel</span>
-                                <span class="mt-1 block text-xs text-slate-500">Add participants, service, and representation.</span>
+                                <span class="mt-1 block text-xs text-slate-500">Identify interested parties (i.e. Applicant, Protestant, etc.) and provide their contact information for service of process.</span>
                             </button>
                             <button type="button" data-step-target="2" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 3</span>
                                 <span class="mt-1 block text-sm font-semibold text-slate-900">Case Numbers</span>
-                                <span class="mt-1 block text-xs text-slate-500">Capture OSE file numbers and ranges.</span>
+                                <span class="mt-1 block text-xs text-slate-500">Identify the OSE File Numbers related to the matter (if available).</span>
                             </button>
                             <button type="button" data-step-target="3" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 4</span>
                                 <span class="mt-1 block text-sm font-semibold text-slate-900">Documents</span>
-                                <span class="mt-1 block text-xs text-slate-500">Upload required and supporting filings.</span>
+                                <span class="mt-1 block text-xs text-slate-500">Upload all related documents (i.e. Initial pleading, Application, letters of protest, notice of publication, denial letter, letter of aggrieval, etc.)</span>
                             </button>
                             <button type="button" data-step-target="4" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 5</span>
@@ -82,13 +82,12 @@
                                 </div>
                                 <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                                     <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Why This Matters</h4>
-                                    <p class="mt-3 text-sm leading-6 text-slate-600">These choices drive allowed party roles, required documents, and the review path used later in intake.</p>
+                                    <p class="mt-3 text-sm leading-6 text-slate-600">The information that you provide here will define the nature of the case, identify those who are formally recognized as parties to the matter or are party representative (Counsel). All parties identified herein will receive all notifications in this matter.</p>
                                     <div class="mt-6 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
                                         <p class="text-sm font-semibold text-slate-900">Case Setup Tips</p>
                                         <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
                                             <li>Choose the case type first so the rest of the form can adjust correctly.</li>
-                                            <li>Use the caption exactly as it should appear in notices and filings.</li>
-                                            <li>Set assignments here if your role requires intake routing.</li>
+                                            <li>the caption be exactly as it appears on the initial pleading.</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -96,7 +95,7 @@
 
                             <div class="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                                 <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Assignments</h4>
-                                <p class="mt-2 text-sm leading-6 text-slate-600">If your role can route work now, assign the ALU team before the case moves forward.</p>
+                                <p class="mt-2 text-sm leading-6 text-slate-600">Select the ALU Attorneys, Managers, and Paralegals that should receive all notifications for this case.</p>
                                 <div class="mt-5">
                                     @include('cases.create.partials.assignments')
                                 </div>
@@ -132,8 +131,7 @@
                                     <h4 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Numbering Notes</h4>
                                     <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-600">
                                         <li>Use separate entries when file numbers are unrelated.</li>
-                                        <li>Use ranges only when the matter truly spans sequential records.</li>
-                                        <li>Accurate case numbers improve search, docketing, and notices later.</li>
+                                        <li>Accurately identify the basin, river or water course and OSE File Numbers. The information added here will improve search functionality</li>
                                     </ul>
                                 </div>
                             </div>
@@ -183,7 +181,7 @@
 
                                 <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
                                     <p class="text-sm font-semibold text-emerald-900">Final Confirmation</p>
-                                    <p class="mt-2 text-sm leading-6 text-emerald-800">Use <span class="font-semibold">Save Draft</span> if the intake should remain editable, or <span class="font-semibold">Submit to HU</span> once everything is ready for Hearing Unit review.</p>
+                                    <p class="mt-2 text-sm leading-6 text-emerald-800">Use <span class="font-semibold">Save Draft</span> if the intake should remain editable, or <span class="font-semibold">Submit to Hearing Unit</span> once everything is ready for Hearing Unit review.</p>
                                 </div>
 
                                 @include('cases.create.partials.actions')

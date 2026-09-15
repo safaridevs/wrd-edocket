@@ -109,10 +109,10 @@ class CaseModel extends Model
                 'phone' => '(505) 469-9662',
             ],
             'santa_fe' => [
-                'address' => '407 Galisteo St STE 102',
+                'address' => '2905 Rodeo Park Drive East, Building 5',
                 'city' => 'Santa Fe',
                 'state' => 'NM',
-                'zip' => '87501',
+                'zip' => '87505',
                 'phone' => '(505) 827-6120',
             ],
             default => [],
@@ -286,7 +286,10 @@ class CaseModel extends Model
 
     public function getWorkflowStatusLabelAttribute(): string
     {
-        return ucwords(str_replace('_', ' ', $this->status));
+        return match ($this->status) {
+            'submitted_to_hu' => 'Submitted to Hearing Unit',
+            default => ucwords(str_replace('_', ' ', $this->status)),
+        };
     }
 
     public function getVisibleStatusLabelAttribute(): string

@@ -100,7 +100,7 @@
                                 <button type="button"
                                         onclick="showHuStatusModal()"
                                         class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                                        title="Update HU display status">
+                                        title="Update Hearing Unit display status">
                                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                     </svg>
@@ -132,7 +132,7 @@
                         </div>
                     </div>
                     <div>
-                        <strong>Adjudication Litigation Unit Office:</strong>
+                        <strong>Administrative Litigation Unit:</strong>
                         <div class="text-sm mt-1">
                             @if($case->wrd_office_label)
                                 <div>{{ $case->wrd_office_label }}</div>
@@ -181,7 +181,7 @@
                             @endif
                         </div>
 
-                        @if(auth()->user()->canAssignAttorneys() || auth()->user()->isHearingUnit())
+                        @if(auth()->user()->canViewExpertAssignments())
                         <strong class="mt-3 block">Assigned WRD Experts:</strong>
                         <div class="text-sm mt-1">
                             @if($case->wrds->count() > 0)
@@ -224,7 +224,7 @@
                 <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
                     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
-                            <h4 class="font-medium text-red-800 mb-1">Case Rejected by HU</h4>
+                            <h4 class="font-medium text-red-800 mb-1">Case Rejected by Hearing Unit</h4>
                             <p class="text-sm text-red-700">{{ $openRejection->reason_summary }}</p>
                             <p class="text-xs text-red-600 mt-2">
                                 Rejected {{ $openRejection->rejected_at?->format('M j, Y g:i A') }}
@@ -265,7 +265,7 @@
                 </div>
                 @elseif($case->status === 'rejected' && isset($case->metadata['rejection_reason']))
                 <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-                    <h4 class="font-medium text-red-800 mb-2">❌ Case Rejected by HU</h4>
+                    <h4 class="font-medium text-red-800 mb-2">❌ Case Rejected by Hearing Unit</h4>
                     <p class="text-sm text-red-700">{{ $case->metadata['rejection_reason'] }}</p>
                     <p class="text-xs text-red-600 mt-2">Please make the necessary corrections and resubmit.</p>
                 </div>
@@ -278,7 +278,7 @@
                     </a>
                     @if($case->status === 'draft' && auth()->user()->canSubmitToHU())
                     <button onclick="showSubmitModal()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm transition-colors">
-                        Submit to HU
+                        Submit to Hearing Unit
                     </button>
                     @endif
                 </div>
@@ -342,7 +342,7 @@
                                 <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                     <div>
                                         <div class="text-sm font-semibold {{ $latestDocCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
-                                            {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                            {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by Hearing Unit' : 'Document Correction Requested' }}
                                         </div>
                                         <div class="text-sm mt-1 {{ $latestDocCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">{{ $latestDocCorrection->summary }}</div>
                                         <div class="text-xs mt-1 text-gray-600">
@@ -356,7 +356,7 @@
                                         </div>
                                     </div>
                                     <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestDocCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
-                                        {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                        {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending Hearing Unit Review' }}
                                     </span>
                                 </div>
                                 <div class="mt-3 space-y-2">
@@ -400,7 +400,7 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h4 class="font-medium mb-2">Case Parties</h4>
+                        <h4 class="font-medium mb-2">Parties</h4>
                         @php
                             $sortedParties = $case->parties
                                 ->reject(fn($party) => $party->isWrdAgencyParty())
@@ -687,7 +687,7 @@
             <!-- HU Validation Checklist -->
             @if($case->status === 'submitted_to_hu' && auth()->user()->isHearingUnit())
             <div class="bg-white shadow rounded-lg p-6">
-                <h3 class="text-lg font-medium mb-4">HU Validation Checklist</h3>
+                <h3 class="text-lg font-medium mb-4">Hearing Unit Validation Checklist</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     @php
                         $hasApplication = $case->documents->where('doc_type', 'application')->count() > 0;
@@ -733,8 +733,8 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
-                        @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
-                        <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">{{ auth()->user()->canUploadDocumentsToCase($case) ? 'Manage Documents' : 'View Documents' }}</a>
+                        @if(auth()->user()->isHearingUnit())
+                        <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">Manage Documents</a>
                         @endif
                         @if(!in_array($case->status, ['closed', 'archived']))
                             @if(auth()->user()->canUploadDocumentsToCase($case))
@@ -789,7 +789,7 @@
                     </select>
                     <select id="statusFilter" class="border-gray-300 rounded-md text-sm">
                         <option value="">All Status</option>
-                        <option value="needs-stamp">Needs HU Stamp</option>
+                        <option value="needs-stamp">Needs Hearing Unit Stamp</option>
                         <option value="pending">Pending</option>
                         <option value="accepted">Accepted</option>
                         <option value="stamped">E-Stamped</option>
@@ -836,16 +836,16 @@
                                 <div class="font-medium">{{ $doc->original_filename }}</div>
                                 <div class="flex space-x-2">
                                     @if($doc->stamped)
-                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="Stamped on {{ $doc->stamped_at?->format('M j, Y g:i A') }}">
-                                            📋 {{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}
+                                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded" title="{{ $isPendingHuIssue ? 'Issuance preview generated' : ($isHuIssued ? 'Issued' : 'Filed') }} {{ ($isHuIssued ? $doc->approved_at : ($isPendingHuIssue ? $doc->stamped_at : $doc->uploaded_at))?->format('M j, Y g:i A') }}">
+                                            📋 {{ $isPendingHuIssue ? 'Issuance Preview' : ($isHuIssued ? 'Electronically Issued' : 'Electronically Filed') }}
                                         </span>
                                     @endif
                                     @if($isPendingHuUpload)
-                                        <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs HU Stamp</span>
+                                        <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs Hearing Unit Stamp</span>
                                     @elseif($isPendingHuIssue)
-                                        <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending HU Issue</span>
+                                        <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending Hearing Unit Issuance</span>
                                     @elseif($isHuIssued)
-                                        <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
+                                        <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by Hearing Unit</span>
                                     @elseif($doc->approved)
                                         <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                     @endif
@@ -857,13 +857,15 @@
                             <div class="text-sm text-gray-600 mt-1">
                                 {{ $doc->doc_type_label }}
                                 @if($doc->pleading_type)
-                                    • {{ ucfirst(str_replace('_', ' ', $doc->pleading_type)) }}
+                                    • {{ $doc->pleading_type_label }}
                                 @endif
                                 • {{ number_format($doc->size_bytes / 1024, 1) }} KB •
                                 {{ $doc->uploaded_at->format('M j, Y g:i A') }}
-                                @if($doc->stamped && $doc->stamped_at)
-                                    <br><span class="text-blue-600">{{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}: {{ $doc->stamped_at->format('M j, Y g:i A') }}</span>
-                                @endif
+                                    @if($isHuIssued && $doc->approved_at)
+                                    <br><span class="text-blue-600">Electronically Issued: {{ $doc->approved_at->format('M j, Y g:i A') }}</span>
+                                    @elseif($doc->stamped && !$doc->uploader?->isHearingUnit() && $doc->uploaded_at)
+                                    <br><span class="text-blue-600">Electronically Filed: {{ $doc->uploaded_at->format('M j, Y g:i A') }}</span>
+                                    @endif
                             </div>
                         </div>
                         <div class="flex space-x-2">
@@ -912,7 +914,7 @@
                             <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                 <div>
                                     <div class="text-sm font-semibold {{ $latestDocCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
-                                        {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                        {{ $latestDocCorrection->correction_type === 'rejected' ? 'Document Rejected by Hearing Unit' : 'Document Correction Requested' }}
                                     </div>
                                     <div class="mt-1 text-sm {{ $latestDocCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">
                                         {{ $latestDocCorrection->summary }}
@@ -928,7 +930,7 @@
                                     </div>
                                 </div>
                                 <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestDocCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
-                                    {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                    {{ $latestDocCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending Hearing Unit Review' }}
                                 </span>
                             </div>
 
@@ -987,6 +989,18 @@
                                 <strong>{{ $log->user->getDisplayName() }}</strong>
                                 @if($log->action === 'update_document_title')
                                     updated document title
+                                @elseif($log->action === 'add_case_participant')
+                                    added {{ $log->meta_json['participant'] ?? 'a participant' }}
+                                    as {{ $log->meta_json['role'] ?? 'a case participant' }}
+                                    @if(!empty($log->meta_json['represented_party']))
+                                        for {{ $log->meta_json['represented_party'] }}
+                                    @endif
+                                @elseif($log->action === 'remove_case_participant')
+                                    removed {{ $log->meta_json['participant'] ?? 'a participant' }}
+                                    as {{ $log->meta_json['role'] ?? 'a case participant' }}
+                                    @if(!empty($log->meta_json['represented_party']))
+                                        for {{ $log->meta_json['represented_party'] }}
+                                    @endif
                                 @else
                                     {{ str_replace('_', ' ', $log->action) }}
                                 @endif
@@ -998,7 +1012,7 @@
                                         <div class="whitespace-normal">Original: {{ $log->meta_json['old_title'] ?? 'N/A' }}</div>
                                         <div class="whitespace-normal">Current: {{ $log->meta_json['new_title'] ?? 'N/A' }}</div>
                                     </div>
-                                @else
+                                @elseif(!in_array($log->action, ['add_case_participant', 'remove_case_participant'], true))
                                     <div class="text-xs text-gray-600 mt-1 whitespace-pre-wrap break-all">{{ json_encode($log->meta_json) }}</div>
                                 @endif
                             @endif
@@ -1032,7 +1046,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Corrected File *</label>
                                 <input type="file" name="document" id="caseCorrectedDocumentFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="block w-full border-gray-300 rounded-md">
-                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for HU review.</p>
+                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for Hearing Unit review.</p>
                             </div>
                         </div>
                         <div class="flex justify-end space-x-3 mt-6">
@@ -1539,7 +1553,7 @@
                         >?</span>
                     </h3>
                     <p class="text-sm text-gray-700 mb-6">
-                        Choose Yes to notify the service list immediately. Choose No to continue with normal HU review only.
+                        Choose Yes to notify the service list immediately. Choose No to continue with normal Hearing Unit review only.
                     </p>
                     <div class="flex justify-end gap-3">
                         <button type="button" data-time-sensitive="1" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Yes</button>
@@ -1818,7 +1832,7 @@
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg shadow-lg max-w-lg w-full">
                 <div class="p-6">
-                    <h3 class="text-lg font-medium mb-4">Update HU Display Status</h3>
+                    <h3 class="text-lg font-medium mb-4">Update Hearing Unit Display Status</h3>
                     <form method="POST" action="{{ route('cases.hu-display-status.update', $case) }}" class="space-y-4">
                         @csrf
                         <div>
@@ -1832,7 +1846,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Hover Description</label>
-                            <textarea name="hu_display_status_note" rows="3" maxlength="1000" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Optional description shown when users hover over the HU display status.">{{ old('hu_display_status_note', $case->hu_display_status_note) }}</textarea>
+                            <textarea name="hu_display_status_note" rows="3" maxlength="1000" class="block w-full border-gray-300 rounded-md text-sm" placeholder="Optional description shown when users hover over the Hearing Unit display status.">{{ old('hu_display_status_note', $case->hu_display_status_note) }}</textarea>
                         </div>
                         @if($case->hu_display_status_updated_at)
                             <p class="text-xs text-gray-500">
@@ -1976,9 +1990,9 @@
 
                         <div class="flex justify-end space-x-3">
                             <button type="button" onclick="hideSubmitModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
-                            <button type="submit" data-loading-text="Submitting to HU..." class="inline-flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+                            <button type="submit" data-loading-text="Submitting to Hearing Unit..." class="inline-flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
                                 <span data-loading-spinner class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                                <span data-button-label>Submit to HU</span>
+                                <span data-button-label>Submit to Hearing Unit</span>
                             </button>
                         </div>
                     </form>

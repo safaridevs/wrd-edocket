@@ -63,7 +63,7 @@ class CaseInitiationController extends Controller
                 $this->documentService->uploadDocument($case, $file, 'evidence', Auth::user());
             }
 
-            return redirect()->route('cases.show', $case)->with('success', 'Case initiated and transmitted to HU.');
+            return redirect()->route('cases.show', $case)->with('success', 'Case initiated and transmitted to the Hearing Unit.');
         });
     }
 }

@@ -165,11 +165,11 @@
                                             @endphp
 
                                             @if($isPendingHuUpload)
-                                                <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs HU Stamp</span>
+                                                <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Needs Hearing Unit Stamp</span>
                                             @elseif($isPendingHuIssue)
-                                                <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending HU Issue</span>
+                                                <span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded">Pending Hearing Unit Issuance</span>
                                             @elseif($isHuIssued)
-                                                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by HU</span>
+                                                <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded">Issued by Hearing Unit</span>
                                             @elseif($document->approved)
                                                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Accepted</span>
                                             @elseif($document->rejected_reason)
@@ -180,7 +180,7 @@
 
                                             @if($document->stamped)
                                                 <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
-                                                    📋 {{ ($isPendingHuIssue || $isHuIssued) ? 'Electronically Issued' : 'Electronically Filed' }}
+                                                    📋 {{ $isPendingHuIssue ? 'Issuance Preview' : ($isHuIssued ? 'Electronically Issued' : 'Electronically Filed') }}
                                                 </span>
                                             @endif
 
@@ -223,7 +223,7 @@
 
                                         @if($document->pleading_type && $document->pleading_type !== 'none')
                                             <div class="text-blue-600">
-                                                <strong>Pleading Type:</strong> {{ ucfirst(str_replace('_', ' ', $document->pleading_type)) }}
+                                                <strong>Pleading Type:</strong> {{ $document->pleading_type_label }}
                                             </div>
                                         @endif
 
@@ -238,7 +238,7 @@
                                                 <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                                                     <div>
                                                         <div class="text-sm font-semibold {{ $latestCorrection->status === 'open' ? 'text-red-800' : 'text-blue-800' }}">
-                                                            {{ $latestCorrection->correction_type === 'rejected' ? 'Document Rejected by HU' : 'Document Correction Requested' }}
+                                                            {{ $latestCorrection->correction_type === 'rejected' ? 'Document Rejected by Hearing Unit' : 'Document Correction Requested' }}
                                                         </div>
                                                         <div class="text-sm mt-1 {{ $latestCorrection->status === 'open' ? 'text-red-700' : 'text-blue-700' }}">{{ $latestCorrection->summary }}</div>
                                                         <div class="text-xs mt-1 text-gray-600">
@@ -252,7 +252,7 @@
                                                         </div>
                                                     </div>
                                                     <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $latestCorrection->status === 'open' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }}">
-                                                        {{ $latestCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending HU Review' }}
+                                                        {{ $latestCorrection->status === 'open' ? 'Awaiting Corrected Filing' : 'Pending Hearing Unit Review' }}
                                                     </span>
                                                 </div>
                                                 <div class="mt-3 space-y-2">
@@ -297,7 +297,7 @@
                                             </div>
                                         @endif
 
-                                        @if($isPendingHuUpload)
+                                        @if($isPendingHuUpload && auth()->user()->isHearingUnit())
                                             <div class="mt-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
                                                 <div class="text-sm font-semibold text-orange-900">Electronic stamp still needed</div>
                                                 <p class="mt-1 text-sm text-orange-800">The PDF was saved, but the automatic stamp did not complete. No service-list notification has been sent.</p>
@@ -322,9 +322,9 @@
                                                 </form>
                                                 <p class="mt-2 text-xs text-orange-700">If Retry Stamp fails again, re-save or print the source document to a new PDF and upload it here.</p>
                                             </div>
-                                        @elseif($isPendingHuIssue)
+                                        @elseif($isPendingHuIssue && auth()->user()->isHearingUnit())
                                             <div class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                                                <div class="text-sm font-semibold text-amber-900">Stamped preview ready for HU review</div>
+                                                <div class="text-sm font-semibold text-amber-900">Stamped preview ready for Hearing Unit review</div>
                                                 <p class="mt-1 text-sm text-amber-800">Open the stamped PDF preview. Service-list notifications will not be sent until you click Issue & Notify.</p>
                                                 <p class="mt-1 text-xs {{ $resolvedServiceList->where('email', '!=', '')->isEmpty() ? 'font-medium text-red-700' : 'text-amber-700' }}">
                                                     {{ $resolvedServiceList->where('email', '!=', '')->count() }} service-list {{ $resolvedServiceList->where('email', '!=', '')->count() === 1 ? 'recipient' : 'recipients' }} currently have an email address.
@@ -474,6 +474,7 @@
         </div>
     </div>
 
+    @if(auth()->user()->isHearingUnit())
     <!-- Issue & Notify Confirmation Modal -->
     <div id="issueNotifyModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -496,6 +497,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <!-- Document Correction Modal -->
     <div id="documentCorrectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
@@ -549,7 +551,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Corrected File *</label>
                                 <input type="file" name="document" id="correctedDocumentFile" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" class="block w-full border-gray-300 rounded-md">
-                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for HU review.</p>
+                                <p class="text-xs text-gray-500 mt-1">Upload the corrected replacement filing for Hearing Unit review.</p>
                             </div>
                         </div>
                         <div class="flex justify-end space-x-3 mt-6">
@@ -1153,7 +1155,7 @@
                         >?</span>
                     </h3>
                     <p class="text-sm text-gray-700 mb-6">
-                        Choose Yes to notify the service list immediately. Choose No to continue with normal HU review only.
+                        Choose Yes to notify the service list immediately. Choose No to continue with normal Hearing Unit review only.
                     </p>
                     <div class="flex justify-end gap-3">
                         <button type="button" data-time-sensitive="1" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Yes</button>
