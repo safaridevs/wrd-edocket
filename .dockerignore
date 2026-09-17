@@ -23,6 +23,7 @@ storage/framework/testing/*
 bootstrap/cache/*.php
 
 # Local development harness and deploy-time files (never needed inside the image).
+Jenkinsfile
 docker-compose.yml
 docker-compose.override.yml
 docker/php

@@ -290,7 +290,7 @@ as healthy, then run the `CREATE DATABASE` snippet above.
 ## Deploying to QAT and UAT
 
 QAT and UAT run as a Docker container built from the root `Dockerfile` by the
-`ose_edocket` Jenkins job (`Jenkins_Pipelines/ose_edocket.groovy`). Per-
+`edocket` Jenkins job, from the `Jenkinsfile` in this repository. Per-
 environment config lives in `deploy/`; secrets are Jenkins credentials
 rendered into that config at build time, never committed. See
 [deploy/README.md](deploy/README.md) for the host prerequisites and the deploy

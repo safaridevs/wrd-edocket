@@ -1,4 +1,4 @@
-# E-Docket QAT stack. Copied by ose_edocket.groovy to
+# E-Docket QAT stack. Copied by the Jenkinsfile to
 # /opt/apps/edocket/qat/docker-compose.yaml on the QAT host and started with
 #   IMAGE_TAG=<tag> docker compose --env-file .env_docker_compose --file docker-compose.yaml up -d
 # Relative paths resolve against that directory.

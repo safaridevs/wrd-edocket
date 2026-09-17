@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run on the deploy host by ose_edocket.groovy:
+# Run on the deploy host by the Jenkinsfile:
 #   ssh jenkins@<host> bash -s "<remote path>" "<image tag>" < deploy/remote/migrate.sh
 # Migrates the target database with the NEW image before it starts serving.
 #

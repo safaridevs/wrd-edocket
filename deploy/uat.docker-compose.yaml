@@ -1,4 +1,4 @@
-# E-Docket UAT stack. Copied by ose_edocket.groovy to
+# E-Docket UAT stack. Copied by the Jenkinsfile to
 # /opt/apps/edocket/uat/docker-compose.yaml on the UAT host and started with
 #   IMAGE_TAG=<tag> docker compose --env-file .env_docker_compose --file docker-compose.yaml up -d
 # Relative paths resolve against that directory.

@@ -3,7 +3,7 @@
 E-Docket secrets live in Jenkins credentials, never in git and never behind the
 `coderepo:8088` key service. The committed `deploy/.env_<ENV>` file is both the
 versioned config and the template: each secret value is a `'${VAR}'` placeholder
-that the `Resolve .env` stage of `Jenkins_Pipelines/ose_edocket.groovy` renders
+that the `Resolve .env` stage of the repository `Jenkinsfile` renders
 with `envsubst` at build time. The rendered `.env` is streamed to the deploy
 host as a `0600` file and the container copies it into RAM at start.
 

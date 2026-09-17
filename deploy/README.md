@@ -1,7 +1,9 @@
 # Deploying E-Docket to QAT and UAT
 
 E-Docket runs as one Docker container per environment on a Linux host, built
-and shipped by the `ose_edocket` Jenkins job (`Jenkins_Pipelines/ose_edocket.groovy`).
+and shipped by the `edocket` Jenkins job, whose pipeline is the `Jenkinsfile` in
+this repository ("Pipeline script from SCM", branch specifier `${BRANCH}`, so the
+pipeline and the code it deploys always come from one commit).
 The layout copies wrats2's (`ose_wrats2.groovy`): a dedicated Linux build
 agent, an image tagged per build, and per-environment compose files in this
 directory, and secrets held as Jenkins credentials and rendered into the
@@ -45,7 +47,7 @@ nothing running as `www-data` can rewrite it.
 QAT and UAT both run on the shared non-prod host `10.64.85.45` (the wrats dev
 server), alongside wrats2. Ports and naming follow
 `~/ose-engineering/port-register.md`: E-Docket owns block 8010, QAT on 8011,
-UAT on 8012. `DEPLOY_SERVER_MAP` at the top of the pipeline is the place to
+UAT on 8012. `DEPLOY_SERVER_MAP` at the top of the `Jenkinsfile` is the place to
 change hosts. The host needs:
 
 1. Docker Engine with the compose v2 plugin, and a `jenkins` user in the

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run on the deploy host by ose_edocket.groovy:
+# Run on the deploy host by the Jenkinsfile:
 #   ssh jenkins@<host> bash -s "<remote path>" "<image tag>" < deploy/remote/start.sh
 # Replaces the running stack with the given image tag and waits for /up.
 set -eu

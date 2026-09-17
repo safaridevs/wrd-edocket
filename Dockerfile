@@ -2,7 +2,7 @@
 #
 # Deployable E-Docket image: Apache + PHP 8.4 serving public/, with a queue
 # worker and the Laravel scheduler run by supervisord. Built by
-# Jenkins_Pipelines/ose_edocket.groovy and shipped to the QAT/UAT hosts as a
+# the repository Jenkinsfile and shipped to the QAT/UAT hosts as a
 # tagged image (see deploy/README.md).
 #
 # This is NOT the local development harness -- that is docker/php/Dockerfile,
