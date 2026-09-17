@@ -111,12 +111,12 @@ RUN composer dump-autoload --optimize $( [ -n "$COMPOSER_INSTALL_FLAGS" ] && ech
 
 COPY docker/supervisord.conf /etc/supervisor/conf.d/edocket.conf
 COPY docker/entrypoint.sh /usr/local/bin/edocket-entrypoint
-COPY docker/fetch-secrets.py /usr/local/bin/edocket-secrets
-RUN chmod +x /usr/local/bin/edocket-entrypoint /usr/local/bin/edocket-secrets
+RUN chmod +x /usr/local/bin/edocket-entrypoint
 
-# The application .env is rendered from Azure Key Vault by the `secrets` service
-# (edocket-secrets) into a tmpfs volume mounted at /run/edocket; this symlink is
-# where Laravel looks for it. It dangles until the volume is mounted, which is
+# The application .env is rendered by Jenkins from its credentials and
+# bind-mounted at /run/secrets/edocket.env (host file 0600). The entrypoint
+# copies it into a tmpfs at /run/edocket as root:www-data 0640; this symlink is
+# where Laravel looks for it. It dangles when nothing is mounted, which is
 # fine: Dotenv treats a missing .env as "use the environment" (the Test stage
 # relies on that). See deploy/SECRETS.md.
 RUN mkdir -p /run/edocket && ln -s /run/edocket/.env /var/www/html/.env
