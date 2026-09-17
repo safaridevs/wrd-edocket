@@ -282,21 +282,32 @@ pipeline {
         /* ============================
          * WINDOWS: deployment log
          * ============================ */
-        stage('JSON Output') {
-            agent { label 'unifiedAppQat' }
+        stage('Record deployment') {
+            // The estate deployment log lives on a Windows share reached from the
+            // unifiedAppQat agent. It is a record, not part of the deploy: if that agent
+            // is offline the node step would sit in the queue until the pipeline timeout
+            // kills an already-successful deploy (17 Sep 2026), so it gets its own short
+            // timeout and the build stays green with the stage marked UNSTABLE.
             when { expression { params.Deploy } }
             steps {
                 script {
-                    def jsonRecord = [
-                            Date: new Date().format("yyyy-MM-dd HH:mm:ss"),
-                            Application: 'E-Docket',
-                            Environment: params.deploy_environment,
-                            Version: env.APP_VERSION_STAMP ?: params.BRANCH
-                    ]
-                    writeFile(file: 'deployments_temp.json', text: groovy.json.JsonOutput.toJson(jsonRecord))
-                    bat '''
-                        type deployments_temp.json >> \\\\unifiedappqat\\deployments\\deployments.json
-                    '''
+                    catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE',
+                               message: 'Deployment log not written (unifiedAppQat unreachable)') {
+                        timeout(time: 3, unit: 'MINUTES') {
+                            node('unifiedAppQat') {
+                                def jsonRecord = [
+                                        Date: new Date().format("yyyy-MM-dd HH:mm:ss"),
+                                        Application: 'E-Docket',
+                                        Environment: params.deploy_environment,
+                                        Version: env.APP_VERSION_STAMP ?: params.BRANCH
+                                ]
+                                writeFile(file: 'deployments_temp.json', text: groovy.json.JsonOutput.toJson(jsonRecord))
+                                bat '''
+                                    type deployments_temp.json >> \\\\unifiedappqat\\deployments\\deployments.json
+                                '''
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -142,10 +142,11 @@ For `APP_KEY`, expect every active session to be invalidated.
    redeploy.
 7. Delete `deploy/legacy-decrypt.php` once nothing depends on `coderepo:8088`.
    E-Docket itself no longer does; the unified-app branches still do (SEC-07).
-8. Once the credentials are the source of truth, delete the `edocket-qat-*`
-   secrets from `kv-ose-shared-nonprod` so there is one place to rotate. Keep
-   the vault itself: it costs nothing idle and is the head start if Azure wins
-   the cloud decision.
+8. **Done 17 Sep 2026:** the Azure side was torn down — Arc agent removed from
+   `10.64.85.45` and `kv-ose-shared-nonprod` deleted — so Jenkins is the only
+   source. The vault is soft-deleted with purge protection, so it (and the five
+   secrets) can be recovered with `az keyvault recover --name kv-ose-shared-nonprod`
+   until the retention window expires, and its name cannot be reused before then.
 
 ## Troubleshooting
 
