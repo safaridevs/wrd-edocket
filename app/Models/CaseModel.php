@@ -249,6 +249,11 @@ class CaseModel extends Model
         return $this->hasMany(CaseParty::class, 'case_id');
     }
 
+    public function partyHistory(): HasMany
+    {
+        return $this->hasMany(CaseParty::class, 'case_id')->withTrashed();
+    }
+
     public function serviceList(): HasMany
     {
         return $this->hasMany(ServiceList::class, 'case_id');

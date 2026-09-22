@@ -59,6 +59,9 @@ Route::middleware('auth')->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/active-cases/print', [ReportController::class, 'activeCasesPrint'])->name('reports.active-cases.print');
     Route::get('reports/active-cases/pdf', [ReportController::class, 'activeCasesPdf'])->name('reports.active-cases.pdf');
+    Route::get('reports/case-documents', [ReportController::class, 'caseDocuments'])->name('reports.case-documents');
+    Route::get('reports/case-documents/print', [ReportController::class, 'caseDocumentsPrint'])->name('reports.case-documents.print');
+    Route::get('reports/case-documents/pdf', [ReportController::class, 'caseDocumentsPdf'])->name('reports.case-documents.pdf');
 
     
     // E-Docket Routes
