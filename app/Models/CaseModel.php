@@ -223,6 +223,11 @@ class CaseModel extends Model
         return $this->hasMany(Document::class, 'case_id');
     }
 
+    public function media(): HasMany
+    {
+        return $this->hasMany(CaseMedia::class, 'case_id');
+    }
+
     public function pendingAluDocumentsForAcceptance(): HasMany
     {
         return $this->documents()

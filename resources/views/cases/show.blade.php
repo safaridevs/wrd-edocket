@@ -977,6 +977,90 @@
                 </div>
             </div>
 
+            @if($case->status === 'active' && ($case->media->isNotEmpty() || auth()->user()->isHearingUnit()))
+            <div class="bg-white shadow rounded-lg p-6">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-lg font-medium">Audio and Video ({{ $case->media->count() }})</h3>
+                        <p class="mt-1 text-sm text-gray-600">Media attached to this active case by the Hearing Unit.</p>
+                    </div>
+                    @if(auth()->user()->isHearingUnit())
+                    <button type="button" onclick="document.getElementById('attachMediaPanel').classList.toggle('hidden')" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                        Attach Media
+                    </button>
+                    @endif
+                </div>
+
+                @if(auth()->user()->isHearingUnit())
+                <div id="attachMediaPanel" class="{{ $errors->hasAny(['title', 'media_path', 'description', 'received_at']) ? '' : 'hidden' }} mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <form method="POST" action="{{ route('cases.media.store', $case) }}" class="space-y-4">
+                        @csrf
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label for="mediaTitle" class="block text-sm font-medium text-gray-700">Title</label>
+                                <input id="mediaTitle" name="title" type="text" maxlength="255" required value="{{ old('title') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('title')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label for="mediaReceivedAt" class="block text-sm font-medium text-gray-700">Date Received <span class="font-normal text-gray-500">(optional)</span></label>
+                                <input id="mediaReceivedAt" name="received_at" type="date" value="{{ old('received_at') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('received_at')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <div>
+                            <label for="mediaPath" class="block text-sm font-medium text-gray-700">Existing Media Path</label>
+                            <input id="mediaPath" name="media_path" type="text" maxlength="1000" required value="{{ old('media_path') }}" placeholder="D:\apps\cases\media\2026-008\example_video.mp4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <p class="mt-1 text-xs text-gray-600">Enter an existing audio or video file located inside the configured case media directory. The file will not be uploaded or moved.</p>
+                            @error('media_path')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label for="mediaDescription" class="block text-sm font-medium text-gray-700">Description <span class="font-normal text-gray-500">(optional)</span></label>
+                            <textarea id="mediaDescription" name="description" rows="3" maxlength="5000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">{{ old('description') }}</textarea>
+                            @error('description')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Attach Media</button>
+                        </div>
+                    </form>
+                </div>
+                @endif
+
+                @if($case->media->isNotEmpty())
+                <div class="mt-5 space-y-3">
+                    @foreach($case->media->sortByDesc('created_at') as $media)
+                    <div class="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium text-gray-900">{{ $media->title }}</span>
+                                <span class="rounded bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-800">{{ ucfirst($media->media_type) }}</span>
+                            </div>
+                            <div class="mt-1 text-sm text-gray-600">
+                                {{ $media->original_filename }} &bull;
+                                {{ $media->size_bytes >= 1073741824 ? number_format($media->size_bytes / 1073741824, 1) . ' GB' : number_format($media->size_bytes / 1048576, 1) . ' MB' }} &bull;
+                                Attached {{ $media->created_at->format('M j, Y g:i A') }} by {{ $media->attachedBy?->getDisplayName() ?? 'Hearing Unit' }}
+                            </div>
+                            @if($media->description)<p class="mt-2 text-sm text-gray-700">{{ $media->description }}</p>@endif
+                        </div>
+                        <div class="flex shrink-0 items-center gap-3">
+                            <a href="{{ route('cases.media.view', [$case, $media]) }}" target="_blank" class="text-sm font-medium text-blue-700 hover:text-blue-900">View</a>
+                            <a href="{{ route('cases.media.download', [$case, $media]) }}" class="text-sm font-medium text-blue-700 hover:text-blue-900">Download</a>
+                            @if(auth()->user()->isHearingUnit())
+                            <form method="POST" action="{{ route('cases.media.destroy', [$case, $media]) }}" onsubmit="return confirm('Are you sure you want to remove this media from the case?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-sm font-medium text-red-600 hover:text-red-800">Remove</button>
+                            </form>
+                            @endif
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+                @else
+                    <p class="mt-5 text-sm text-gray-500">No audio or video is attached to this case.</p>
+                @endif
+            </div>
+            @endif
+
             <!-- Audit Trail -->
             <div class="bg-white shadow rounded-lg p-6">
                 <h3 class="text-lg font-medium mb-4">Audit Trail</h3>

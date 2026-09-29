@@ -27,6 +27,7 @@ class CaseDocumentListReport
             'documents.documentType',
             'documents.uploader.roleRelation',
             'partyHistory.person',
+            'media.attachedBy',
         ]);
 
         $documents = $case->documents
@@ -37,8 +38,14 @@ class CaseDocumentListReport
         $rows = collect();
         $topLevelNumber = 0;
         $childNumber = 0;
+        $caseFilings = collect();
 
         foreach (DocumentHierarchy::groups($documents) as $group) {
+            if ($group['key'] === 'case_filings') {
+                $caseFilings = $group['documents'];
+                continue;
+            }
+
             foreach ($group['documents'] as $document) {
                 if ((int) $group['level'] === 1) {
                     $childNumber++;
@@ -61,6 +68,55 @@ class CaseDocumentListReport
                     'document' => $document,
                 ]);
             }
+        }
+
+        $topLevelFilings = $caseFilings
+            ->map(fn (Document $document) => [
+                'kind' => 'document',
+                'date' => $this->filingDate($document),
+                'id' => $document->id,
+                'item' => $document,
+            ])
+            ->concat($case->media->map(fn ($media) => [
+                'kind' => 'media',
+                'date' => $media->created_at,
+                'id' => $media->id,
+                'item' => $media,
+            ]))
+            ->sort(function (array $left, array $right) {
+                $dateComparison = $left['date'] <=> $right['date'];
+
+                return $dateComparison !== 0
+                    ? $dateComparison
+                    : [$left['kind'], (int) $left['id']] <=> [$right['kind'], (int) $right['id']];
+            });
+
+        foreach ($topLevelFilings as $filing) {
+            $topLevelNumber++;
+
+            if ($filing['kind'] === 'media') {
+                $media = $filing['item'];
+                $rows->push([
+                    'order' => (string) $topLevelNumber,
+                    'is_child' => false,
+                    'date' => $media->created_at,
+                    'title' => $media->title,
+                    'filer' => 'Hearing Unit',
+                    'document' => null,
+                    'media' => $media,
+                ]);
+                continue;
+            }
+
+            $document = $filing['item'];
+            $rows->push([
+                'order' => (string) $topLevelNumber,
+                'is_child' => false,
+                'date' => $this->filingDate($document),
+                'title' => $this->documentTitle($document),
+                'filer' => $this->filerLabel($case, $document),
+                'document' => $document,
+            ]);
         }
 
         return $rows;

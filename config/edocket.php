@@ -54,6 +54,10 @@ return [
         'timeout' => env('DOCUMENT_OCR_TIMEOUT', 600),
     ],
 
+    'case_media' => [
+        'root' => env('CASE_MEDIA_ROOT'),
+    ],
+
     'contact' => [
         'hu_email' => env('HU_CONTACT_EMAIL', 'hu.admin@ose.nm.gov'),
         'support_email' => env('SUPPORT_EMAIL', 'support@ose.nm.gov'),

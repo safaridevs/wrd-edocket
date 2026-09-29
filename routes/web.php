@@ -11,6 +11,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CaseMediaController;
 use App\Models\CaseModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -45,6 +46,8 @@ Route::get('/', function (Request $request) {
 Route::get('public/cases', [\App\Http\Controllers\PublicCaseController::class, 'index'])->name('public.cases.index');
 Route::get('public/cases/{case}', [\App\Http\Controllers\PublicCaseController::class, 'show'])->name('public.cases.show');
 Route::get('public/documents/{document}/download', [\App\Http\Controllers\PublicCaseController::class, 'downloadDocument'])->name('public.documents.download');
+Route::get('public/cases/{case}/media/{media}/view', [CaseMediaController::class, 'publicView'])->name('public.case-media.view');
+Route::get('public/cases/{case}/media/{media}/download', [CaseMediaController::class, 'publicDownload'])->name('public.case-media.download');
 Route::get('documents/search', [DocumentController::class, 'search'])->name('documents.search');
 
 Route::get('/dashboard', function () {
@@ -99,6 +102,10 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/documents/{document}/replace-hu-upload', [CaseController::class, 'replacePendingHuDocument'])->name('cases.documents.replace-hu-upload');
     Route::post('cases/{case}/documents/{document}/issue-stamped', [CaseController::class, 'issueStampedDocument'])->name('cases.documents.issue-stamped');
     Route::delete('cases/{case}/documents/{document}', [CaseController::class, 'destroyDocument'])->name('cases.documents.destroy');
+    Route::post('cases/{case}/media', [CaseMediaController::class, 'store'])->name('cases.media.store');
+    Route::get('cases/{case}/media/{media}/view', [CaseMediaController::class, 'view'])->name('cases.media.view');
+    Route::get('cases/{case}/media/{media}/download', [CaseMediaController::class, 'download'])->name('cases.media.download');
+    Route::delete('cases/{case}/media/{media}', [CaseMediaController::class, 'destroy'])->name('cases.media.destroy');
 });
 
 // API routes (outside auth middleware)

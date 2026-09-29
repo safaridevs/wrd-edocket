@@ -426,6 +426,7 @@ class CaseController extends Controller
             'wrds',
             'assignments.user',
             'documents.uploader.roleRelation',
+            'media.attachedBy',
             'parties.person',
             'parties.attorneys.person',
             'parties.agents.person',

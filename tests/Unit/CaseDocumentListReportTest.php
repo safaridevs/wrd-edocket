@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\CaseModel;
+use App\Models\CaseMedia;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\CaseDocumentListReport;
@@ -16,6 +17,7 @@ class CaseDocumentListReportTest extends TestCase
     {
         $case = new CaseModel(['case_no' => 'OSE-2026-001']);
         $case->setRelation('partyHistory', new Collection());
+        $case->setRelation('media', new Collection());
         $case->setRelation('documents', new Collection([
             $this->document(1, 'pleading', 'request_to_docket', 'Request to Docket', 'alu_paralegal', '2026-01-10', Document::FILING_CONTEXT_INITIAL),
             $this->document(2, 'application', null, 'Application', 'alu_paralegal', '2026-01-09', Document::FILING_CONTEXT_INITIAL),
@@ -39,6 +41,7 @@ class CaseDocumentListReportTest extends TestCase
     {
         $case = new CaseModel(['case_no' => 'OSE-2026-002']);
         $case->setRelation('partyHistory', new Collection());
+        $case->setRelation('media', new Collection());
 
         $rejected = $this->document(2, 'motion', null, 'Rejected Motion', 'external_attorney', '2026-02-01', Document::FILING_CONTEXT_SUBSEQUENT);
         $rejected->rejected_reason = 'Rejected';
@@ -52,6 +55,34 @@ class CaseDocumentListReportTest extends TestCase
         $rows = (new CaseDocumentListReport())->rows($case);
 
         $this->assertSame(['Filed Motion'], $rows->pluck('title')->all());
+    }
+
+    public function test_it_places_media_in_the_chronological_top_level_filing_stream(): void
+    {
+        $case = new CaseModel(['case_no' => 'OSE-2026-003']);
+        $case->setRelation('partyHistory', new Collection());
+        $case->setRelation('documents', new Collection([
+            $this->document(1, 'pleading', 'request_to_docket', 'Request to Docket', 'alu_paralegal', '2026-01-01', Document::FILING_CONTEXT_INITIAL),
+            $this->document(2, 'order', null, 'Scheduling Order', 'hu_admin', '2026-03-01', Document::FILING_CONTEXT_HEARING_UNIT, true, '2026-03-01'),
+        ]));
+
+        $media = new CaseMedia([
+            'title' => 'Hearing Recording',
+            'media_type' => 'audio',
+            'relative_path' => '2026-003/hearing.mp3',
+            'original_filename' => 'hearing.mp3',
+            'mime_type' => 'audio/mpeg',
+            'size_bytes' => 100,
+        ]);
+        $media->id = 1;
+        $media->created_at = Carbon::parse('2026-02-01');
+        $case->setRelation('media', new Collection([$media]));
+
+        $rows = (new CaseDocumentListReport())->rows($case);
+
+        $this->assertSame(['1', '2', '3'], $rows->pluck('order')->all());
+        $this->assertSame(['Request to Docket', 'Hearing Recording', 'Scheduling Order'], $rows->pluck('title')->all());
+        $this->assertSame('Hearing Unit', $rows[1]['filer']);
     }
 
     private function document(
