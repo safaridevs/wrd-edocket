@@ -6,7 +6,6 @@ use App\Http\Controllers\CasePartyController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\CaseInitiationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
@@ -175,10 +174,6 @@ Route::middleware('auth')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/mark-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::get('notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
-    
-    // Case Initiation (ALU Law Clerk)
-    Route::get('cases/initiate', [CaseInitiationController::class, 'create'])->middleware('permission:create_case')->name('cases.initiate');
-    Route::post('cases/initiate', [CaseInitiationController::class, 'store'])->middleware('permission:create_case');
     
     // Admin routes
     Route::get('admin/users', [AdminController::class, 'users'])->middleware('permission:manage_users')->name('admin.users');

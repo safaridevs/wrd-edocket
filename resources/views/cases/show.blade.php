@@ -163,10 +163,16 @@
 
 
 
+                        @php
+                            $assignedAluSupport = $case->aluParalegals
+                                ->concat($case->aluClerks)
+                                ->unique('id')
+                                ->values();
+                        @endphp
                         <strong class="mt-3 block">Assigned ALU Clerks / Paralegals:</strong>
                         <div class="text-sm mt-1">
-                            @if($case->aluClerks->count() > 0)
-                                @foreach($case->aluClerks as $clerk)
+                            @if($assignedAluSupport->isNotEmpty())
+                                @foreach($assignedAluSupport as $clerk)
                                     <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs mr-1 mb-1">
                                         {{ $clerk->getDisplayName() }}@if($clerk->isALUParalegal()) (Paralegal) @endif
                                     </span>
@@ -176,7 +182,7 @@
                             @endif
                             @if(auth()->user()->canAssignAttorneys())
                                 <a href="{{ route('cases.assign-alu-clerk', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
-                                    {{ $case->aluClerks->count() > 0 ? 'Manage' : 'Assign' }}
+                                    {{ $assignedAluSupport->isNotEmpty() ? 'Manage' : 'Assign' }}
                                 </a>
                             @endif
                         </div>
