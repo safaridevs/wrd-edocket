@@ -189,7 +189,7 @@
                                             @php
                                                 $hasNamingIssue = !preg_match('/^\d{4}-\d{2}-\d{2} - .+\.pdf$/', $document->original_filename);
                                                 $isRequiredDoc = in_array($document->doc_type, ['application', 'notice_publication']);
-                                                $hasFileIssue = !$document->storage_uri || !Storage::disk('public')->exists($document->storage_uri);
+                                                $hasFileIssue = !$document->storage_uri || !app(\App\Services\DocumentStorage::class)->exists($document->storage_uri);
                                             @endphp
 
                                             @if($hasNamingIssue)
@@ -353,7 +353,7 @@
 
                                 <div class="flex flex-wrap gap-2 ml-4">
                                     @if($document->storage_uri)
-                                        <a href="{{ Storage::url($document->storage_uri) }}" target="_blank"
+                                        <a href="{{ route('documents.preview', $document) }}" target="_blank"
                                            onclick="markDocumentAsViewed({{ $document->id }})"
                                            class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded">
                                             📄 View

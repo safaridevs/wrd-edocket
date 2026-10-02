@@ -94,7 +94,6 @@ docker compose run --rm app php artisan key:generate
 docker compose run --rm app npm install
 docker compose run --rm app npm run build
 docker compose run --rm app php artisan migrate
-docker compose run --rm app php artisan storage:link
 docker compose up -d app
 ```
 

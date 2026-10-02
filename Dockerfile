@@ -103,7 +103,7 @@ RUN composer dump-autoload --optimize $( [ -n "$COMPOSER_INSTALL_FLAGS" ] && ech
     && php artisan package:discover --ansi \
     && NODE_OPTIONS="--max-old-space-size=2048" npm run build \
     && rm -rf node_modules /usr/local/lib/node_modules /usr/local/bin/node /usr/local/bin/npm \
-    && php artisan storage:link \
+    && rm -f public/storage \
     && mkdir -p storage/app/private storage/app/public storage/logs \
             storage/framework/cache storage/framework/sessions storage/framework/views \
     && chown -R www-data:www-data storage bootstrap/cache \

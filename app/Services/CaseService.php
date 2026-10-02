@@ -20,7 +20,8 @@ class CaseService
 {
     public function __construct(
         private NotificationService $notificationService,
-        private CaseStorageService $caseStorageService
+        private CaseStorageService $caseStorageService,
+        private DocumentStorage $documentStorage
     ) {}
 
     public function createCase(array $data, User $creator, ?Request $request = null): CaseModel
@@ -415,7 +416,7 @@ class CaseService
                     }
                     
                     $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+                    $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
                     
                     $documentData = [
                         'case_id' => $case->id,
@@ -493,7 +494,7 @@ class CaseService
                             }
                             
                             $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+                            $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
                             
                             $documentData = [
                                 'case_id' => $case->id,
@@ -536,7 +537,7 @@ class CaseService
                             }
                             
                             $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-                            $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+                            $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
                             
                             $documentData = [
                                 'case_id' => $case->id,
@@ -1234,7 +1235,7 @@ class CaseService
 
     private function processSingleFile($file, int $index, CaseModel $case, string $docType, User $uploader, string $oseString, string $storageFolder, ?string $customTitle = null): void
     {
-        \Log::info('Attempting file upload', ['filename' => $file->getClientOriginalName(), 'disk' => 'public', 'path' => $storageFolder]);
+        \Log::info('Attempting file upload', ['filename' => $file->getClientOriginalName(), 'disk' => DocumentStorage::DISK, 'path' => $storageFolder]);
         
         $displayType = $this->getDisplayType($docType);
         $titleOrType = !empty($customTitle) ? $customTitle : $displayType;
@@ -1245,8 +1246,8 @@ class CaseService
         }
         
         $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
-        \Log::info('File uploaded successfully', ['path' => $path, 'full_path' => storage_path('app/public/' . $path)]);
+        $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
+        \Log::info('File uploaded successfully', ['path' => $path, 'disk' => DocumentStorage::DISK]);
         
         $documentData = [
             'case_id' => $case->id,
@@ -1286,7 +1287,7 @@ class CaseService
             $timestamp = now()->format('Ymd_His_u');
             $candidate = "{$baseName} - {$timestamp}.{$extension}";
             $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
-        } while (Storage::disk('public')->exists($path));
+        } while (!$this->documentStorage->isFree($path));
 
         return $candidate;
     }

@@ -80,6 +80,12 @@ class Document extends Model
         return Str::title(str_replace('_', ' ', $this->doc_type));
     }
 
+    /** Accepted, stamped and on an active case: open to anyone, including guests. */
+    public function isPubliclyAvailable(): bool
+    {
+        return $this->approved && $this->stamped && $this->case?->status === 'active';
+    }
+
     public function stamp(): void
     {
         $this->update([

@@ -55,6 +55,30 @@ return [
             'report' => false,
         ],
 
+        // Case documents. Never web-served: every read goes through an authorized route
+        // (App\Services\DocumentStorage). A private local folder by default; the shared
+        // S3-compatible document store (or AWS S3) when DOCUMENTS_DRIVER=s3.
+        'documents' => env('DOCUMENTS_DRIVER', 'local') === 's3'
+            ? [
+                'driver' => 's3',
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+                'bucket' => env('AWS_BUCKET'),
+                'endpoint' => env('AWS_ENDPOINT'),
+                'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+                'visibility' => 'private',
+                'throw' => true,
+                'report' => false,
+            ]
+            : [
+                'driver' => 'local',
+                'root' => storage_path('app/private'),
+                'visibility' => 'private',
+                'throw' => true,
+                'report' => false,
+            ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -81,8 +105,8 @@ return [
     |
     */
 
-    'links' => [
-        public_path('storage') => storage_path('app/public'),
-    ],
+    // No public/storage link: documents must never be reachable by URL without
+    // authorization (backlog SEC-18).
+    'links' => [],
 
 ];

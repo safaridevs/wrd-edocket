@@ -7,14 +7,14 @@ use App\Models\CaseModel;
 use App\Models\Document;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 
 class DocumentService
 {
     public function __construct(
         private NotificationService $notificationService,
         private DocumentValidationService $validationService,
-        private CaseStorageService $caseStorageService
+        private CaseStorageService $caseStorageService,
+        private DocumentStorage $documentStorage
     ) {}
 
     public function uploadDocument(CaseModel $case, UploadedFile $file, string $documentType, User $uploader, string $pleadingType = 'none'): Document
@@ -37,7 +37,7 @@ class DocumentService
 
         $namingCompliant = $this->validationService->validateNaming($file->getClientOriginalName(), $case->case_number);
 
-        $path = $file->storeAs($storageFolder, $filename, 'public');
+        $path = $this->documentStorage->store($file, $storageFolder, $filename);
 
         $document = Document::create([
             'case_id' => $case->id,
@@ -83,7 +83,7 @@ class DocumentService
             $timestamp = now()->format('Ymd_His_u');
             $candidate = "{$baseName} - {$timestamp}.{$extension}";
             $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
-        } while (Storage::disk('public')->exists($path));
+        } while (!$this->documentStorage->isFree($path));
 
         return $candidate;
     }
@@ -149,24 +149,5 @@ class DocumentService
         }
 
         $document->update(['sync_status' => $syncStatus]);
-    }
-
-    public function downloadDocument(Document $document): string
-    {
-        if (!$document->storage_uri) {
-            throw new \Exception('Document storage path not found');
-        }
-
-        // Check if file exists in public storage (newer uploads)
-        if (Storage::disk('public')->exists($document->storage_uri)) {
-            return Storage::disk('public')->path($document->storage_uri);
-        }
-
-        // Check if file exists in private storage (older uploads)
-        if (Storage::disk('private')->exists($document->storage_uri)) {
-            return Storage::disk('private')->path($document->storage_uri);
-        }
-
-        throw new \Exception('Document file not found in storage');
     }
 }

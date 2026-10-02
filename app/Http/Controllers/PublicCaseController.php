@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
 use App\Models\Document;
+use App\Services\DocumentStorage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class PublicCaseController extends Controller
 {
@@ -67,19 +67,13 @@ class PublicCaseController extends Controller
         return view('public.cases.show', compact('case'));
     }
 
-    public function downloadDocument(Document $document)
+    public function downloadDocument(Document $document, DocumentStorage $documentStorage)
     {
         // Only allow download of accepted and stamped documents from active cases
-        if (!$document->approved || !$document->stamped || $document->case->status !== 'active') {
+        if (!$document->isPubliclyAvailable()) {
             abort(404, 'Document not available for public download.');
         }
 
-        $filePath = storage_path('app/public/' . $document->storage_uri);
-
-        if (!file_exists($filePath)) {
-            abort(404, 'Document file not found.');
-        }
-
-        return response()->download($filePath, $document->original_filename);
+        return $documentStorage->download($document);
     }
 }

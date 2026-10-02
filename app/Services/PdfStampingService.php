@@ -2,15 +2,16 @@
 
 namespace App\Services;
 
+use App\Exceptions\DocumentFileNotFound;
 use App\Models\Document;
 use App\Models\User;
-use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
 class PdfStampingService
 {
     public function __construct(
-        private readonly PdfConversionService $pdfConversionService
+        private readonly PdfConversionService $pdfConversionService,
+        private readonly DocumentStorage $documentStorage
     ) {
     }
 
@@ -38,21 +39,29 @@ class PdfStampingService
             throw new \RuntimeException('Only PDF documents can be e-stamped.');
         }
 
-        $originalPath = null;
+        try {
+            return $this->documentStorage->withLocalCopy(
+                $document,
+                fn (string $originalPath) => $this->stampFromLocalCopy($originalPath, $document, $user)
+            );
+        } catch (DocumentFileNotFound $e) {
+            \Log::error('PDF stamping failed: ' . $e->getMessage());
+
+            throw new \RuntimeException($this->mapStampingErrorMessage($e), previous: $e);
+        }
+    }
+
+    private function stampFromLocalCopy(string $originalPath, Document $document, User $user): bool
+    {
         $convertedPath = null;
 
         try {
-            $originalPath = $this->getDocumentPath($document);
             \Log::info('Original PDF path: ' . $originalPath);
 
             return $this->stampSourcePdf($originalPath, $document, $user, 'original');
         } catch (\Exception $e) {
             \Log::error('PDF stamping failed: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
-
-            if (!$originalPath) {
-                throw new \RuntimeException($this->mapStampingErrorMessage($e), previous: $e);
-            }
 
             try {
                 \Log::warning('Retrying PDF stamping after conversion fallback', [
@@ -105,19 +114,6 @@ class PdfStampingService
 
             throw $e;
         }
-    }
-
-    private function getDocumentPath(Document $document): string
-    {
-        if (Storage::disk('public')->exists($document->storage_uri)) {
-            return Storage::disk('public')->path($document->storage_uri);
-        }
-
-        if (Storage::disk('private')->exists($document->storage_uri)) {
-            return Storage::disk('private')->path($document->storage_uri);
-        }
-
-        throw new \Exception('Document file not found: ' . $document->storage_uri);
     }
 
     private function preflightPdf(string $originalPath): int
@@ -255,13 +251,14 @@ class PdfStampingService
 
     private function replaceOriginalFile(Document $document, string $stampedPath): void
     {
-        $disk = Storage::disk('public')->exists($document->storage_uri) ? 'public' : 'private';
-        $originalContents = Storage::disk($disk)->get($document->storage_uri);
+        // The stamped file always lands on the documents disk, even if the original was still on
+        // a legacy disk. On the S3 document store, versioning keeps the pre-stamp original.
+        $originalContents = $this->documentStorage->get($document->storage_uri);
 
         try {
-            Storage::disk($disk)->put($document->storage_uri, file_get_contents($stampedPath));
+            $this->documentStorage->putFile($document->storage_uri, $stampedPath);
         } catch (\Exception $e) {
-            Storage::disk($disk)->put($document->storage_uri, $originalContents);
+            $this->documentStorage->put($document->storage_uri, $originalContents);
             throw new \RuntimeException('The stamped PDF was created, but replacing the original file failed.', previous: $e);
         } finally {
             if (file_exists($stampedPath)) {
@@ -270,7 +267,7 @@ class PdfStampingService
         }
 
         // Update document size
-        $newSize = Storage::disk($disk)->size($document->storage_uri);
+        $newSize = $this->documentStorage->size($document->storage_uri);
         $document->update(['size_bytes' => $newSize]);
 
         \Log::info('File replaced. New size: ' . $newSize . ' bytes');

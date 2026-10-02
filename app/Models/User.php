@@ -284,6 +284,36 @@ class User extends Authenticatable
         return in_array($this->getCurrentRole(), ['alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party']) || $this->isAttorney();
     }
 
+    /**
+     * Why this user may not open the case page, or null if they may. The case page lists every
+     * document on the case, so this is also the rule for downloading them (DocumentPolicy).
+     */
+    public function caseViewDenialReason(CaseModel $case): ?string
+    {
+        $role = $this->getCurrentRole();
+
+        // HU users cannot see draft cases
+        if ($this->isHearingUnit() && $case->status === 'draft') {
+            return 'Draft cases are not accessible to Hearing Unit staff.';
+        }
+
+        // Parties and external participants cannot see draft cases
+        if (in_array($role, ['party', 'interested_party', 'external_attorney'], true) && $case->status === 'draft') {
+            return 'Draft cases are not accessible to parties and attorneys.';
+        }
+
+        if (in_array($role, ['party', 'interested_party', 'external_attorney', 'contract_attorney'], true) && !$this->canAccessCase($case)) {
+            return 'You can only access cases you are associated with.';
+        }
+
+        return null;
+    }
+
+    public function canViewCase(CaseModel $case): bool
+    {
+        return $this->caseViewDenialReason($case) === null;
+    }
+
     public function canAccessCase(CaseModel $case): bool
     {
         // Non-party roles (staff) can access all cases

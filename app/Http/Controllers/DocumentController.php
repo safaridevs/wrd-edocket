@@ -4,15 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Services\DocumentService;
+use App\Services\DocumentStorage;
 use App\Services\DocumentTextIndexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Gate;
 
 class DocumentController extends Controller
 {
     public function __construct(
         private DocumentService $documentService,
+        private DocumentStorage $documentStorage,
         private DocumentTextIndexService $documentTextIndexService
     ) {}
 
@@ -52,19 +54,16 @@ class DocumentController extends Controller
 
     public function download(Document $document)
     {
-        $filePath = $this->documentService->downloadDocument($document);
+        Gate::authorize('view', $document);
 
-        return Response::download($filePath, $document->original_filename);
+        return $this->documentStorage->download($document);
     }
 
     public function preview(Document $document)
     {
-        $filePath = $this->documentService->downloadDocument($document);
+        Gate::authorize('view', $document);
 
-        return Response::file($filePath, [
-            'Content-Type' => $document->mime,
-            'Content-Disposition' => 'inline; filename="' . $document->original_filename . '"',
-        ]);
+        return $this->documentStorage->inline($document);
     }
 
     public function approve(Document $document)

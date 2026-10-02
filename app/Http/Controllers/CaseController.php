@@ -14,6 +14,7 @@ use App\Models\Person;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\CaseStorageService;
+use App\Services\DocumentStorage;
 use App\Services\ServiceListResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,8 @@ class CaseController extends Controller
     public function __construct(
         private CaseService $caseService,
         private CaseStorageService $caseStorageService,
-        private ServiceListResolver $serviceListResolver
+        private ServiceListResolver $serviceListResolver,
+        private DocumentStorage $documentStorage
     ) {}
 
     public function index(Request $request)
@@ -373,20 +375,8 @@ class CaseController extends Controller
 
     public function show(CaseModel $case)
     {
-        // HU users cannot see draft cases
-        if (Auth::user()->isHearingUnit() && $case->status === 'draft') {
-            abort(403, 'Draft cases are not accessible to Hearing Unit staff.');
-        }
-
-        $restrictedCaseRoles = ['party', 'interested_party', 'external_attorney', 'contract_attorney'];
-
-        // Parties and external participants cannot see draft cases
-        if (in_array(Auth::user()->getCurrentRole(), ['party', 'interested_party', 'external_attorney'], true) && $case->status === 'draft') {
-            abort(403, 'Draft cases are not accessible to parties and attorneys.');
-        }
-
-        if (in_array(Auth::user()->getCurrentRole(), $restrictedCaseRoles, true) && !Auth::user()->canAccessCase($case)) {
-            abort(403, 'You can only access cases you are associated with.');
+        if ($denied = Auth::user()->caseViewDenialReason($case)) {
+            abort(403, $denied);
         }
 
         $case->load([
@@ -1560,7 +1550,7 @@ class CaseController extends Controller
                     }
 
                     $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-                    $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+                    $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
 
                     $documentData = [
                         'case_id' => $case->id,
@@ -2109,7 +2099,7 @@ class CaseController extends Controller
         $titleOrType = !empty($validated['custom_title']) ? $validated['custom_title'] : $displayType;
         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
         $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+        $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
 
         $document->update([
             'custom_title' => $validated['custom_title'],
@@ -2131,8 +2121,8 @@ class CaseController extends Controller
             'rejected_reason' => null,
         ]);
 
-        if ($oldStorageUri && $oldStorageUri !== $path && Storage::disk('public')->exists($oldStorageUri)) {
-            Storage::disk('public')->delete($oldStorageUri);
+        if ($oldStorageUri && $oldStorageUri !== $path) {
+            $this->documentStorage->delete($oldStorageUri);
         }
 
         foreach ($correction->items as $item) {
@@ -2238,7 +2228,7 @@ class CaseController extends Controller
         $titleOrType = $document->custom_title ?: $displayType;
         $originalFilename = now()->format('Y-m-d') . ' - ' . $titleOrType . '.pdf';
         $storedFilename = $this->generateReadableStoredFilename($originalFilename, $storageFolder);
-        $path = $file->storeAs($storageFolder, $storedFilename, 'public');
+        $path = $this->documentStorage->store($file, $storageFolder, $storedFilename);
 
         $document->update([
             'original_filename' => $originalFilename,
@@ -2258,8 +2248,8 @@ class CaseController extends Controller
             'stamped_at' => null,
         ]);
 
-        if ($oldStorageUri && $oldStorageUri !== $path && Storage::disk('public')->exists($oldStorageUri)) {
-            Storage::disk('public')->delete($oldStorageUri);
+        if ($oldStorageUri && $oldStorageUri !== $path) {
+            $this->documentStorage->delete($oldStorageUri);
         }
 
         try {
@@ -2462,9 +2452,7 @@ class CaseController extends Controller
         }
 
         // Delete file from storage
-        if (\Storage::disk('public')->exists($document->storage_uri)) {
-            \Storage::disk('public')->delete($document->storage_uri);
-        }
+        $this->documentStorage->delete($document->storage_uri);
 
         $document->delete();
 
@@ -2840,9 +2828,7 @@ class CaseController extends Controller
 
         // Delete all documents and files
         foreach ($case->documents as $document) {
-            if (\Storage::disk('public')->exists($document->storage_uri)) {
-                \Storage::disk('public')->delete($document->storage_uri);
-            }
+            $this->documentStorage->delete($document->storage_uri);
             $document->delete();
         }
 
@@ -2869,7 +2855,7 @@ class CaseController extends Controller
             $timestamp = now()->format('Ymd_His_u');
             $candidate = "{$baseName} - {$timestamp}.{$extension}";
             $path = $storageFolder === '' ? $candidate : "{$storageFolder}/{$candidate}";
-        } while (\Storage::disk('public')->exists($path));
+        } while (!$this->documentStorage->isFree($path));
 
         return $candidate;
     }

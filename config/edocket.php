@@ -4,7 +4,7 @@ return [
     'repositories' => [
         'edocket' => [
             'enabled' => true,
-            'storage_disk' => 'private'
+            'storage_disk' => 'documents'
         ],
         'onedrive' => [
             'enabled' => env('ONEDRIVE_SYNC_ENABLED', false),

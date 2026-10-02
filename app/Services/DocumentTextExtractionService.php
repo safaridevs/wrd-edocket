@@ -2,22 +2,30 @@
 
 namespace App\Services;
 
+use App\Exceptions\DocumentFileNotFound;
 use App\Models\Document;
-use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
 class DocumentTextExtractionService
 {
     private const MIN_SEARCHABLE_TEXT_LENGTH = 20;
 
+    public function __construct(private DocumentStorage $documentStorage) {}
+
     public function extract(Document $document, bool $allowOcr = false): array
     {
-        $path = $this->documentPath($document);
-
-        if (!$path) {
+        try {
+            return $this->documentStorage->withLocalCopy(
+                $document,
+                fn (string $path) => $this->extractFromPath($document, $path, $allowOcr)
+            );
+        } catch (DocumentFileNotFound) {
             return $this->result('failed', null, null, 'Document file was not found in storage.');
         }
+    }
 
+    private function extractFromPath(Document $document, string $path, bool $allowOcr): array
+    {
         $extension = strtolower(pathinfo($document->original_filename ?: $document->stored_filename, PATHINFO_EXTENSION));
         $mime = strtolower((string) $document->mime);
 
@@ -34,21 +42,6 @@ class DocumentTextExtractionService
         }
 
         return $this->result('unsupported', null, null, 'This file type is not supported by the local text extractor yet.');
-    }
-
-    private function documentPath(Document $document): ?string
-    {
-        if (!$document->storage_uri) {
-            return null;
-        }
-
-        foreach (['public', 'private'] as $disk) {
-            if (Storage::disk($disk)->exists($document->storage_uri)) {
-                return Storage::disk($disk)->path($document->storage_uri);
-            }
-        }
-
-        return null;
     }
 
     private function extractPdf(string $path, bool $allowOcr): array
