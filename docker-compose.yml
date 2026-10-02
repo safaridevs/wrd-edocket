@@ -17,9 +17,55 @@ services:
     # to the service name (mysql, postgres or mssql) in .env instead.
     command: php artisan serve --host=0.0.0.0 --port=8000
     depends_on:
-      - mysql
-      - postgres
-      - mssql
+      mysql:
+        condition: service_started
+      postgres:
+        condition: service_started
+      mssql:
+        condition: service_started
+      docstore-init:
+        condition: service_completed_successfully
+
+  # Local stand-in for the shared S3-compatible document store (ARCH-11): the same
+  # versitygw release and settings as ose-app-data-store. Used only when .env sets
+  # DOCUMENTS_DRIVER=s3 (see .env.example); otherwise documents go to storage/app/private.
+  docstore:
+    image: ghcr.io/versity/versitygw:v1.8.0
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/gw /data/versions && exec /usr/local/bin/docker-entrypoint.sh"]
+    environment:
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARG: /data/gw
+      VGW_VERSIONING_DIR: /data/versions
+      VGW_PORT: ":7070"
+      ROOT_ACCESS_KEY_ID: EDOCKETLOCALDEV0001
+      ROOT_SECRET_ACCESS_KEY: edocket-local-dev-only-secret
+    ports:
+      - "17070:7070"
+    volumes:
+      - docstore-data:/data
+
+  # Creates the local bucket once, with versioning and object lock as on QAT.
+  docstore-init:
+    image: amazon/aws-cli
+    depends_on:
+      - docstore
+    environment:
+      AWS_ACCESS_KEY_ID: EDOCKETLOCALDEV0001
+      AWS_SECRET_ACCESS_KEY: edocket-local-dev-only-secret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        s3() { aws --endpoint-url http://docstore:7070 "$$@"; }
+        for i in $$(seq 1 30); do s3 s3 ls >/dev/null 2>&1 && break; sleep 1; done
+        if s3 s3api head-bucket --bucket sonm-ose-edocket-local >/dev/null 2>&1; then
+          echo "bucket sonm-ose-edocket-local already exists"
+        else
+          s3 s3api create-bucket --bucket sonm-ose-edocket-local --object-lock-enabled-for-bucket
+          s3 s3api put-bucket-versioning --bucket sonm-ose-edocket-local --versioning-configuration Status=Enabled
+          echo "created bucket sonm-ose-edocket-local"
+        fi
 
   mysql:
     image: mysql:8.0
@@ -76,3 +122,4 @@ volumes:
   mysql-data:
   postgres-data:
   mssql-data:
+  docstore-data:
