@@ -18,7 +18,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h4 class="text-lg font-semibold text-slate-950">Initial Pleading / Commencement of Action</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Request for Pre-Hearing Scheduling Conference or Request to Docket.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Select the type of pleading you want to upload, then upload the pleading.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('pleading')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 File Document
@@ -32,7 +32,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h4 class="text-lg font-semibold text-slate-950">Application</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Add the application package for aggrieved or protested cases.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Add the application packet for aggrieved or protested cases.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('application')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Upload
@@ -45,7 +45,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h4 class="text-lg font-semibold text-slate-950">Compliance Document</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Choose the compliance filing type, then stage the file package for this case.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Select the type of compliance document you want to upload, then upload the document.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('compliance')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Upload
@@ -59,7 +59,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h4 class="text-lg font-semibold text-slate-950">Supporting Documents</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Add as many supporting filings as this intake requires. Each supporting package keeps its own document type and files.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Add supporting documents by selecting the document type and uploading the relevant document. You may add as many supporting documents as needed.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('optional')" class="inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
                 Upload Supporting Document

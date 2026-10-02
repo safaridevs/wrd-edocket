@@ -46,7 +46,7 @@
                             <button type="button" data-step-target="3" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 4</span>
                                 <span class="mt-1 block text-sm font-semibold text-slate-900">Documents</span>
-                                <span class="mt-1 block text-xs text-slate-500">Upload all related documents (i.e. Initial pleading, Application, letters of protest, notice of publication, denial letter, letter of aggrieval, etc.)</span>
+                                <span class="mt-1 block text-xs text-slate-500">Upload all relevant documents (i.e. Initial pleading, Application, letters of protest, notice of publication, denial letter, letter of aggrieval, etc.)</span>
                             </button>
                             <button type="button" data-step-target="4" class="wizard-step-chip w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition">
                                 <span class="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Step 5</span>
@@ -142,7 +142,7 @@
                                 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <h4 class="text-lg font-semibold text-slate-950">Document Intake</h4>
-                                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Upload only what belongs with this case. The form will switch requirements based on case type and pleading choices.</p>
+                                        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Upload only what belongs with this case. Upload options will change based on the case type and pleadings selected.</p>
                                     </div>
                                     <div class="rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 shadow-sm ring-1 ring-slate-100">
                                         <span class="font-semibold text-slate-900">File Check</span>
@@ -157,7 +157,7 @@
                             <div class="space-y-6">
                                 <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                                     <h4 class="text-lg font-semibold text-slate-950">Review Intake Summary</h4>
-                                    <p class="mt-2 text-sm leading-6 text-slate-600">Confirm the case setup, parties, and document package before you save or submit. If something looks off, go back to that step and fix it there.</p>
+                                    <p class="mt-2 text-sm leading-6 text-slate-600">Confirm the case information you have entered is correct. If any information is incorrect, go back to the corresponding step to make corrections.</p>
                                 </div>
 
                                 <div class="grid gap-4 lg:grid-cols-2" id="wizardReviewGrid">
@@ -208,4 +208,3 @@
     </div>
     @include('cases.create.partials.scripts')
 </x-app-layout>
-
