@@ -64,6 +64,8 @@ E-Docket job so unrelated jobs cannot bind them.
 | `LDAP_USERNAME` | `edocket-<env>-ldap-username` | AD bind account. Was `enc:`-encrypted before, so it is treated as a secret |
 | `LDAP_PASSWORD` | `edocket-<env>-ldap-password` | AD bind password |
 | `BOUNCE_MAIL_PASSWORD` | `edocket-<env>-bounce-mail-password` | IMAP mailbox polled by `email:process-bounces` |
+| `AWS_ACCESS_KEY_ID` | `edocket-<env>-aws-access-key-id` | Document store account (QAT only today; see below) |
+| `AWS_SECRET_ACCESS_KEY` | `edocket-<env>-aws-secret-access-key` | Its secret |
 
 Five per environment, ten for QAT + UAT. `MAIL_PASSWORD` is `null` (the agency
 relay on port 25 is unauthenticated) and is a literal in the template; the day
@@ -71,13 +73,20 @@ it gets a real value, add `edocket-<env>-mail-password` to the `withCredentials`
 list, to `SECRET_VARS` in the render stage, and replace the literal with
 `'${MAIL_PASSWORD}'`.
 
+The two `aws-*` credentials are bound **only** when `deploy/.env_<ENV>` contains
+`'${AWS_SECRET_ACCESS_KEY}'` — i.e. the environment keeps its documents on the S3
+document store (`DOCUMENTS_DRIVER=s3`). Environments still on the local disk need
+neither. Each environment has its own account on the store, owning only its own
+bucket (`sonm-ose-edocket-<env>`).
+
 `APP_KEY` is unique per environment on purpose: a shared key lets a QAT key
 holder forge UAT (and later PROD) session cookies. Rotating it only
 invalidates active sessions; the app stores no encrypted-cast data.
 
 ## Render stage
 
-- `withCredentials` binds the five ids for `deploy_environment` lowercased.
+- `withCredentials` binds the five ids for `deploy_environment` lowercased, plus
+  the two `aws-*` ids when the template uses them.
 - Every value is checked before rendering: a credential that is empty, or that
   contains a single quote or a newline, fails the build by name. The template
   single-quotes each placeholder, which is how phpdotenv is told to take a value

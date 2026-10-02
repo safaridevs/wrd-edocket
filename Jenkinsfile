@@ -102,52 +102,66 @@ pipeline {
                         // the secret values; render them from the edocket-<env>-* Jenkins
                         // credentials. Runs on every build, so a build-only run proves the
                         // credentials exist. See deploy/SECRETS.md.
-                        withCredentials([
-                            string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-app-key",              variable: 'APP_KEY'),
-                            string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-db-password",          variable: 'DB_PASSWORD'),
-                            string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-ldap-username",        variable: 'LDAP_USERNAME'),
-                            string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-ldap-password",        variable: 'LDAP_PASSWORD'),
-                            string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-bounce-mail-password", variable: 'BOUNCE_MAIL_PASSWORD'),
-                        ]) {
-                            // Single-quoted so Groovy interpolates nothing. set +x so
-                            // rendered content never reaches the build log (credential
-                            // masking is exact-string only).
-                            sh '''
-                                set +x
-                                set -e
-                                SECRET_VARS="APP_KEY DB_PASSWORD LDAP_USERNAME LDAP_PASSWORD BOUNCE_MAIL_PASSWORD"
-                                [ -f "${APP_ENV_SRC}" ] || { echo "Missing ${APP_ENV_SRC}"; exit 1; }
-                                command -v envsubst >/dev/null || {
-                                    echo "envsubst not found on agent - install gettext-base"; exit 1;
-                                }
-                                # The template single-quotes each placeholder, which phpdotenv
-                                # reads literally; a value holding ' or a newline cannot be
-                                # represented that way. Names only are printed, never values.
-                                for v in $SECRET_VARS; do
-                                    val=$(printenv "$v")
-                                    [ -n "$val" ] || { echo "ERROR: credential for $v is empty"; exit 1; }
-                                    case "$val" in
-                                        *"'"*) echo "ERROR: credential for $v contains a single quote"; exit 1 ;;
-                                    esac
-                                    [ "$(printenv "$v" | wc -l)" -le 1 ] || { echo "ERROR: credential for $v contains a newline"; exit 1; }
-                                done
-                                # Guard: a placeholder in the template that is not in SECRET_VARS
-                                # (nor the literal APP_NAME reference) would ship unrendered.
-                                # Checked on the template, not the output, because a secret
-                                # value may itself contain '${'.
-                                unknown=$(grep -vE '^[[:space:]]*#' "${APP_ENV_SRC}" | grep -oE '[$][{][A-Z0-9_]+[}]' | tr -d '${}' | sort -u | \
-                                    while read -r n; do case " $SECRET_VARS APP_NAME " in *" $n "*) ;; *) echo "$n" ;; esac; done)
-                                if [ -n "$unknown" ]; then
-                                    echo "ERROR: placeholder(s) with no credential bound: $unknown"; exit 1
-                                fi
-                                umask 077
-                                # Substitute ONLY the secret vars: the template keeps literal
-                                # ${APP_NAME} references that a bare envsubst would blank out.
-                                envsubst "$(for v in $SECRET_VARS; do printf '${%s} ' "$v"; done)" \
-                                    < "${APP_ENV_SRC}" > .env
-                                echo "APP_VERSION=${APP_VERSION_STAMP}" >> .env
-                                echo "Rendered .env from ${APP_ENV_SRC}"
-                            '''
+                        script {
+                            def creds = [
+                                string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-app-key",              variable: 'APP_KEY'),
+                                string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-db-password",          variable: 'DB_PASSWORD'),
+                                string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-ldap-username",        variable: 'LDAP_USERNAME'),
+                                string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-ldap-password",        variable: 'LDAP_PASSWORD'),
+                                string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-bounce-mail-password", variable: 'BOUNCE_MAIL_PASSWORD'),
+                            ]
+                            env.SECRET_VARS = 'APP_KEY DB_PASSWORD LDAP_USERNAME LDAP_PASSWORD BOUNCE_MAIL_PASSWORD'
+
+                            // Document-store keys are bound only for environments whose template
+                            // uses them (QAT today), so the others need no edocket-<env>-aws-* ids.
+                            if (fileExists(env.APP_ENV_SRC) && readFile(env.APP_ENV_SRC).contains('${AWS_SECRET_ACCESS_KEY}')) {
+                                creds += [
+                                    string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-aws-access-key-id",     variable: 'AWS_ACCESS_KEY_ID'),
+                                    string(credentialsId: "edocket-${env.DEPLOY_ENV_PATH}-aws-secret-access-key", variable: 'AWS_SECRET_ACCESS_KEY'),
+                                ]
+                                env.SECRET_VARS = env.SECRET_VARS + ' AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY'
+                            }
+
+                            withCredentials(creds) {
+                                // Single-quoted so Groovy interpolates nothing. set +x so
+                                // rendered content never reaches the build log (credential
+                                // masking is exact-string only).
+                                sh '''
+                                    set +x
+                                    set -e
+                                    [ -f "${APP_ENV_SRC}" ] || { echo "Missing ${APP_ENV_SRC}"; exit 1; }
+                                    command -v envsubst >/dev/null || {
+                                        echo "envsubst not found on agent - install gettext-base"; exit 1;
+                                    }
+                                    # The template single-quotes each placeholder, which phpdotenv
+                                    # reads literally; a value holding ' or a newline cannot be
+                                    # represented that way. Names only are printed, never values.
+                                    for v in $SECRET_VARS; do
+                                        val=$(printenv "$v")
+                                        [ -n "$val" ] || { echo "ERROR: credential for $v is empty"; exit 1; }
+                                        case "$val" in
+                                            *"'"*) echo "ERROR: credential for $v contains a single quote"; exit 1 ;;
+                                        esac
+                                        [ "$(printenv "$v" | wc -l)" -le 1 ] || { echo "ERROR: credential for $v contains a newline"; exit 1; }
+                                    done
+                                    # Guard: a placeholder in the template that is not in SECRET_VARS
+                                    # (nor the literal APP_NAME reference) would ship unrendered.
+                                    # Checked on the template, not the output, because a secret
+                                    # value may itself contain '${'.
+                                    unknown=$(grep -vE '^[[:space:]]*#' "${APP_ENV_SRC}" | grep -oE '[$][{][A-Z0-9_]+[}]' | tr -d '${}' | sort -u | \
+                                        while read -r n; do case " $SECRET_VARS APP_NAME " in *" $n "*) ;; *) echo "$n" ;; esac; done)
+                                    if [ -n "$unknown" ]; then
+                                        echo "ERROR: placeholder(s) with no credential bound: $unknown"; exit 1
+                                    fi
+                                    umask 077
+                                    # Substitute ONLY the secret vars: the template keeps literal
+                                    # ${APP_NAME} references that a bare envsubst would blank out.
+                                    envsubst "$(for v in $SECRET_VARS; do printf '${%s} ' "$v"; done)" \
+                                        < "${APP_ENV_SRC}" > .env
+                                    echo "APP_VERSION=${APP_VERSION_STAMP}" >> .env
+                                    echo "Rendered .env from ${APP_ENV_SRC}"
+                                '''
+                            }
                         }
                     }
                 }
