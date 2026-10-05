@@ -918,7 +918,7 @@
 
             const rows = [
                 buildReviewRow('Assigned attorneys', attorneyCount ? `${attorneyCount} selected` : 'None'),
-                buildReviewRow('Assigned clerks', clerkCount ? `${clerkCount} selected` : 'None'),
+                buildReviewRow('Assigned Paralegals', clerkCount ? `${clerkCount} selected` : 'None'),
                 buildReviewRow('OSE file numbers', oseEntries.length ? oseEntries.join(', ') : 'None entered'),
             ];
 
@@ -943,7 +943,7 @@
                 const representationMode = card.querySelector(`input[name="parties[${partyIndex}][representation_mode]"]:checked`)?.value || '';
                 const representationLabel = isCompany
                     ? (representationMode === 'attorney'
-                        ? 'Counselled'
+                        ? 'Counsel'
                         : representationMode === 'agent'
                             ? 'Represented by Agent'
                             : 'No counsel yet')
