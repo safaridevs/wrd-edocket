@@ -93,7 +93,7 @@
             },
             {
                 title: 'Case Numbers',
-                description: 'Add OSE numbers and ranges so routing and search work correctly later.',
+                description: 'Add OSE file numbers and ranges to correctly route case and improve search functionality.',
             },
             {
                 title: 'Documents',

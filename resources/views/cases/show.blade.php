@@ -169,7 +169,7 @@
                                 ->unique('id')
                                 ->values();
                         @endphp
-                        <strong class="mt-3 block">Assigned ALU Clerks / Paralegals:</strong>
+                        <strong class="mt-3 block">Assigned ALU Paralegals:</strong>
                         <div class="text-sm mt-1">
                             @if($assignedAluSupport->isNotEmpty())
                                 @foreach($assignedAluSupport as $clerk)
