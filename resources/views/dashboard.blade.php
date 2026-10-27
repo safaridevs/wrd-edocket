@@ -68,7 +68,7 @@
                                                               $subQuery->where('email', auth()->user()->email);
                                                           });
                                                 })->orWhereHas('assignments', function($query) {
-                                                    $query->where('assignment_type', 'alu_paralegal')
+                                                    $query->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                                           ->where('user_id', auth()->id());
                                                 });
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
@@ -213,7 +213,7 @@
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
                                             })->orWhereHas('assignments', function($query) {
-                                                $query->where('assignment_type', 'alu_paralegal')
+                                                $query->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                                       ->where('user_id', auth()->id());
                                             });
                                         })->whereIn('status', ['active', 'submitted_to_hu'])
@@ -375,7 +375,7 @@
                                         ->with('case', 'clientParty.person')
                                         ->get();
 
-                                    $aluParalegalAssignments = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                                    $caseParalegalAssignments = \App\Models\CaseAssignment::whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                         ->where('user_id', auth()->id())
                                         ->whereHas('case', function($query) {
                                             $query->whereIn('status', ['active', 'submitted_to_hu']);
@@ -383,7 +383,7 @@
                                         ->with('case', 'assignedBy')
                                         ->get();
 
-                                    $assignedCases = $paralegalParties->count() + $aluParalegalAssignments->count();
+                                    $assignedCases = $paralegalParties->count() + $caseParalegalAssignments->count();
                                     $attorneys = $paralegalParties->map(function($p) {
                                         return \App\Models\CaseParty::where('role', 'counsel')
                                             ->where('client_party_id', $p->client_party_id)
@@ -391,7 +391,7 @@
                                             ->first();
                                     })->filter()->unique('person.email')
                                       ->concat(
-                                          $aluParalegalAssignments->map(function($assignment) {
+                                          $caseParalegalAssignments->map(function($assignment) {
                                               return $assignment->assignedBy;
                                           })->filter()->unique('email')
                                       );

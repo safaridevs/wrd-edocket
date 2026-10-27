@@ -13,6 +13,7 @@ class DocumentFilingStampEligibilityTest extends TestCase
         foreach (['application', 'supporting', 'notice_publication', 'other'] as $type) {
             $document = $this->document(Document::FILING_CONTEXT_INITIAL, $type, 'none');
 
+            $this->assertFalse($document->requiresFilingStampUponAcceptance(), $type);
             $this->assertFalse($document->isEligibleForFilingStamp(), $type);
         }
     }
@@ -22,6 +23,7 @@ class DocumentFilingStampEligibilityTest extends TestCase
         foreach (['request_to_docket', 'request_pre_hearing'] as $pleadingType) {
             $document = $this->document(Document::FILING_CONTEXT_INITIAL, $pleadingType, $pleadingType);
 
+            $this->assertTrue($document->requiresFilingStampUponAcceptance(), $pleadingType);
             $this->assertTrue($document->isEligibleForFilingStamp(), $pleadingType);
         }
     }
@@ -30,6 +32,7 @@ class DocumentFilingStampEligibilityTest extends TestCase
     {
         $document = $this->document(Document::FILING_CONTEXT_SUBSEQUENT, 'motion', 'none');
 
+        $this->assertTrue($document->requiresFilingStampUponAcceptance());
         $this->assertTrue($document->isEligibleForFilingStamp());
     }
 
@@ -37,6 +40,7 @@ class DocumentFilingStampEligibilityTest extends TestCase
     {
         $document = $this->document(Document::FILING_CONTEXT_HEARING_UNIT, 'order', 'none', true);
 
+        $this->assertFalse($document->requiresFilingStampUponAcceptance());
         $this->assertFalse($document->isEligibleForFilingStamp());
     }
 
@@ -49,6 +53,7 @@ class DocumentFilingStampEligibilityTest extends TestCase
         $stamped->stamped = true;
 
         $this->assertFalse($unaccepted->isEligibleForFilingStamp());
+        $this->assertTrue($unaccepted->requiresFilingStampUponAcceptance());
         $this->assertFalse($rejected->isEligibleForFilingStamp());
         $this->assertFalse($stamped->isEligibleForFilingStamp());
     }

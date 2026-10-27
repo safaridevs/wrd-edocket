@@ -367,9 +367,14 @@ class User extends Authenticatable
             return false;
         }
 
-        return $case->status !== 'active'
-            || $this->isHearingUnit()
-            || $case->isCombinedCase();
+        if ($case->status !== 'active') {
+            return true;
+        }
+
+        return $this->isHearingUnit()
+            || $this->isContractAttorney()
+            || $this->isExternalAttorney()
+            || $this->getCurrentRole() === 'party';
     }
 
     public function documentFilingRoles(?CaseModel $case = null): array
@@ -422,7 +427,7 @@ class User extends Authenticatable
         if ($isParty) return true;
 
         $isAssignedParalegal = $case->assignments()
-            ->where('assignment_type', 'alu_paralegal')
+            ->whereIn('assignment_type', CaseAssignment::PARALEGAL_TYPES)
             ->where('user_id', $this->id)
             ->exists();
 
@@ -598,7 +603,7 @@ class User extends Authenticatable
             return true;
         }
 
-        return CaseAssignment::where('assignment_type', 'alu_paralegal')
+        return CaseAssignment::whereIn('assignment_type', CaseAssignment::PARALEGAL_TYPES)
             ->where('user_id', $this->id)
             ->exists();
     }

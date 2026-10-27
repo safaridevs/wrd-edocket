@@ -68,6 +68,21 @@ class ServiceListResolverTest extends TestCase
         );
     }
 
+    public function test_contract_paralegal_has_a_distinct_service_list_label(): void
+    {
+        $case = new CaseModel();
+        $case->setRelation('parties', new Collection());
+        $case->setRelation('serviceList', new Collection());
+        $case->setRelation('assignments', new Collection([
+            $this->assignment(3, CaseAssignment::TYPE_CONTRACT_PARALEGAL, 'Contract Paralegal', 'contract-para@example.com'),
+        ]));
+
+        $recipient = (new ServiceListResolver())->resolve($case)->first();
+
+        $this->assertSame('Contract Attorney Paralegal', $recipient['role']);
+        $this->assertSame('Contract Attorney Paralegal', $recipient['service_label']);
+    }
+
     private function person(int $id, string $name, string $organization, string $email, ?string $mobile = null, ?string $office = null): Person
     {
         $nameParts = explode(' ', $name, 2);

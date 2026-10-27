@@ -138,7 +138,7 @@ class CaseController extends Controller
                             $personQuery->where('email', $user->email);
                         });
                     })->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
-                        $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'alu_atty', 'alu_attorney'])
+                        $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'contract_paralegal', 'alu_atty', 'alu_attorney'])
                             ->where('user_id', $user->id);
                     });
                 });
@@ -193,7 +193,7 @@ class CaseController extends Controller
                                 $subQuery->where('email', $user->email);
                             });
                     })->orWhereHas('assignments', function ($query) use ($user) {
-                        $query->where('assignment_type', 'alu_paralegal')
+                        $query->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                             ->where('user_id', $user->id);
                     });
                 })->whereIn('status', ['active', 'submitted_to_hu']);
@@ -2132,15 +2132,44 @@ class CaseController extends Controller
             abort(403);
         }
 
-        $document = $case->documents()->findOrFail($documentId);
+        $document = $case->documents()->with('uploader.roleRelation')->findOrFail($documentId);
 
         if ($this->isHuIssuedDocument($document)) {
             return response()->json(['success' => false, 'error' => 'Hearing Unit-issued documents are already issued and do not require acceptance.']);
         }
 
+        if ($document->uploader?->isHearingUnit()) {
+            return response()->json(['success' => false, 'error' => 'Hearing Unit orders and notices must be completed through Issue & Notify.']);
+        }
+
         // Check case status - allow submitted_to_hu and active
         if (!in_array($case->status, ['submitted_to_hu', 'active'])) {
             return response()->json(['success' => false, 'error' => 'Documents can only be accepted in submitted or active cases']);
+        }
+
+        $stampApplied = false;
+        if ($document->requiresFilingStampUponAcceptance()) {
+            try {
+                $stampApplied = app(\App\Services\PdfStampingService::class)->stampDocument($document, $case);
+            } catch (\Throwable $e) {
+                \Log::error('Document acceptance stamp failed', [
+                    'case_id' => $case->id,
+                    'document_id' => $document->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'error' => 'The document was not accepted because its electronic filing stamp could not be applied: ' . $e->getMessage(),
+                ]);
+            }
+
+            if (!$stampApplied) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'The document was not accepted because its electronic filing stamp could not be applied.',
+                ]);
+            }
         }
 
         $document->update([
@@ -2163,8 +2192,8 @@ class CaseController extends Controller
         return response()->json([
             'success' => true,
             'message' => $notifiedCount > 0
-                ? "Document accepted successfully. {$notifiedCount} recipient(s) notified."
-                : 'Document accepted successfully. No service-list recipients were available to notify.',
+                ? 'Document accepted' . ($stampApplied ? ' and stamped' : '') . " successfully. {$notifiedCount} recipient(s) notified."
+                : 'Document accepted' . ($stampApplied ? ' and stamped' : '') . ' successfully. No service-list recipients were available to notify.',
         ]);
     }
 
@@ -2880,6 +2909,9 @@ class CaseController extends Controller
         $selectedAluParalegal = null;
         $canAssignPersonalParalegals = $user->canAssignPersonalParalegals($case);
         $requiresAluParalegalAccount = $isAssignedAluAttorney && !$canAssignPersonalParalegals;
+        $paralegalAssignmentType = $canAssignPersonalParalegals
+            ? \App\Models\CaseAssignment::TYPE_CONTRACT_PARALEGAL
+            : \App\Models\CaseAssignment::TYPE_ALU_PARALEGAL;
 
         if ($requiresAluParalegalAccount) {
             if (empty($validated['existing_user_id'])) {
@@ -2898,7 +2930,7 @@ class CaseController extends Controller
 
         if ($canAssignPersonalParalegals && !empty($validated['existing_person_id'])) {
             $existingPerson = \App\Models\Person::findOrFail($validated['existing_person_id']);
-            $isOwnedParalegal = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+            $isOwnedParalegal = \App\Models\CaseAssignment::where('assignment_type', \App\Models\CaseAssignment::TYPE_CONTRACT_PARALEGAL)
                 ->where('assigned_by', $user->id)
                 ->whereHas('user', function ($query) use ($existingPerson) {
                     $query->where('email', $existingPerson->email);
@@ -3022,7 +3054,7 @@ class CaseController extends Controller
             ]);
         } else {
             $assignmentExists = $case->assignments()
-                ->where('assignment_type', 'alu_paralegal')
+                ->where('assignment_type', $paralegalAssignmentType)
                 ->where('user_id', $paralegalUser->id)
                 ->exists();
 
@@ -3032,7 +3064,7 @@ class CaseController extends Controller
 
             $case->assignments()->create([
                 'user_id' => $paralegalUser->id,
-                'assignment_type' => 'alu_paralegal',
+                'assignment_type' => $paralegalAssignmentType,
                 'assigned_by' => $user->id,
             ]);
         }
@@ -3047,7 +3079,9 @@ class CaseController extends Controller
             'Paralegal Access Added',
             $selectedAluParalegal
                 ? "You have been assigned as an ALU paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents."
-                : "You have been added as a paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents for the represented party. If you have not signed in before, use Forgot Password with this email address to set your password.",
+                : ($canAssignPersonalParalegals
+                    ? "You have been assigned as a contract attorney paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents in support of the assigning contract attorney. If you have not signed in before, use Forgot Password with this email address to set your password."
+                    : "You have been added as a paralegal on case {$case->case_no}. You can now access the case, receive case notifications, and file documents for the represented party. If you have not signed in before, use Forgot Password with this email address to set your password."),
             $case
         );
 
@@ -3094,7 +3128,7 @@ class CaseController extends Controller
         } else {
             $assignment = $case->assignments()
                 ->where('id', $partyId)
-                ->where('assignment_type', 'alu_paralegal')
+                ->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                 ->firstOrFail();
 
             if (!$isAssignedAluAttorney || (int) $assignment->assigned_by !== (int) $user->id) {

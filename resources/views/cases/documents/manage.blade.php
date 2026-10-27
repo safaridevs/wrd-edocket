@@ -976,7 +976,7 @@
                     if (data.success) {
                         location.reload();
                     } else {
-                        alert('Failed to approve document');
+                        alert(data.error || 'Failed to accept document');
                     }
                 });
             } else if (currentAction === 'reject') {
@@ -1009,7 +1009,7 @@
         function approveDocument(documentId) {
             showConfirmModal(
                 'Accept Document',
-                'Are you sure you want to accept this document?',
+                'Accept this document? If it requires an electronic filing stamp, the stamp will be applied automatically.',
                 'approve',
                 documentId
             );

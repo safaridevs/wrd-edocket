@@ -157,7 +157,7 @@ class DocumentTextIndexService
             $accessQuery->whereHas('parties.person', function (Builder $personQuery) use ($email) {
                 $personQuery->whereRaw('LOWER(email) = ?', [$email]);
             })->orWhereHas('assignments', function (Builder $assignmentQuery) use ($user) {
-                $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'alu_atty', 'alu_attorney'])
+                $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'contract_paralegal', 'alu_atty', 'alu_attorney'])
                     ->where('user_id', $user->id);
             });
         });

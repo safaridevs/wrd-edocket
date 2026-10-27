@@ -10,6 +10,7 @@ class ServiceListResolver
     private const ASSIGNMENT_LABELS = [
         'alu_clerk' => 'ALU Clerk',
         'alu_paralegal' => 'ALU Paralegal',
+        'contract_paralegal' => 'Contract Attorney Paralegal',
         'alu_atty' => 'ALU Attorney',
         'alu_attorney' => 'ALU Attorney',
         'wrd' => 'WRD Expert',

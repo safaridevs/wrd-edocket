@@ -647,8 +647,11 @@
                                     return $p->client_party_id === $counselParty->client_party_id;
                                 });
                             } elseif ($userIsAssignedAluAttorney) {
+                                $ownedParalegalType = auth()->user()->isContractAttorney()
+                                    ? \App\Models\CaseAssignment::TYPE_CONTRACT_PARALEGAL
+                                    : \App\Models\CaseAssignment::TYPE_ALU_PARALEGAL;
                                 $userParalegals = $case->assignments
-                                    ->where('assignment_type', 'alu_paralegal')
+                                    ->where('assignment_type', $ownedParalegalType)
                                     ->where('assigned_by', auth()->id());
                             } else {
                                 $userParalegals = collect();
@@ -2164,7 +2167,7 @@
                                         ->orderBy('name')
                                         ->get();
                                 } elseif ($canAssignPersonalParalegals) {
-                                    $ownedParalegalUserIds = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                                    $ownedParalegalUserIds = \App\Models\CaseAssignment::where('assignment_type', \App\Models\CaseAssignment::TYPE_CONTRACT_PARALEGAL)
                                         ->where('assigned_by', auth()->id())
                                         ->pluck('user_id');
                                     $ownedParalegalEmails = \App\Models\User::whereIn('id', $ownedParalegalUserIds)

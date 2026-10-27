@@ -36,7 +36,7 @@ class CaseCreationAuthorizationTest extends TestCase
         }
     }
 
-    public function test_assigned_contract_attorney_can_assign_personal_paralegals_before_activation(): void
+    public function test_assigned_contract_attorney_can_assign_personal_paralegals_on_open_cases(): void
     {
         $contractAttorney = $this->user('contract_attorney', 4);
         $draft = $this->case('draft', 99);
@@ -49,7 +49,8 @@ class CaseCreationAuthorizationTest extends TestCase
 
         $draft->status = 'active';
         $draft->setRelation('consolidation', null);
-        $this->assertFalse($contractAttorney->canAssignPersonalParalegals($draft));
+        $this->assertTrue($contractAttorney->canAssignPersonalParalegals($draft));
+        $this->assertFalse($this->user('alu_atty', 4)->canManageOwnParalegals($draft));
     }
 
     public function test_attorneys_can_manage_only_their_paralegals_on_an_active_combined_case(): void
@@ -250,6 +251,13 @@ class CaseCreationAuthorizationTest extends TestCase
         $this->assertTrue($this->user('alu_paralegal', 81)->canUploadDocumentsToCase($assignedParalegalCase));
         $this->assertFalse($this->user('alu_clerk', 80)->canUploadDocumentsToCase($unassignedCase));
         $this->assertFalse($this->user('alu_paralegal', 81)->canUploadDocumentsToCase($unassignedCase));
+    }
+
+    public function test_contract_paralegal_assignment_is_distinct_from_alu_paralegal_assignment(): void
+    {
+        $this->assertSame('alu_paralegal', CaseAssignment::TYPE_ALU_PARALEGAL);
+        $this->assertSame('contract_paralegal', CaseAssignment::TYPE_CONTRACT_PARALEGAL);
+        $this->assertNotContains(CaseAssignment::TYPE_CONTRACT_PARALEGAL, ['alu_clerk', CaseAssignment::TYPE_ALU_PARALEGAL]);
     }
 
     public function test_alu_support_assignment_types_preserve_clerk_and_paralegal_roles(): void

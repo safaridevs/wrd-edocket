@@ -208,6 +208,14 @@ class CaseModel extends Model
             ->withTimestamps();
     }
 
+    public function contractParalegals()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', CaseAssignment::TYPE_CONTRACT_PARALEGAL)
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(CaseAssignment::class, 'case_id');

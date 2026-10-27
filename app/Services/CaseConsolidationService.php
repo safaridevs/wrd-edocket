@@ -149,7 +149,7 @@ class CaseConsolidationService
                 $combined->assignments()->firstOrCreate([
                     'user_id' => $assignment->user_id,
                     'assignment_type' => $assignment->assignment_type,
-                ], ['assigned_by' => $user->id]);
+                ], ['assigned_by' => $assignment->assigned_by ?: $user->id]);
             }
         }
     }

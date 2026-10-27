@@ -107,11 +107,18 @@ class Document extends Model
 
     public function isEligibleForFilingStamp(): bool
     {
+        return $this->approved
+            && blank($this->rejected_reason)
+            && $this->requiresFilingStampUponAcceptance();
+    }
+
+    public function requiresFilingStampUponAcceptance(): bool
+    {
         if (!$this->relationLoaded('uploader')) {
             $this->loadMissing('uploader.roleRelation');
         }
 
-        if (!$this->approved || $this->stamped || filled($this->rejected_reason) || $this->uploader?->isHearingUnit()) {
+        if ($this->stamped || $this->uploader?->isHearingUnit()) {
             return false;
         }
 
