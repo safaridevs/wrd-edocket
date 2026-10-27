@@ -100,6 +100,29 @@ class Document extends Model
         return !$this->approved && (bool) $this->uploader?->isHearingUnit();
     }
 
+    public function isInitiatingPleading(): bool
+    {
+        return in_array($this->pleading_type, ['request_to_docket', 'request_pre_hearing'], true);
+    }
+
+    public function isEligibleForFilingStamp(): bool
+    {
+        if (!$this->relationLoaded('uploader')) {
+            $this->loadMissing('uploader.roleRelation');
+        }
+
+        if (!$this->approved || $this->stamped || filled($this->rejected_reason) || $this->uploader?->isHearingUnit()) {
+            return false;
+        }
+
+        return match ($this->filing_context) {
+            self::FILING_CONTEXT_SUBSEQUENT => true,
+            self::FILING_CONTEXT_INITIAL => $this->isInitiatingPleading(),
+            self::FILING_CONTEXT_HEARING_UNIT => false,
+            default => $this->isInitiatingPleading(),
+        };
+    }
+
     public function stamp(): void
     {
         $this->update([

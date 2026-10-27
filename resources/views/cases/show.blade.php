@@ -65,6 +65,21 @@
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
+            @if($case->isConsolidatedSource())
+                <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-900">
+                    <strong>This case is a read-only historical record.</strong>
+                    All future filings must be made in
+                    <a class="font-semibold underline" href="{{ route('cases.show', $case->consolidatedInto) }}">{{ $case->consolidatedInto->case_no }}</a>.
+                </div>
+            @elseif($case->consolidation)
+                <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-900">
+                    <strong>Combined case.</strong> This case includes parties from
+                    @foreach($case->consolidation->sources as $source)
+                        <a class="font-semibold underline" href="{{ route('cases.show', $source->sourceCase) }}">{{ $source->sourceCase->case_no }}</a>{{ !$loop->last ? ', ' : '.' }}
+                    @endforeach
+                </div>
+            @endif
+
             <!-- Case Header -->
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -96,7 +111,7 @@
                             <span class="inline-block px-2 py-1 text-xs rounded-full {{ $case->visible_status_badge_class }}">
                                 {{ $case->visible_status_label }}
                             </span>
-                            @if(auth()->user()->isHearingUnit())
+                            @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())
                                 <button type="button"
                                         onclick="showHuStatusModal()"
                                         class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
@@ -154,7 +169,7 @@
                             @else
                                 <span class="text-gray-500">Not assigned</span>
                             @endif
-                            @if(auth()->user()->canAssignAttorneys())
+                            @if(auth()->user()->canManageAttorneysForCase($case))
                                 <a href="{{ route('cases.assign-attorney', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
                                     {{ $case->aluAttorneys->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
@@ -180,7 +195,7 @@
                             @else
                                 <span class="text-gray-500">Not assigned</span>
                             @endif
-                            @if(auth()->user()->canAssignAttorneys())
+                            @if(auth()->user()->canModifyCaseUsers($case) && auth()->user()->canAssignAttorneys())
                                 <a href="{{ route('cases.assign-alu-clerk', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
                                     {{ $assignedAluSupport->isNotEmpty() ? 'Manage' : 'Assign' }}
                                 </a>
@@ -197,7 +212,7 @@
                             @else
                                 <span class="text-gray-500">Not assigned</span>
                             @endif
-                            @if(auth()->user()->canAssignAttorneys())
+                            @if(auth()->user()->canModifyCaseUsers($case) && auth()->user()->canAssignAttorneys())
                                 <a href="{{ route('cases.assign-wrd', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
                                     {{ $case->wrds->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
@@ -212,7 +227,7 @@
                             @else
                                 <span class="text-gray-500">Not assigned</span>
                             @endif
-                            @if(auth()->user()->canAssignHydrologyExperts())
+                            @if(auth()->user()->canModifyCaseUsers($case) && auth()->user()->canAssignHydrologyExperts())
                                 <a href="{{ route('cases.assign-hydrology-expert', $case) }}" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
                                     {{ $case->hydrologyExperts->count() > 0 ? 'Manage' : 'Assign' }}
                                 </a>
@@ -397,7 +412,7 @@
                         <a href="{{ route('cases.service-list.download', $case) }}" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-200">
                             Download Service List
                         </a>
-                        @if(auth()->user()->canWriteCase() || auth()->user()->isHearingUnit())
+                        @if(!$case->isConsolidatedSource() && (auth()->user()->canWriteCase() || auth()->user()->isHearingUnit()))
                             <a href="{{ route('cases.parties.manage', $case) }}" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
                                 {{ auth()->user()->canManageCaseParties($case) ? 'Manage Parties' : 'View Parties' }}
                             </a>
@@ -448,7 +463,7 @@
                                         @endif
                                     </div>
                                     <div class="flex items-center space-x-2">
-                                        @if($hasAttorney)
+                                        @if($hasAttorney && auth()->user()->canManageAttorneysForCase($case))
                                             <button onclick="event.stopPropagation(); manageAttorney({{ $party->id }})" class="text-xs text-green-600 hover:text-green-800">Attorney</button>
                                         @endif
                                         <svg class="w-4 h-4 text-gray-400 transform transition-transform party-chevron-{{ $index }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -640,7 +655,7 @@
                             }
                         @endphp
 
-                        @if($userIsCounsel || $userIsAssignedAluAttorney)
+                        @if(auth()->user()->canManageOwnParalegals($case) && ($userIsCounsel || $userIsAssignedAluAttorney))
                         <div class="mt-4 border-t pt-4">
                             <div class="flex justify-between items-center mb-2">
                                 <h5 class="font-medium text-sm">My Paralegals</h5>
@@ -739,15 +754,19 @@
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium">Documents ({{ $case->documents->count() }})</h3>
                     <div class="flex space-x-2">
-                        @if(auth()->user()->isHearingUnit())
+                        @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())
                         <a href="{{ route('cases.documents.manage', $case) }}" class="bg-purple-500 text-white px-4 py-2 rounded-md text-sm hover:bg-purple-600">Manage Documents</a>
                         @endif
-                        @if(!in_array($case->status, ['closed', 'archived']))
+                        @if(!in_array($case->status, ['closed', 'archived']) && !$case->isConsolidatedSource())
                             @if(auth()->user()->canUploadDocumentsToCase($case))
                             <button onclick="showUploadModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">{{ auth()->user()->isHearingUnit() ? '+ Issue Order or Notice' : 'File Documents' }}</button>
                             @endif
                         @endif
-                        @if($case->status === 'submitted_to_hu' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
+
+                        @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource() && !$case->consolidation && in_array($case->status, ['active', 'closed']))
+                            <a href="{{ route('cases.consolidate', $case) }}" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">Consolidate Cases</a>
+                        @endif
+                        @if(!$case->isConsolidatedSource() && $case->status === 'submitted_to_hu' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
                         <button
                             type="button"
                             @if($canAcceptSubmittedCase)
@@ -764,7 +783,7 @@
                         <button onclick="showRejectModal()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">Reject Case</button>
                         @endif
 
-                        @if($case->status === 'active' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
+                        @if(!$case->isConsolidatedSource() && $case->status === 'active' && in_array(auth()->user()->getCurrentRole(), ['hu_admin', 'hu_clerk']))
                         <button onclick="showCloseModal()" class="bg-orange-500 text-white px-4 py-2 rounded-md text-sm hover:bg-orange-600">Close Case</button>
                         @elseif($case->status === 'closed')
                         <span class="bg-orange-100 text-orange-800 px-4 py-2 rounded-md text-sm font-medium">📁 Case Closed</span>
@@ -782,6 +801,36 @@
                     Accept Case is disabled until all ALU-submitted documents are accepted.
                     {{ $pendingAluAcceptanceDocuments->count() }} document(s) still need acceptance.
                 </div>
+                @endif
+
+                @if(($historicalSourceCases ?? collect())->isNotEmpty())
+                    <div class="mt-8 border-t border-gray-200 pt-6">
+                        <h4 class="text-base font-semibold text-gray-900">Historical Source Documents</h4>
+                        <p class="mt-1 text-sm text-gray-600">These documents remain in their original cases. Your access follows your participation in each source case.</p>
+                        <div class="mt-4 space-y-5">
+                            @foreach($historicalSourceCases as $sourceCase)
+                                <div class="rounded-md border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <a href="{{ route('cases.show', $sourceCase) }}" class="font-semibold text-indigo-700 hover:underline">{{ $sourceCase->case_no }}</a>
+                                        <span class="text-xs text-gray-500">{{ $sourceCase->documents->count() }} document(s)</span>
+                                    </div>
+                                    <div class="mt-3 divide-y divide-gray-100">
+                                        @forelse($sourceCase->documents->sortByDesc('uploaded_at') as $historicalDocument)
+                                            <div class="flex items-center justify-between gap-4 py-2 text-sm">
+                                                <div>
+                                                    <div class="font-medium text-gray-900">{{ $historicalDocument->custom_title ?: $historicalDocument->original_filename }}</div>
+                                                    <div class="text-xs text-gray-500">Filed {{ optional($historicalDocument->uploaded_at)->format('M j, Y') }}</div>
+                                                </div>
+                                                <a href="{{ route('documents.preview', $historicalDocument) }}" class="text-indigo-700 hover:underline">View</a>
+                                            </div>
+                                        @empty
+                                            <p class="py-2 text-sm text-gray-500">No historical documents.</p>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 @endif
 
                 <!-- Filters and Search -->
@@ -887,7 +936,7 @@
                                 </svg>
                             </a>
 
-                            @if(($isPendingHuIssue || $isPendingHuUpload) && auth()->user()->isHearingUnit())
+                            @if(!$case->isConsolidatedSource() && ($isPendingHuIssue || $isPendingHuUpload) && auth()->user()->isHearingUnit())
                             <a href="{{ route('cases.documents.manage', $case) }}" class="{{ $isPendingHuUpload ? 'text-orange-700 hover:text-orange-900' : 'text-amber-700 hover:text-amber-900' }} text-sm" title="{{ $isPendingHuUpload ? 'Retry Stamp' : 'Issue & Notify' }}">
                                 {{ $isPendingHuUpload ? 'Retry Stamp' : 'Issue' }}
                             </a>
@@ -900,7 +949,7 @@
                                 </svg>
                             </button>
                             @endif
-                            @if($latestDocCorrection && in_array($latestDocCorrection->status, ['open', 'resubmitted']) && !auth()->user()->isHearingUnit() && (int) $doc->uploaded_by_user_id === (int) auth()->id())
+                            @if(!$case->isConsolidatedSource() && $latestDocCorrection && in_array($latestDocCorrection->status, ['open', 'resubmitted']) && !auth()->user()->isHearingUnit() && (int) $doc->uploaded_by_user_id === (int) auth()->id())
                             <button onclick="showCaseCorrectedUploadModal({{ $doc->id }})" class="text-indigo-600 hover:text-indigo-800 text-sm" title="Submit Corrected Document">
                                 Submit Corrected Document
                             </button>
@@ -983,21 +1032,21 @@
                 </div>
             </div>
 
-            @if($case->status === 'active' && ($case->media->isNotEmpty() || auth()->user()->isHearingUnit()))
+            @if($case->status === 'active' && ($case->media->isNotEmpty() || (auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())))
             <div class="bg-white shadow rounded-lg p-6">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 class="text-lg font-medium">Audio and Video ({{ $case->media->count() }})</h3>
-                        <p class="mt-1 text-sm text-gray-600">Media attached to this active case by the Hearing Unit.</p>
+                        <p class="mt-1 text-sm text-gray-600">Media attached to this case by the Hearing Unit.</p>
                     </div>
-                    @if(auth()->user()->isHearingUnit())
+                    @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())
                     <button type="button" onclick="document.getElementById('attachMediaPanel').classList.toggle('hidden')" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
                         Attach Media
                     </button>
                     @endif
                 </div>
 
-                @if(auth()->user()->isHearingUnit())
+                @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())
                 <div id="attachMediaPanel" class="{{ $errors->hasAny(['title', 'media_path', 'description', 'received_at']) ? '' : 'hidden' }} mt-5 rounded-lg border border-blue-200 bg-blue-50 p-4">
                     <form method="POST" action="{{ route('cases.media.store', $case) }}" class="space-y-4">
                         @csrf
@@ -1050,7 +1099,7 @@
                         <div class="flex shrink-0 items-center gap-3">
                             <a href="{{ route('cases.media.view', [$case, $media]) }}" target="_blank" class="text-sm font-medium text-blue-700 hover:text-blue-900">View</a>
                             <a href="{{ route('cases.media.download', [$case, $media]) }}" class="text-sm font-medium text-blue-700 hover:text-blue-900">Download</a>
-                            @if(auth()->user()->isHearingUnit())
+                            @if(auth()->user()->isHearingUnit() && !$case->isConsolidatedSource())
                             <form method="POST" action="{{ route('cases.media.destroy', [$case, $media]) }}" onsubmit="return confirm('Are you sure you want to remove this media from the case?')">
                                 @csrf
                                 @method('DELETE')
@@ -2106,27 +2155,42 @@
                         <input type="hidden" name="type" value="individual">
                         <div class="space-y-4">
                             @php
-                                if ($userIsAssignedAluAttorney) {
+                                $canAssignPersonalParalegals = auth()->user()->canAssignPersonalParalegals($case);
+                                $requiresAluParalegalAccount = $userIsAssignedAluAttorney && !$canAssignPersonalParalegals;
+
+                                if ($requiresAluParalegalAccount) {
                                     $existingParalegals = \App\Models\User::whereCurrentRole('alu_paralegal')
                                         ->where('is_active', true)
                                         ->orderBy('name')
+                                        ->get();
+                                } elseif ($canAssignPersonalParalegals) {
+                                    $ownedParalegalUserIds = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                                        ->where('assigned_by', auth()->id())
+                                        ->pluck('user_id');
+                                    $ownedParalegalEmails = \App\Models\User::whereIn('id', $ownedParalegalUserIds)
+                                        ->whereNotNull('email')
+                                        ->pluck('email');
+
+                                    $existingParalegals = \App\Models\Person::whereIn('email', $ownedParalegalEmails)
+                                        ->orderBy('last_name')
+                                        ->orderBy('first_name')
                                         ->get();
                                 } else {
                                     $existingParalegals = \App\Models\Person::whereHas('caseParties', function ($query) {
                                         $query->where('role', 'paralegal');
                                     })->orderBy('last_name')
-                                    ->orderBy('first_name')
-                                    ->get();
+                                        ->orderBy('first_name')
+                                        ->get();
                                 }
                             @endphp
 
                             <div class="rounded-lg border border-gray-200 p-4 bg-gray-50">
                                 <div class="flex flex-col md:flex-row md:items-center gap-3">
                                     <label class="inline-flex items-center">
-                                        <input type="radio" name="paralegal_mode" value="existing" class="mr-2" onchange="toggleParalegalMode()" {{ $userIsAssignedAluAttorney || $existingParalegals->isNotEmpty() ? 'checked' : '' }}>
+                                        <input type="radio" name="paralegal_mode" value="existing" class="mr-2" onchange="toggleParalegalMode()" {{ $requiresAluParalegalAccount || $existingParalegals->isNotEmpty() ? 'checked' : '' }}>
                                         <span class="text-sm font-medium">Use Existing Paralegal</span>
                                     </label>
-                                    @unless($userIsAssignedAluAttorney)
+                                    @unless($requiresAluParalegalAccount)
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="paralegal_mode" value="new" class="mr-2" onchange="toggleParalegalMode()" {{ $existingParalegals->isEmpty() ? 'checked' : '' }}>
                                         <span class="text-sm font-medium">Create New Paralegal</span>
@@ -2134,26 +2198,26 @@
                                     @endunless
                                 </div>
 
-                                <div id="existingParalegalSection" class="mt-4 {{ !$userIsAssignedAluAttorney && $existingParalegals->isEmpty() ? 'hidden' : '' }}">
+                                <div id="existingParalegalSection" class="mt-4 {{ !$requiresAluParalegalAccount && $existingParalegals->isEmpty() ? 'hidden' : '' }}">
                                     <label class="block text-sm font-medium mb-1">Existing Paralegal</label>
-                                    <select name="{{ $userIsAssignedAluAttorney ? 'existing_user_id' : 'existing_person_id' }}" id="existingParalegalSelect" class="w-full border-gray-300 rounded-md" onchange="toggleParalegalMode()">
+                                    <select name="{{ $requiresAluParalegalAccount ? 'existing_user_id' : 'existing_person_id' }}" id="existingParalegalSelect" class="w-full border-gray-300 rounded-md" onchange="toggleParalegalMode()">
                                         <option value="">Select existing paralegal...</option>
                                         @foreach($existingParalegals as $paralegal)
                                         <option value="{{ $paralegal->id }}">
-                                            {{ $userIsAssignedAluAttorney ? $paralegal->name : $paralegal->full_name }}{{ $paralegal->email ? ' - ' . $paralegal->email : '' }}
+                                            {{ $requiresAluParalegalAccount ? $paralegal->name : $paralegal->full_name }}{{ $paralegal->email ? ' - ' . $paralegal->email : '' }}
                                         </option>
                                         @endforeach
                                     </select>
-                                    @if($userIsAssignedAluAttorney && $existingParalegals->isEmpty())
+                                    @if($requiresAluParalegalAccount && $existingParalegals->isEmpty())
                                         <p class="text-sm text-amber-700 mt-2">No active ALU paralegal accounts are available.</p>
                                     @endif
                                     <p class="text-xs text-gray-500 mt-1">
-                                        {{ $userIsAssignedAluAttorney ? 'Select an active ALU paralegal account.' : 'Select an existing paralegal to reuse their saved person record.' }}
+                                        {{ $requiresAluParalegalAccount ? 'Select an active ALU paralegal account.' : 'Select one of your existing paralegals or create a new paralegal.' }}
                                     </p>
                                 </div>
                             </div>
 
-                            <div id="newParalegalFields" class="{{ $userIsAssignedAluAttorney || $existingParalegals->isNotEmpty() ? 'hidden' : '' }}">
+                            <div id="newParalegalFields" class="{{ $requiresAluParalegalAccount || $existingParalegals->isNotEmpty() ? 'hidden' : '' }}">
                                 <div class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>

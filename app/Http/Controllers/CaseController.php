@@ -13,8 +13,10 @@ use App\Models\OseFileNumber;
 use App\Models\Person;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\CaseConsolidationService;
 use App\Services\CaseStorageService;
 use App\Services\ServiceListResolver;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +31,9 @@ class CaseController extends Controller
     public function __construct(
         private CaseService $caseService,
         private CaseStorageService $caseStorageService,
-        private ServiceListResolver $serviceListResolver
+        private ServiceListResolver $serviceListResolver,
+        private CaseConsolidationService $caseConsolidationService,
+        private NotificationService $notificationService
     ) {}
 
     public function index(Request $request)
@@ -448,8 +452,77 @@ class CaseController extends Controller
             ->dropdownOrder()
             ->get();
         $resolvedServiceList = $this->serviceListResolver->resolve($case);
+        $case->loadMissing(['consolidatedInto', 'consolidation.sources.sourceCase']);
+        $historicalSourceCases = collect();
+        if ($case->consolidation) {
+            $historicalSourceCases = $case->consolidation->sources
+                ->map->sourceCase
+                ->filter(fn (CaseModel $source) => Auth::user()->isHearingUnit() || Auth::user()->canAccessCase($source))
+                ->each(function (CaseModel $source) {
+                    $source->load(['documents.uploader.roleRelation']);
+                    $this->hidePendingHearingUnitDocuments($source);
+                });
+        }
 
-        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'pendingAluAcceptanceDocuments', 'documentTypes', 'resolvedServiceList'));
+        return view('cases.show', compact('case', 'submissionNotificationRecipients', 'acceptanceNotificationRecipients', 'pendingAluAcceptanceDocuments', 'documentTypes', 'resolvedServiceList', 'historicalSourceCases'));
+    }
+
+    public function consolidateForm(CaseModel $case)
+    {
+        abort_unless(Auth::user()->isHearingUnit(), 403, 'Only Hearing Unit staff may consolidate cases.');
+        abort_if($case->isConsolidatedSource() || $case->consolidation()->exists(), 422, 'This case is already part of a consolidation.');
+
+        $eligibleCases = CaseModel::query()
+            ->whereKeyNot($case->id)
+            ->whereIn('status', ['active', 'closed'])
+            ->whereNull('consolidated_into_case_id')
+            ->whereDoesntHave('consolidation')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('cases.consolidate', compact('case', 'eligibleCases'));
+    }
+
+    public function consolidate(Request $request, CaseModel $case)
+    {
+        abort_unless(Auth::user()->isHearingUnit(), 403, 'Only Hearing Unit staff may consolidate cases.');
+
+        $validated = $request->validate([
+            'source_case_ids' => ['required', 'array', 'min:1'],
+            'source_case_ids.*' => ['integer', 'distinct', 'exists:cases,id', Rule::notIn([$case->id])],
+            'case_type' => ['required', Rule::in(['aggrieved', 'protested', 'compliance'])],
+            'order_date' => ['required', 'date'],
+            'reason' => ['nullable', 'string', 'max:2000'],
+            'confirmation' => ['accepted'],
+        ]);
+
+        $combined = $this->caseConsolidationService->consolidate(
+            $case,
+            $validated['source_case_ids'],
+            $validated,
+            Auth::user()
+        );
+
+        $emails = $combined->parties()
+            ->where('service_enabled', true)
+            ->with('person')
+            ->get()
+            ->pluck('person.email')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->notificationService->notifyEmailAddresses(
+            $emails,
+            'cases_consolidated',
+            "Cases Consolidated into {$combined->case_no}",
+            "Your case has been consolidated into {$combined->case_no}. All future filings must be made in the combined case. You will continue to have access to the historical record of the source case in which you participated.",
+            $combined
+        );
+
+        return redirect()->route('cases.show', $combined)
+            ->with('success', "Cases consolidated into {$combined->case_no}. Historical records remain attached to their source cases.");
     }
 
     public function downloadServiceList(CaseModel $case)
@@ -678,7 +751,7 @@ class CaseController extends Controller
 
     public function assignAttorneyForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canManageAttorneysForCase($case) || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -688,7 +761,7 @@ class CaseController extends Controller
 
     public function assignAttorney(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canManageAttorneysForCase($case) || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -734,7 +807,7 @@ class CaseController extends Controller
 
     public function assignHydrologyExpertForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -744,7 +817,7 @@ class CaseController extends Controller
 
     public function assignHydrologyExpert(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignHydrologyExperts() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -775,7 +848,7 @@ class CaseController extends Controller
 
     public function assignAluClerkForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -785,7 +858,7 @@ class CaseController extends Controller
 
     public function assignAluClerk(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -824,7 +897,7 @@ class CaseController extends Controller
 
     public function assignWrdForm(CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -834,7 +907,7 @@ class CaseController extends Controller
 
     public function assignWrd(Request $request, CaseModel $case)
     {
-        if (!Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
+        if (!Auth::user()->canModifyCaseUsers($case) || !Auth::user()->canAssignAttorneys() || !Auth::user()->canAccessCase($case)) {
             abort(403);
         }
 
@@ -1026,7 +1099,7 @@ class CaseController extends Controller
 
     public function showAttorneyManagement(CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageCaseParties($case)) {
+        if (!auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 
@@ -1045,7 +1118,7 @@ class CaseController extends Controller
 
     public function assignPartyAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageCaseParties($case)) {
+        if (!auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 
@@ -1127,7 +1200,7 @@ class CaseController extends Controller
 
     public function removeAttorney(Request $request, CaseModel $case, $partyId)
     {
-        if (!auth()->user()->canManageCaseParties($case)) {
+        if (!auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 
@@ -1280,6 +1353,16 @@ class CaseController extends Controller
     {
         if (!auth()->user()->canManageCaseParties($case)) {
             abort(403);
+        }
+
+        $attorneyFields = [
+            'attorney_id', 'attorney_name', 'attorney_first_name', 'attorney_last_name', 'attorney_email',
+        ];
+        $includesAttorneyAssignment = collect($attorneyFields)
+            ->contains(fn (string $field) => $request->filled($field));
+
+        if ($includesAttorneyAssignment && !auth()->user()->canManageAttorneysForCase($case)) {
+            abort(403, 'Only Hearing Unit Admin may manage attorneys on an active case.');
         }
 
         $validated = $request->validate([
@@ -1526,6 +1609,11 @@ class CaseController extends Controller
         }
 
         $party = $case->parties()->findOrFail($partyId);
+
+        if (($party->role === 'counsel' || $party->attorneys()->exists())
+            && !auth()->user()->canManageAttorneysForCase($case)) {
+            abort(403, 'Only Hearing Unit Admin may manage attorneys on an active case.');
+        }
 
         DB::transaction(function () use ($case, $party) {
             $representatives = $case->parties()
@@ -2341,13 +2429,10 @@ class CaseController extends Controller
         }
 
         $isPendingHuUpload = $this->isPendingHuUpload($document);
-        $isAcceptedPleading = in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing']);
-        $canStamp = $isPendingHuUpload || ($document->approved && ($case->status === 'active' || $isAcceptedPleading));
+        $canStamp = $isPendingHuUpload || $document->isEligibleForFilingStamp();
 
-        // In active cases, any accepted document can be stamped.
-        // Before a case is active, stamping remains limited to accepted pleading documents.
         if (!$canStamp) {
-            return response()->json(['success' => false, 'error' => 'Only pending Hearing Unit uploads, accepted documents in active cases, or accepted pleading documents, can be stamped']);
+            return response()->json(['success' => false, 'error' => 'This document is not eligible for an electronic filing stamp. Initial case-formation documents remain unstamped.']);
         }
 
         if ($document->stamped) {
@@ -2753,6 +2838,10 @@ class CaseController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user->canManageOwnParalegals($case)) {
+            abort(403, 'Paralegals cannot be changed on this case.');
+        }
+
         $outsideCounselParty = $case->parties()->where('role', 'counsel')->whereHas('person', function($q) use ($user) {
             $q->where('email', $user->email);
         })->first();
@@ -2764,10 +2853,6 @@ class CaseController extends Controller
 
         if (!$isOutsideCounsel && !$isAssignedAluAttorney) {
             abort(403, 'Only attorneys can add paralegals.');
-        }
-
-        if (!$isOutsideCounsel && !$isAssignedAluAttorney) {
-            abort(403, 'You can only add paralegals to cases you are representing.');
         }
 
         $validated = $request->validate([
@@ -2793,8 +2878,10 @@ class CaseController extends Controller
         ]);
 
         $selectedAluParalegal = null;
+        $canAssignPersonalParalegals = $user->canAssignPersonalParalegals($case);
+        $requiresAluParalegalAccount = $isAssignedAluAttorney && !$canAssignPersonalParalegals;
 
-        if ($isAssignedAluAttorney) {
+        if ($requiresAluParalegalAccount) {
             if (empty($validated['existing_user_id'])) {
                 return back()->withErrors(['existing_user_id' => 'Select an ALU paralegal.'])->withInput();
             }
@@ -2806,6 +2893,22 @@ class CaseController extends Controller
 
             if (!$selectedAluParalegal) {
                 return back()->withErrors(['existing_user_id' => 'The selected user is not an active ALU paralegal.'])->withInput();
+            }
+        }
+
+        if ($canAssignPersonalParalegals && !empty($validated['existing_person_id'])) {
+            $existingPerson = \App\Models\Person::findOrFail($validated['existing_person_id']);
+            $isOwnedParalegal = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                ->where('assigned_by', $user->id)
+                ->whereHas('user', function ($query) use ($existingPerson) {
+                    $query->where('email', $existingPerson->email);
+                })
+                ->exists();
+
+            if (!$isOwnedParalegal) {
+                return back()->withErrors([
+                    'existing_person_id' => 'You may only reuse a paralegal you previously assigned.',
+                ])->withInput();
             }
         }
 
@@ -2954,6 +3057,10 @@ class CaseController extends Controller
     public function removeParalegal(CaseModel $case, $partyId)
     {
         $user = Auth::user();
+
+        if (!$user->canManageOwnParalegals($case)) {
+            abort(403, 'Paralegals cannot be changed on this case.');
+        }
 
         $isAssignedAluAttorney = ($user->isALUAttorney() || $user->isContractAttorney()) && $case->assignments()
             ->where('assignment_type', 'alu_atty')

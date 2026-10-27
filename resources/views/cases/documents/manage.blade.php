@@ -398,7 +398,7 @@
                                                     title="View document first to enable this button">
                                                 Request Fix
                                             </button>
-                                        @elseif(!$isHuIssued && $document->approved && !$document->stamped && ($case->status === 'active' || in_array($document->pleading_type, ['request_to_docket', 'request_pre_hearing'])))
+                                        @elseif($document->isEligibleForFilingStamp())
                                             <button onclick="stampDocument({{ $document->id }})"
                                                     class="text-blue-600 hover:text-blue-800 text-sm bg-blue-50 px-3 py-1 rounded whitespace-nowrap">
                                                 📋 Stamp

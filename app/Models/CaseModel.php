@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CaseModel extends Model
 {
@@ -30,7 +31,8 @@ class CaseModel extends Model
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
         'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
         'submitted_at', 'accepted_at', 'closed_at', 'archived_at', 'closed_by_user_id', 'archived_by_user_id', 'closure_reason',
-        'hu_display_status', 'hu_display_status_note', 'hu_display_status_updated_by', 'hu_display_status_updated_at'
+        'hu_display_status', 'hu_display_status_note', 'hu_display_status_updated_by', 'hu_display_status_updated_at',
+        'consolidated_into_case_id', 'consolidated_by_user_id', 'consolidated_at',
     ];
 
     protected $casts = [
@@ -39,6 +41,7 @@ class CaseModel extends Model
         'closed_at' => 'datetime',
         'archived_at' => 'datetime',
         'hu_display_status_updated_at' => 'datetime',
+        'consolidated_at' => 'datetime',
         'metadata' => 'array'
     ];
 
@@ -223,6 +226,35 @@ class CaseModel extends Model
         return $this->hasMany(Document::class, 'case_id');
     }
 
+    public function consolidation(): HasOne
+    {
+        return $this->hasOne(CaseConsolidation::class, 'combined_case_id');
+    }
+
+    public function consolidationSource(): HasOne
+    {
+        return $this->hasOne(CaseConsolidationSource::class, 'source_case_id');
+    }
+
+    public function consolidatedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'consolidated_into_case_id');
+    }
+
+    public function isConsolidatedSource(): bool
+    {
+        return $this->consolidated_into_case_id !== null;
+    }
+
+    public function isCombinedCase(): bool
+    {
+        if ($this->relationLoaded('consolidation')) {
+            return $this->consolidation !== null;
+        }
+
+        return $this->consolidation()->exists();
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(CaseMedia::class, 'case_id');
@@ -296,6 +328,10 @@ class CaseModel extends Model
 
     public function getWorkflowStatusLabelAttribute(): string
     {
+        if ($this->isConsolidatedSource()) {
+            return 'Consolidated';
+        }
+
         return match ($this->status) {
             'submitted_to_hu' => 'Submitted to Hearing Unit',
             default => ucwords(str_replace('_', ' ', $this->status)),
@@ -314,6 +350,10 @@ class CaseModel extends Model
 
     public function getWorkflowStatusBadgeClassAttribute(): string
     {
+        if ($this->isConsolidatedSource()) {
+            return 'bg-indigo-100 text-indigo-800';
+        }
+
         return match ($this->status) {
             'active' => 'bg-green-100 text-green-800',
             'draft' => 'bg-gray-100 text-gray-800',
@@ -382,6 +422,10 @@ class CaseModel extends Model
 
     public function canUserUploadDocuments($user): bool
     {
+        if ($this->isConsolidatedSource()) {
+            return false;
+        }
+
         $currentRole = method_exists($user, 'getCurrentRole') ? $user->getCurrentRole() : $user->role;
 
         // ALU and HU staff can always upload

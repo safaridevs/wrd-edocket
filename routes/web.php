@@ -75,6 +75,8 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/{case}/edit', [CaseController::class, 'edit'])->middleware('permission:create_case')->name('cases.edit');
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
     Route::delete('cases/{case}', [CaseController::class, 'destroy'])->middleware('permission:create_case')->name('cases.destroy');
+    Route::get('cases/{case}/consolidate', [CaseController::class, 'consolidateForm'])->name('cases.consolidate');
+    Route::post('cases/{case}/consolidate', [CaseController::class, 'consolidate'])->name('cases.consolidate.store');
 
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])->middleware('permission:apply_stamp')->name('documents.approve');
     

@@ -137,6 +137,7 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    @if(auth()->user()->canModifyUsers())
                                     <div class="flex space-x-2">
                                         <button onclick="editUser({{ $user->id }})" class="text-blue-600 hover:text-blue-900">Edit</button>
 
@@ -160,6 +161,9 @@
                                             </form>
                                         @endif
                                     </div>
+                                    @else
+                                        <span class="text-xs text-gray-500">Hearing Unit only</span>
+                                    @endif
                                 </td>
                             </tr>
                             @empty

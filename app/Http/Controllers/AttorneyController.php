@@ -15,7 +15,7 @@ class AttorneyController extends Controller
 {
     public function show(CaseModel $case)
     {
-        if (!auth()->user()->canManageCaseParties($case)) {
+        if (!auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 
@@ -24,7 +24,7 @@ class AttorneyController extends Controller
 
     public function addClient(Request $request, CaseModel $case)
     {
-        if (!auth()->user()->canManageCaseParties($case)) {
+        if (!auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 
@@ -96,7 +96,7 @@ class AttorneyController extends Controller
         $relationship = CaseParty::where('role', 'counsel')->findOrFail($relationship);
         $case = $relationship->case;
 
-        if (!$case || !auth()->user()->canManageCaseParties($case)) {
+        if (!$case || !auth()->user()->canManageAttorneysForCase($case)) {
             abort(403);
         }
 

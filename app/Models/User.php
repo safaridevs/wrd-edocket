@@ -184,6 +184,10 @@ class User extends Authenticatable
 
     public function canManageDraftCase(CaseModel $case): bool
     {
+        if ($case->isConsolidatedSource()) {
+            return false;
+        }
+
         if (!in_array($case->status, ['draft', 'rejected'], true)) {
             return false;
         }
@@ -243,6 +247,10 @@ class User extends Authenticatable
 
     public function canUploadDocumentsToCase(CaseModel $case): bool
     {
+        if ($case->isConsolidatedSource()) {
+            return false;
+        }
+
         if (in_array($case->status, ['closed', 'archived'])) {
             return false;
         }
@@ -318,6 +326,10 @@ class User extends Authenticatable
 
     public function canManageCaseParties(CaseModel $case): bool
     {
+        if ($case->isConsolidatedSource()) {
+            return false;
+        }
+
         if (in_array($case->status, ['closed', 'archived'], true)) {
             return false;
         }
@@ -331,6 +343,33 @@ class User extends Authenticatable
         }
 
         return $this->canManageDraftCase($case);
+    }
+
+    public function canModifyCaseUsers(CaseModel $case): bool
+    {
+        if ($case->isConsolidatedSource() || in_array($case->status, ['closed', 'archived'], true)) {
+            return false;
+        }
+
+        return $case->status !== 'active' || $this->isHearingUnit();
+    }
+
+    public function canAssignPersonalParalegals(CaseModel $case): bool
+    {
+        return $this->isContractAttorney()
+            && $this->hasWrdAttorneyAssignment($case)
+            && $this->canManageOwnParalegals($case);
+    }
+
+    public function canManageOwnParalegals(CaseModel $case): bool
+    {
+        if ($case->isConsolidatedSource() || in_array($case->status, ['closed', 'archived'], true)) {
+            return false;
+        }
+
+        return $case->status !== 'active'
+            || $this->isHearingUnit()
+            || $case->isCombinedCase();
     }
 
     public function documentFilingRoles(?CaseModel $case = null): array
@@ -492,6 +531,11 @@ class User extends Authenticatable
         return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk']);
     }
 
+    public function canModifyUsers(): bool
+    {
+        return $this->isHearingUnit();
+    }
+
     public function canAssignExperts(): bool
     {
         return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'hu_admin', 'hu_clerk']);
@@ -512,6 +556,19 @@ class User extends Authenticatable
     public function canAssignAttorneys(): bool
     {
         return in_array($this->getCurrentRole(), ['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'hu_admin', 'hu_clerk']);
+    }
+
+    public function canManageAttorneysForCase(CaseModel $case): bool
+    {
+        if ($case->isConsolidatedSource()) {
+            return false;
+        }
+
+        if ($case->status === 'active') {
+            return $this->isHUAdmin();
+        }
+
+        return $this->canAssignAttorneys() || $this->canManageCaseParties($case);
     }
 
     public function attorneyRecord()

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\CaseAssignment;
+use App\Models\CaseConsolidation;
 use App\Models\CaseModel;
 use App\Models\CaseParty;
 use App\Models\Person;
@@ -12,6 +13,73 @@ use PHPUnit\Framework\TestCase;
 
 class CaseCreationAuthorizationTest extends TestCase
 {
+    public function test_only_hu_admin_can_manage_attorneys_on_an_active_case(): void
+    {
+        $case = $this->case('active', 1);
+
+        $this->assertTrue($this->user('hu_admin', 1)->canManageAttorneysForCase($case));
+
+        foreach (['hu_clerk', 'alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party', 'external_attorney'] as $role) {
+            $this->assertFalse($this->user($role, 2)->canManageAttorneysForCase($case), $role);
+        }
+    }
+
+    public function test_only_hearing_unit_can_modify_users_on_an_active_case(): void
+    {
+        $case = $this->case('active', 1);
+
+        $this->assertTrue($this->user('hu_admin', 1)->canModifyCaseUsers($case));
+        $this->assertTrue($this->user('hu_clerk', 2)->canModifyCaseUsers($case));
+
+        foreach (['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party', 'external_attorney'] as $role) {
+            $this->assertFalse($this->user($role, 3)->canModifyCaseUsers($case), $role);
+        }
+    }
+
+    public function test_assigned_contract_attorney_can_assign_personal_paralegals_before_activation(): void
+    {
+        $contractAttorney = $this->user('contract_attorney', 4);
+        $draft = $this->case('draft', 99);
+        $draft->setRelation('assignments', new Collection([
+            $this->assignment(4, 'alu_atty'),
+        ]));
+
+        $this->assertTrue($contractAttorney->canAssignPersonalParalegals($draft));
+        $this->assertFalse($this->user('alu_atty', 4)->canAssignPersonalParalegals($draft));
+
+        $draft->status = 'active';
+        $draft->setRelation('consolidation', null);
+        $this->assertFalse($contractAttorney->canAssignPersonalParalegals($draft));
+    }
+
+    public function test_attorneys_can_manage_only_their_paralegals_on_an_active_combined_case(): void
+    {
+        $combinedCase = $this->case('active', 99);
+        $combinedCase->setRelation('consolidation', new CaseConsolidation());
+        $combinedCase->setRelation('assignments', new Collection([
+            $this->assignment(4, 'alu_atty'),
+        ]));
+
+        $contractAttorney = $this->user('contract_attorney', 4);
+        $privateAttorney = $this->user('external_attorney', 5);
+
+        $this->assertTrue($contractAttorney->canAssignPersonalParalegals($combinedCase));
+        $this->assertTrue($privateAttorney->canManageOwnParalegals($combinedCase));
+        $this->assertFalse($privateAttorney->canModifyCaseUsers($combinedCase));
+    }
+
+    public function test_only_hearing_unit_can_modify_users_from_admin(): void
+    {
+        $this->assertTrue($this->user('hu_admin', 1)->canModifyUsers());
+        $this->assertTrue($this->user('hu_clerk', 2)->canModifyUsers());
+
+        foreach (['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'contract_attorney', 'party', 'external_attorney'] as $role) {
+            $this->assertFalse($this->user($role, 3)->canModifyUsers(), $role);
+        }
+    }
+
+
+
     public function test_only_internal_alu_and_hearing_unit_roles_can_view_expert_assignments(): void
     {
         foreach (['alu_mgr', 'alu_clerk', 'alu_paralegal', 'alu_atty', 'hu_admin', 'hu_clerk'] as $role) {
