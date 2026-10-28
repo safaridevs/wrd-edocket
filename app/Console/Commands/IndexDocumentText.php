@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 
 class IndexDocumentText extends Command
 {
-    protected $signature = 'documents:index-text {--document= : Index one document ID} {--limit= : Maximum number of documents to index} {--force : Re-index documents that already have text index rows} {--ocr : Use OCRmyPDF for scanned PDFs when normal text extraction finds no text}';
+    protected $signature = 'documents:index-text {--document= : Index one document ID} {--limit= : Maximum number of documents to index} {--force : Re-index documents that already have text index rows} {--ocr : Use the Python/Tesseract fallback for scanned PDFs when normal text extraction finds no text}';
 
     protected $description = 'Extract searchable text from stored documents into the document_texts table';
 

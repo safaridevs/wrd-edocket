@@ -465,7 +465,7 @@ class CaseService
         // Handle multiple document types with standardized naming
         $multipleDocTypes = [
             'request_to_docket' => 'Request to Docket',
-            'request_pre_hearing' => 'Request for Pre-Hearing',
+            'request_pre_hearing' => 'Request for Pre-Hearing Scheduling Conference',
             'protest_letter' => 'Protest Letter',
             'supporting' => 'Supporting Document'
         ];
@@ -878,7 +878,7 @@ class CaseService
             'protest_letter' => 'Protest Letter',
             'supporting' => 'Supporting Document',
             'request_to_docket' => 'Request to Docket',
-            'request_pre_hearing' => 'Request for Pre-Hearing',
+            'request_pre_hearing' => 'Request for Pre-Hearing Scheduling Conference',
             'affidavit' => 'Affidavit',
             'exhibit' => 'Exhibit',
             'correspondence' => 'Correspondence',
@@ -894,7 +894,7 @@ class CaseService
 
     private function stampPleadingDocuments(CaseModel $case, User $user): void
     {
-        // Get documents that need stamping: Request to Docket and Request for Pre-Hearing
+        // Get documents that need stamping: Request to Docket and Request for Pre-Hearing Scheduling Conference
         $pleadingDocuments = $case->documents()->whereIn('pleading_type', ['request_to_docket', 'request_pre_hearing'])->get();
         
         foreach ($pleadingDocuments as $document) {
@@ -938,7 +938,9 @@ class CaseService
             ]);
             
             // Clear existing related data
-            $case->parties()->delete();
+            foreach ($case->parties()->get() as $party) {
+                $party->terminateParticipation($user->id);
+            }
             $case->oseFileNumbers()->delete();
             $case->serviceList()->delete();
             

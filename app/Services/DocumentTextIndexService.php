@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\IndexScannedPdfText;
 use App\Models\Document;
 use App\Models\DocumentText;
 use App\Models\User;
@@ -37,7 +38,18 @@ class DocumentTextIndexService
         }
 
         try {
-            $this->index($document);
+            $textIndex = $this->index($document);
+
+            if ($textIndex->extraction_status === 'ocr_required' && $this->extractor->isOcrEnabled()) {
+                try {
+                    IndexScannedPdfText::dispatch($document->id)->afterCommit();
+                } catch (\Throwable $e) {
+                    Log::warning('Scanned-PDF OCR could not be queued; the document remains saved', [
+                        'document_id' => $document->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         } catch (\Throwable $e) {
             Log::warning('Document text indexing failed', [
                 'document_id' => $document->id,
@@ -49,6 +61,14 @@ class DocumentTextIndexService
     public function search(User $user, string $term, int $perPage = 15): LengthAwarePaginator
     {
         return $this->searchQuery($term)
+            ->when(!$user->isHearingUnit(), function (Builder $query) {
+                $query->where(function (Builder $visibilityQuery) {
+                    $visibilityQuery
+                        ->where('filing_context', '!=', Document::FILING_CONTEXT_HEARING_UNIT)
+                        ->orWhereNull('filing_context')
+                        ->orWhere('approved', true);
+                });
+            })
             ->whereHas('case', fn (Builder $query) => $this->scopeAccessibleCases($query, $user))
             ->latest('uploaded_at')
             ->paginate($perPage)
@@ -125,13 +145,19 @@ class DocumentTextIndexService
             return;
         }
 
+        if ($user->isContractAttorney()) {
+            $query->accessibleToContractAttorney($user);
+
+            return;
+        }
+
         $email = strtolower(trim((string) $user->email));
 
         $query->where(function (Builder $accessQuery) use ($email, $user) {
             $accessQuery->whereHas('parties.person', function (Builder $personQuery) use ($email) {
                 $personQuery->whereRaw('LOWER(email) = ?', [$email]);
             })->orWhereHas('assignments', function (Builder $assignmentQuery) use ($user) {
-                $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'alu_atty', 'alu_attorney'])
+                $assignmentQuery->whereIn('assignment_type', ['alu_paralegal', 'contract_paralegal', 'alu_atty', 'alu_attorney'])
                     ->where('user_id', $user->id);
             });
         });

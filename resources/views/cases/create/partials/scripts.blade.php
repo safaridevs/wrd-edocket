@@ -25,7 +25,7 @@
             ],
             optional: [
                 @foreach($optionalDocs as $docType)
-                { value: '{{ $docType->code }}', label: @json(\Illuminate\Support\Str::title($docType->name)) },
+                { value: '{{ $docType->code }}', label: @json($docType->name) },
                 @endforeach
             ],
         };
@@ -93,7 +93,7 @@
             },
             {
                 title: 'Case Numbers',
-                description: 'Add OSE numbers and ranges so routing and search work correctly later.',
+                description: 'Add OSE file numbers and ranges to correctly route case and improve search functionality.',
             },
             {
                 title: 'Documents',
@@ -159,6 +159,8 @@
             const select = document.getElementById('createDocumentType');
             const titleInput = document.getElementById('createDocumentTitle');
             const filesInput = document.getElementById('createDocumentFiles');
+            const modalTitle = document.getElementById('createDocumentModalTitle');
+            const submitLabel = document.getElementById('createDocumentModalSubmitLabel');
             const options = createDocumentTypeOptions[group] || [];
 
             if (!modal || !groupInput || !summary || !select || !titleInput || !filesInput) {
@@ -166,6 +168,9 @@
             }
 
             groupInput.value = group;
+            const isInitialPleading = group === 'pleading';
+            if (modalTitle) modalTitle.textContent = isInitialPleading ? 'File Document' : 'Upload Document';
+            if (submitLabel) submitLabel.textContent = isInitialPleading ? 'File Document' : 'Upload';
             summary.textContent = getCreateDocumentModalSummary(group);
             select.innerHTML = '<option value="">Select document type...</option>' + options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
             if (options.length === 1) {
@@ -844,7 +849,7 @@
         }
 
         function setCaseCreateSubmittingState(triggerButton, action) {
-            const loadingMessage = action === 'draft' ? 'Saving draft...' : 'Submitting to HU...';
+            const loadingMessage = action === 'draft' ? 'Saving draft...' : 'Submitting to Hearing Unit...';
 
             document.querySelectorAll('[data-submit-action]').forEach((button) => {
                 button.disabled = true;
@@ -913,7 +918,7 @@
 
             const rows = [
                 buildReviewRow('Assigned attorneys', attorneyCount ? `${attorneyCount} selected` : 'None'),
-                buildReviewRow('Assigned clerks', clerkCount ? `${clerkCount} selected` : 'None'),
+                buildReviewRow('Assigned Paralegals', clerkCount ? `${clerkCount} selected` : 'None'),
                 buildReviewRow('OSE file numbers', oseEntries.length ? oseEntries.join(', ') : 'None entered'),
             ];
 
@@ -938,7 +943,7 @@
                 const representationMode = card.querySelector(`input[name="parties[${partyIndex}][representation_mode]"]:checked`)?.value || '';
                 const representationLabel = isCompany
                     ? (representationMode === 'attorney'
-                        ? 'Counselled'
+                        ? 'Counsel'
                         : representationMode === 'agent'
                             ? 'Represented by Agent'
                             : 'No counsel yet')
@@ -960,22 +965,42 @@
         }
 
         function populateReviewDocuments() {
-            const fileCounts = [
-                ['Application', getStagedDocumentFileCount('application')],
-                ['Compliance', getStagedDocumentFileCount('compliance')],
-                ['Pleading', getStagedDocumentFileCount('pleading')],
-            ];
-            fileCounts.push(['Supporting', getStagedDocumentFileCount('optional')]);
-
+            const selectedCaseType = document.querySelector('input[name="case_type"]:checked')?.value;
             const selectedComplianceType = document.querySelector('#document-hidden-inputs input[name="compliance_doc_type"]:not([disabled])')?.value;
             const selectedPleadingType = document.querySelector('#document-hidden-inputs input[name="pleading_type"]:not([disabled])')?.value;
 
+            const pleadingLabels = {
+                request_pre_hearing: 'Request for Pre-Hearing Scheduling Conference',
+                request_to_docket: 'Request to Docket',
+            };
+            const complianceLabels = {
+                compliance_order: 'Compliance Order',
+                notice_of_contemplated_action: 'Notice of Contemplated Action',
+                pre_compliance_letter: 'Pre-Compliance Letter',
+                compliance_letter: 'Compliance Letter',
+                notice_of_violation: 'Notice of Violation',
+                notice_of_reprimand: 'Notice of Reprimand (Well Driller)',
+            };
+
+            const pleadingCount = getStagedDocumentFileCount('pleading');
             const rows = [
-                buildReviewRow('Application files', `${fileCounts[0][1]}`),
-                buildReviewRow('Compliance files', `${fileCounts[1][1]}${selectedComplianceType ? ` (${toTitle(selectedComplianceType.replace(/_/g, ' '))})` : ''}`),
-                buildReviewRow('Pleading files', `${fileCounts[2][1]}${selectedPleadingType ? ` (${toTitle(selectedPleadingType.replace(/_/g, ' '))})` : ''}`),
-                buildReviewRow('Supporting files', `${fileCounts[3][1]}`),
+                buildReviewRow(
+                    'Initial Pleading / Commencement of Action',
+                    `${pleadingCount}${selectedPleadingType ? ` (${pleadingLabels[selectedPleadingType] || toTitle(selectedPleadingType.replace(/_/g, ' '))})` : ''}`
+                ),
             ];
+
+            if (selectedCaseType === 'compliance') {
+                const complianceCount = getStagedDocumentFileCount('compliance');
+                rows.push(buildReviewRow(
+                    'Compliance Order/Notice of Contemplated Action',
+                    `${complianceCount}${selectedComplianceType ? ` (${complianceLabels[selectedComplianceType] || toTitle(selectedComplianceType.replace(/_/g, ' '))})` : ''}`
+                ));
+            } else {
+                rows.push(buildReviewRow('Application', `${getStagedDocumentFileCount('application')}`));
+            }
+
+            rows.push(buildReviewRow('Supporting Documents', `${getStagedDocumentFileCount('optional')}`));
 
             document.getElementById('reviewDocuments').innerHTML = rows.join('');
         }

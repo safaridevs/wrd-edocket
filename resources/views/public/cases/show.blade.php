@@ -179,6 +179,30 @@
     </div>
     @endif
 
+    @if($case->media->isNotEmpty())
+    <div class="mt-6 bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Audio and Video ({{ $case->media->count() }})</h3>
+        <div class="space-y-3">
+            @foreach($case->media->sortByDesc('created_at') as $media)
+            <div class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div class="font-medium text-gray-900">{{ $media->title }}</div>
+                    <div class="mt-1 text-sm text-gray-600">
+                        {{ ucfirst($media->media_type) }} &bull; {{ $media->original_filename }} &bull;
+                        {{ $media->size_bytes >= 1073741824 ? number_format($media->size_bytes / 1073741824, 1) . ' GB' : number_format($media->size_bytes / 1048576, 1) . ' MB' }}
+                    </div>
+                    @if($media->description)<p class="mt-2 text-sm text-gray-700">{{ $media->description }}</p>@endif
+                </div>
+                <div class="flex gap-3">
+                    <a href="{{ route('public.case-media.view', [$case, $media]) }}" target="_blank" class="text-sm font-medium text-blue-700 hover:text-blue-900">View</a>
+                    <a href="{{ route('public.case-media.download', [$case, $media]) }}" class="text-sm font-medium text-blue-700 hover:text-blue-900">Download</a>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     <!-- Back to Search -->
     <div class="mt-8 text-center">
         <a href="{{ route('public.cases.index') }}"

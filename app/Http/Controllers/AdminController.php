@@ -140,6 +140,8 @@ class AdminController extends Controller
 
     public function updateUserRole(Request $request, User $user)
     {
+        $this->authorizeUserModification();
+
         $validated = $request->validate([
             'role' => 'required|exists:roles,name'
         ]);
@@ -217,6 +219,8 @@ class AdminController extends Controller
 
     public function approveUser(User $user)
     {
+        $this->authorizeUserModification();
+
         $user->update(['is_active' => true]);
         return back()->with('success', 'User approved successfully.');
     }
@@ -228,6 +232,8 @@ class AdminController extends Controller
 
     public function edit(User $user)
     {
+        $this->authorizeUserModification();
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
@@ -239,6 +245,8 @@ class AdminController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $this->authorizeUserModification();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'title' => 'nullable|string|max:255',
@@ -253,12 +261,16 @@ class AdminController extends Controller
 
     public function deactivate(User $user)
     {
+        $this->authorizeUserModification();
+
         $user->update(['is_active' => false]);
         return back()->with('success', 'User deactivated successfully.');
     }
 
     public function destroy(User $user)
     {
+        $this->authorizeUserModification();
+
         if ($user->id === auth()->id()) {
             return back()->with('error', 'You cannot delete your own account.');
         }
@@ -269,5 +281,14 @@ class AdminController extends Controller
         });
 
         return back()->with('success', 'User deactivated and deleted successfully.');
+    }
+
+    private function authorizeUserModification(): void
+    {
+        abort_unless(
+            auth()->user()?->canModifyUsers(),
+            403,
+            'Only Hearing Unit staff may modify or delete user accounts.'
+        );
     }
 }

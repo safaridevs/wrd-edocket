@@ -31,7 +31,7 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ $isHearingUnit ? 'Official Document Title' : 'Document Title' }} *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ $isHearingUnit ? 'Document Name' : 'Document Title' }} *</label>
                             <input type="text" name="custom_title" id="customTitleInput" maxlength="255"
                                    required
                                    class="block w-full border-gray-300 rounded-md"
@@ -51,7 +51,7 @@
                                 <select name="pleading_type" class="block w-full border-gray-300 rounded-md">
                                     <option value="none">None</option>
                                     <option value="request_to_docket">Request to Docket</option>
-                                    <option value="request_pre_hearing">Request for Pre-Hearing</option>
+                                    <option value="request_pre_hearing">Request for Pre-Hearing Scheduling Conference</option>
                                 </select>
                             </div>
                         @endunless

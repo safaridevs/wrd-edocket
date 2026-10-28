@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaseModel;
+use App\Services\CaseDocumentListReport;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,6 +27,9 @@ class ReportController extends Controller
         $this->authorizeReports();
 
         $data = $this->monthlyActiveCaseData($request);
+        $data['documentReportCases'] = CaseModel::whereNotIn('status', ['draft', 'submitted_to_hu', 'rejected'])
+            ->orderBy('case_no')
+            ->get(['id', 'case_no']);
 
         return view('reports.index', $data);
     }
@@ -57,6 +61,48 @@ class ReportController extends Controller
         $pdf->writeHTML($html, true, false, true, false, '');
 
         $filename = 'monthly-active-case-list-' . $data['selectedMonth']->format('Y-m') . '.pdf';
+
+        return response($pdf->Output($filename, 'S'), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    public function caseDocuments(Request $request, CaseDocumentListReport $report): View
+    {
+        $this->authorizeReports();
+
+        return view('reports.case-documents', $this->caseDocumentData($request, $report));
+    }
+
+    public function caseDocumentsPrint(Request $request, CaseDocumentListReport $report): View
+    {
+        $this->authorizeReports();
+
+        return view('reports.case-documents-print', $this->caseDocumentData($request, $report));
+    }
+
+    public function caseDocumentsPdf(Request $request, CaseDocumentListReport $report): Response
+    {
+        $this->authorizeReports();
+
+        $data = $this->caseDocumentData($request, $report);
+        $html = view('reports.case-documents-pdf', $data)->render();
+
+        $pdf = new TCPDF('P', 'mm', 'LETTER', true, 'UTF-8', false);
+        $pdf->SetCreator(config('app.name', 'E-Docket'));
+        $pdf->SetAuthor(config('app.name', 'E-Docket'));
+        $pdf->SetTitle('Case Index List - ' . $data['case']->case_no);
+        $pdf->SetMargins(12, 14, 12);
+        $pdf->SetAutoPageBreak(true, 14);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->writeHTML($html, true, false, true, false, '');
+
+        $safeCaseNumber = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $data['case']->case_no);
+        $filename = 'case-index-list-' . trim($safeCaseNumber, '-') . '.pdf';
 
         return response($pdf->Output($filename, 'S'), 200, [
             'Content-Type' => 'application/pdf',
@@ -114,6 +160,20 @@ class ReportController extends Controller
                 'active' => $activeCases->where('status', 'active')->count(),
                 'with_hu_display_status' => $activeCases->whereNotNull('hu_display_status')->count(),
             ],
+        ];
+    }
+
+    private function caseDocumentData(Request $request, CaseDocumentListReport $report): array
+    {
+        $validated = $request->validate([
+            'case_id' => ['required', 'integer', 'exists:cases,id'],
+        ]);
+
+        $case = CaseModel::findOrFail($validated['case_id']);
+
+        return [
+            'case' => $case,
+            'rows' => $report->rows($case),
         ];
     }
 }

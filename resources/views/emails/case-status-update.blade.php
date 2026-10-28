@@ -24,7 +24,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo">OSE E-Docket System</div>
+            <div class="logo">OSE E-Docket</div>
             <div class="subtitle">New Mexico Office of the State Engineer</div>
         </div>
 
@@ -45,7 +45,7 @@
                     @if($case->status === 'active')
                         <span class="status-active">ACTIVE</span>
                     @elseif($case->status === 'submitted_to_hu')
-                        <span class="status-submitted">SUBMITTED TO HU</span>
+                        <span class="status-submitted">SUBMITTED TO HEARING UNIT</span>
                     @elseif($case->status === 'rejected')
                         <span class="status-rejected">REJECTED</span>
                     @else
@@ -84,7 +84,7 @@
             <ul>
                 @if($case->status === 'active')
                 <li>Continue filing any additional required documents</li>
-                <li>Monitor case progress through the E-Docket system</li>
+                <li>Monitor case progress through OSE E-Docket</li>
                 <li>Await hearing scheduling information</li>
                 @elseif($case->status === 'submitted_to_hu')
                 <li>Wait for Hearing Unit review completion</li>
@@ -107,7 +107,7 @@
                 <li><strong>Office Hours:</strong> Monday - Friday, 8:00 AM - 5:00 PM</li>
             </ul>
 
-            <p style="margin-top: 30px;">Thank you for using the OSE E-Docket system.</p>
+            <p style="margin-top: 30px;">Thank you for using OSE E-Docket.</p>
             
             <p>Sincerely,<br>
             <strong>New Mexico Office of the State Engineer</strong><br>
@@ -118,7 +118,7 @@
         <div class="footer">
             <p><strong>New Mexico Office of the State Engineer</strong></p>
             <p>1680 Hickman Loop, Las Cruces, NM 88005</p>
-            <p>This is an automated message from the OSE E-Docket system. Please do not reply to this email.</p>
+            <p>This is an automated message from OSE E-Docket. Please do not reply to this email.</p>
             <p>For technical support, contact: <a href="mailto:{{ config('edocket.contact.support_email') }}">{{ config('edocket.contact.support_email') }}</a></p>
         </div>
     </div>

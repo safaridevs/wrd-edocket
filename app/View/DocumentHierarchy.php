@@ -2,6 +2,7 @@
 
 namespace App\View;
 
+use App\Models\Document;
 use Illuminate\Support\Collection;
 
 class DocumentHierarchy
@@ -24,11 +25,11 @@ class DocumentHierarchy
     public static function groups(Collection $documents): array
     {
         $documents = self::chronological($documents);
-        $aluDocuments = $documents
-            ->filter(fn ($document) => self::isAluDocument($document))
+        $initialDocuments = $documents
+            ->filter(fn ($document) => self::filingContext($document) === Document::FILING_CONTEXT_INITIAL)
             ->values();
 
-        $pleadingDocuments = $aluDocuments
+        $pleadingDocuments = $initialDocuments
             ->filter(fn ($document) => in_array((string) $document->pleading_type, self::PLEADING_TYPES, true))
             ->values();
 
@@ -45,7 +46,7 @@ class DocumentHierarchy
         }
 
         $pleadingIds = $pleadingDocuments->pluck('id')->all();
-        $pleadingChildren = $aluDocuments
+        $pleadingChildren = $initialDocuments
             ->reject(fn ($document) => in_array($document->id, $pleadingIds, true))
             ->sort(function ($left, $right) {
                 $leftIsApplication = $left->doc_type === 'application';
@@ -69,17 +70,17 @@ class DocumentHierarchy
             ];
         }
 
-        $nonAluDocuments = $documents
-            ->reject(fn ($document) => self::isAluDocument($document))
+        $caseFilings = $documents
+            ->reject(fn ($document) => self::filingContext($document) === Document::FILING_CONTEXT_INITIAL)
             ->values();
 
-        if ($nonAluDocuments->isNotEmpty()) {
+        if ($caseFilings->isNotEmpty()) {
             $groups[] = [
                 'key' => 'case_filings',
                 'label' => 'Case Filings',
                 'level' => 0,
                 'show_heading' => false,
-                'documents' => $nonAluDocuments,
+                'documents' => $caseFilings,
             ];
         }
 
@@ -100,9 +101,15 @@ class DocumentHierarchy
             : ((int) $left->id <=> (int) $right->id);
     }
 
-    private static function isAluDocument($document): bool
+    private static function filingContext($document): string
     {
-        return in_array(self::documentUploaderRole($document), self::ALU_ROLES, true);
+        if (!blank($document->filing_context ?? null)) {
+            return (string) $document->filing_context;
+        }
+
+        return in_array(self::documentUploaderRole($document), self::ALU_ROLES, true)
+            ? Document::FILING_CONTEXT_INITIAL
+            : Document::FILING_CONTEXT_SUBSEQUENT;
     }
 
     private static function documentUploaderRole($document): string

@@ -10,6 +10,13 @@ class DocumentTextExtractionService
 {
     private const MIN_SEARCHABLE_TEXT_LENGTH = 20;
 
+    public function __construct(private ScannedPdfOcrService $scannedPdfOcr) {}
+
+    public function isOcrEnabled(): bool
+    {
+        return $this->scannedPdfOcr->isEnabled();
+    }
+
     public function extract(Document $document, bool $allowOcr = false): array
     {
         $path = $this->documentPath($document);
@@ -54,7 +61,7 @@ class DocumentTextExtractionService
     private function extractPdf(string $path, bool $allowOcr): array
     {
         if (!$this->commandAvailable('pdftotext')) {
-            if ($allowOcr && $this->commandAvailable('ocrmypdf')) {
+            if ($allowOcr && $this->isOcrEnabled()) {
                 return $this->extractPdfWithOcr($path);
             }
 
@@ -72,14 +79,14 @@ class DocumentTextExtractionService
                 return $result;
             }
 
-            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Re-run indexing with --ocr after OCRmyPDF is installed.');
+            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Scanned-PDF OCR has been queued when the OCR worker is enabled.');
         }
 
-        if (!$this->commandAvailable('ocrmypdf')) {
-            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Install OCRmyPDF and re-run indexing with --ocr.');
+        if (!$this->isOcrEnabled()) {
+            return $this->result('ocr_required', $result['text'], 'pdftotext', 'No searchable PDF text was found. Enable the scanned-PDF OCR worker and re-run indexing with --ocr.');
         }
 
-        return $this->extractPdfWithOcr($path);
+        return $this->extractPdfWithOcr($path, $result['text']);
     }
 
     private function extractPdfText(string $path): array
@@ -96,52 +103,19 @@ class DocumentTextExtractionService
         return $this->result('indexed', $this->cleanText(implode("\n", $output)), 'pdftotext');
     }
 
-    private function extractPdfWithOcr(string $path): array
+    private function extractPdfWithOcr(string $path, ?string $fallbackText = null): array
     {
-        $tempDirectory = storage_path('app/search-ocr');
-        if (!is_dir($tempDirectory) && !mkdir($tempDirectory, 0775, true) && !is_dir($tempDirectory)) {
-            return $this->result('failed', null, 'ocrmypdf', 'Could not create temporary OCR directory.');
-        }
-
-        $token = bin2hex(random_bytes(8));
-        $ocrPdf = $tempDirectory . DIRECTORY_SEPARATOR . "{$token}.pdf";
-        $sidecarText = $tempDirectory . DIRECTORY_SEPARATOR . "{$token}.txt";
-        $output = [];
-        $exitCode = 1;
-
-        $command = implode(' ', [
-            'ocrmypdf',
-            '--skip-text',
-            '--optimize', '0',
-            '--sidecar', escapeshellarg($sidecarText),
-            escapeshellarg($path),
-            escapeshellarg($ocrPdf),
-            '2>&1',
-        ]);
-
         try {
-            @exec($command, $output, $exitCode);
-
-            if ($exitCode !== 0) {
-                return $this->result('failed', null, 'ocrmypdf', trim(implode("\n", $output)) ?: 'OCRmyPDF could not extract text from this PDF.');
-            }
-
-            $text = is_file($sidecarText) ? file_get_contents($sidecarText) : null;
-            $text = $this->cleanText($text === false ? null : $text);
+            $ocrResult = $this->scannedPdfOcr->extract($path);
+            $text = $this->cleanText($ocrResult['text'] ?? null);
 
             if (!$this->hasSearchableText($text)) {
-                return $this->result('failed', $text, 'ocrmypdf', 'OCR completed, but no searchable text was found.');
+                return $this->result('failed', $fallbackText, 'pdf2image_pytesseract', 'OCR completed, but no searchable text was found.');
             }
 
-            return $this->result('ocr_indexed', $text, 'ocrmypdf');
-        } finally {
-            if (is_file($ocrPdf)) {
-                @unlink($ocrPdf);
-            }
-
-            if (is_file($sidecarText)) {
-                @unlink($sidecarText);
-            }
+            return $this->result('ocr_indexed', $text, $ocrResult['extractor'] ?? 'pdf2image_pytesseract');
+        } catch (\Throwable $e) {
+            return $this->result('failed', $fallbackText, 'pdf2image_pytesseract', $e->getMessage());
         }
     }
 

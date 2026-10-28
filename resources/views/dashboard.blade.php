@@ -5,17 +5,17 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex items-center justify-between">
                     <div>
+                        @php
+                            $welcomeRoleLabels = [
+                                'hu_admin' => 'Hearing Unit Admin',
+                                'hu_clerk' => 'Hearing Unit Clerk',
+                            ];
+                            $welcomeTitle = auth()->user()->title
+                                ?: ($welcomeRoleLabels[auth()->user()->getCurrentRole()]
+                                    ?? ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())));
+                        @endphp
                         <h1 class="text-2xl font-bold text-gray-900">Welcome back, {{ auth()->user()->name }}</h1>
-                        <p class="text-gray-600 mt-1">
-                            @if(auth()->user()->isAttorney())
-                                Attorney
-                            @elseif(auth()->user()->isParalegal())
-                                Paralegal
-                            @else
-                                {{ ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())) }}
-                            @endif
-                            • {{ now()->format('l, F j, Y') }}
-                        </p>
+                        <p class="text-gray-600 mt-1">{{ $welcomeTitle }} • {{ now()->format('l, F j, Y') }}</p>
                     </div>
 
                 </div>
@@ -68,7 +68,7 @@
                                                               $subQuery->where('email', auth()->user()->email);
                                                           });
                                                 })->orWhereHas('assignments', function($query) {
-                                                    $query->where('assignment_type', 'alu_paralegal')
+                                                    $query->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                                           ->where('user_id', auth()->id());
                                                 });
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
@@ -93,13 +93,7 @@
                                             })->whereIn('status', ['active', 'submitted_to_hu'])->count();
                                         }
                                     } elseif ($dashboardRole === 'contract_attorney') {
-                                        $myCases = \App\Models\CaseModel::where(function($caseQuery) use ($assignedTypesByRole, $dashboardRole) {
-                                            $caseQuery->where('created_by_user_id', auth()->id())
-                                                ->orWhereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
-                                                    $query->where('user_id', auth()->id())
-                                                        ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
-                                                });
-                                        })->count();
+                                        $myCases = \App\Models\CaseModel::accessibleToContractAttorney(auth()->user())->count();
                                     } elseif (isset($assignedTypesByRole[$dashboardRole])) {
                                         $myCases = \App\Models\CaseModel::whereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
                                             $query->where('user_id', auth()->id())
@@ -219,7 +213,7 @@
                                                           $subQuery->where('email', auth()->user()->email);
                                                       });
                                             })->orWhereHas('assignments', function($query) {
-                                                $query->where('assignment_type', 'alu_paralegal')
+                                                $query->whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                                       ->where('user_id', auth()->id());
                                             });
                                         })->whereIn('status', ['active', 'submitted_to_hu'])
@@ -253,13 +247,8 @@
                                           ->latest()->take(5)->get();
                                     }
                                 } elseif ($dashboardRole === 'contract_attorney') {
-                                    $recentCases = \App\Models\CaseModel::where(function($caseQuery) use ($assignedTypesByRole, $dashboardRole) {
-                                        $caseQuery->where('created_by_user_id', auth()->id())
-                                            ->orWhereHas('assignments', function($query) use ($assignedTypesByRole, $dashboardRole) {
-                                                $query->where('user_id', auth()->id())
-                                                    ->whereIn('assignment_type', $assignedTypesByRole[$dashboardRole]);
-                                            });
-                                    })->with('parties.person', 'oseFileNumbers')
+                                    $recentCases = \App\Models\CaseModel::accessibleToContractAttorney(auth()->user())
+                                      ->with('parties.person', 'oseFileNumbers')
                                       ->withCount('documents')
                                       ->latest()->take(5)->get();
                                 } elseif (isset($assignedTypesByRole[$dashboardRole])) {
@@ -386,7 +375,7 @@
                                         ->with('case', 'clientParty.person')
                                         ->get();
 
-                                    $aluParalegalAssignments = \App\Models\CaseAssignment::where('assignment_type', 'alu_paralegal')
+                                    $caseParalegalAssignments = \App\Models\CaseAssignment::whereIn('assignment_type', \App\Models\CaseAssignment::PARALEGAL_TYPES)
                                         ->where('user_id', auth()->id())
                                         ->whereHas('case', function($query) {
                                             $query->whereIn('status', ['active', 'submitted_to_hu']);
@@ -394,7 +383,7 @@
                                         ->with('case', 'assignedBy')
                                         ->get();
 
-                                    $assignedCases = $paralegalParties->count() + $aluParalegalAssignments->count();
+                                    $assignedCases = $paralegalParties->count() + $caseParalegalAssignments->count();
                                     $attorneys = $paralegalParties->map(function($p) {
                                         return \App\Models\CaseParty::where('role', 'counsel')
                                             ->where('client_party_id', $p->client_party_id)
@@ -402,7 +391,7 @@
                                             ->first();
                                     })->filter()->unique('person.email')
                                       ->concat(
-                                          $aluParalegalAssignments->map(function($assignment) {
+                                          $caseParalegalAssignments->map(function($assignment) {
                                               return $assignment->assignedBy;
                                           })->filter()->unique('email')
                                       );
