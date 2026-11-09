@@ -778,7 +778,7 @@ class CaseService
             $recipients[$token] = [
                 'group' => 'staff',
                 'name' => $assignment->user->name,
-                'role' => ucfirst(str_replace('_', ' ', $assignment->assignment_type)),
+                'role' => \App\View\RoleLabel::format($assignment->assignment_type),
                 'email' => $assignment->user->email,
                 'notifiable' => $assignment->user,
             ];

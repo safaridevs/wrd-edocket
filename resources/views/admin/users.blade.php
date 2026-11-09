@@ -123,7 +123,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap">{{ $user->email }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                        {{ ucwords(str_replace('_', ' ', $user->getCurrentRole())) }}
+                                        {{ \App\View\RoleLabel::format($user->getCurrentRole()) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

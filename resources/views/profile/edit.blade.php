@@ -1,5 +1,5 @@
 @php
-    $currentRole = ucwords(str_replace('_', ' ', $user->getCurrentRole()));
+    $currentRole = \App\View\RoleLabel::format($user->getCurrentRole());
     $initials = $user->initials ?: collect(explode(' ', trim($user->name)))
         ->filter()
         ->take(2)

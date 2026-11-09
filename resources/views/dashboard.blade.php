@@ -6,13 +6,8 @@
                 <div class="flex items-center justify-between">
                     <div>
                         @php
-                            $welcomeRoleLabels = [
-                                'hu_admin' => 'Hearing Unit Admin',
-                                'hu_clerk' => 'Hearing Unit Clerk',
-                            ];
                             $welcomeTitle = auth()->user()->title
-                                ?: ($welcomeRoleLabels[auth()->user()->getCurrentRole()]
-                                    ?? ucfirst(str_replace('_', ' ', auth()->user()->getCurrentRole())));
+                                ?: \App\View\RoleLabel::format(auth()->user()->getCurrentRole());
                         @endphp
                         <h1 class="text-2xl font-bold text-gray-900">Welcome back, {{ auth()->user()->name }}</h1>
                         <p class="text-gray-600 mt-1">{{ $welcomeTitle }} • {{ now()->format('l, F j, Y') }}</p>

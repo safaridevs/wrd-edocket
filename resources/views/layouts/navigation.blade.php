@@ -19,10 +19,6 @@
                     $canManageDocumentTypes = Auth::user()->hasAnyRole(['hu_admin']);
                     $hasCaseWork = Auth::user()->canCreateCase() || $canViewReports || $canViewFilingHistory;
                     $hasAdministration = $canManageUsers || $canManageDocumentTypes;
-                    $roleLabels = [
-                        'hu_admin' => 'Hearing Unit Admin',
-                        'hu_clerk' => 'Hearing Unit Clerk',
-                    ];
                 @endphp
                 <div class="hidden sm:-my-px sm:ms-8 sm:flex sm:items-center sm:gap-6">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
@@ -87,7 +83,7 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ session('impersonated_role') ? 'As: ' . ($roleLabels[session('impersonated_role')] ?? ucfirst(str_replace('_', ' ', session('impersonated_role')))) : 'Switch Role' }}</div>
+                            <div>{{ session('impersonated_role') ? 'As: ' . \App\View\RoleLabel::format(session('impersonated_role')) : 'Switch Role' }}</div>
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -101,7 +97,7 @@
                                 @csrf
                                 <input type="hidden" name="role" value="{{ $role }}">
                                 <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    {{ $roleLabels[$role] ?? ucfirst(str_replace('_', ' ', $role)) }}
+                                    {{ \App\View\RoleLabel::format($role) }}
                                 </button>
                             </form>
                         @endforeach
