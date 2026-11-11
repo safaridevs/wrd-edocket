@@ -23,7 +23,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo">OSE E-Docket System</div>
+            <div class="logo">OSE E-Docket</div>
             <div class="subtitle">New Mexico Office of the State Engineer</div>
         </div>
 
@@ -49,10 +49,10 @@
                 <p><strong>Document:</strong> {{ $document->original_filename }}</p>
                 <p><strong>Document Type:</strong> {{ $document->doc_type_label }}</p>
                 @if($document->pleading_type && $document->pleading_type !== 'none')
-                <p><strong>Pleading Type:</strong> {{ ucfirst(str_replace('_', ' ', $document->pleading_type)) }}</p>
+                <p><strong>Pleading Type:</strong> {{ $document->pleading_type_label }}</p>
                 @endif
                 <p><strong>Stamped:</strong> <span class="stamp-badge">📋 E-STAMPED</span></p>
-                <p><strong>Stamp Date:</strong> {{ $document->stamped_at->format('F j, Y \a\t g:i A') }}</p>
+                <p><strong>{{ $document->uploader?->isHearingUnit() ? 'Issued' : 'Filed' }}:</strong> {{ ($document->uploader?->isHearingUnit() ? $document->approved_at : $document->uploaded_at)?->format('F j, Y \a\t g:i A') }}</p>
                 <p><strong>File Size:</strong> {{ number_format($document->size_bytes / 1024, 1) }} KB</p>
             </div>
 
@@ -69,7 +69,7 @@
                 <li>Your document has been officially received and processed</li>
                 <li>The document is now part of the official case record</li>
                 <li>The electronic stamp provides legal proof of filing</li>
-                <li>You can download the stamped version from the E-Docket system</li>
+                <li>You can download the stamped version from OSE E-Docket</li>
             </ul>
 
             <!-- Action Button -->
@@ -82,7 +82,7 @@
             <ul>
                 <li><strong>Keep Records:</strong> Download and save the stamped document for your records</li>
                 <li><strong>Filing Deadlines:</strong> Ensure all required documents are filed by applicable deadlines</li>
-                <li><strong>Case Progress:</strong> Monitor your case status through the E-Docket system</li>
+                <li><strong>Case Progress:</strong> Monitor your case status through OSE E-Docket</li>
                 <li><strong>Questions:</strong> Contact the Hearing Unit if you need clarification</li>
             </ul>
 
@@ -95,7 +95,7 @@
                 <li><strong>Office Hours:</strong> Monday - Friday, 8:00 AM - 5:00 PM</li>
             </ul>
 
-            <p style="margin-top: 30px;">Thank you for using the OSE E-Docket system.</p>
+            <p style="margin-top: 30px;">Thank you for using OSE E-Docket.</p>
             
             <p>Sincerely,<br>
             <strong>New Mexico Office of the State Engineer</strong><br>
@@ -106,7 +106,7 @@
         <div class="footer">
             <p><strong>New Mexico Office of the State Engineer</strong></p>
             <p>1680 Hickman Loop, Las Cruces, NM 88005</p>
-            <p>This is an automated message from the OSE E-Docket system. Please do not reply to this email.</p>
+            <p>This is an automated message from OSE E-Docket. Please do not reply to this email.</p>
             <p>For technical support, contact: <a href="mailto:{{ config('edocket.contact.support_email') }}">{{ config('edocket.contact.support_email') }}</a></p>
         </div>
     </div>

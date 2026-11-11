@@ -12,12 +12,12 @@ class DocumentHierarchyTest extends TestCase
     public function test_pleading_package_is_followed_by_one_chronological_top_level_stream(): void
     {
         $groups = DocumentHierarchy::groups(new Collection([
-            $this->document(1, 'request_to_docket', 'request_to_docket', 'alu_clerk', '2025-02-17 09:00:00'),
-            $this->document(2, 'application', 'none', 'alu_clerk', '2023-10-31 09:00:00'),
-            $this->document(3, 'notice_publication', 'none', 'alu_clerk', '2024-01-12 09:00:00'),
-            $this->document(4, 'motion', 'none', 'external_attorney', '2025-03-10 09:00:00'),
-            $this->document(5, 'order', 'none', 'hu_admin', '2025-02-27 09:00:00'),
-            $this->document(6, 'affidavit', 'none', 'alu_clerk', '2024-02-12 09:00:00'),
+            $this->document(1, 'request_to_docket', 'request_to_docket', 'alu_clerk', '2025-02-17 09:00:00', 'initial_case_filing'),
+            $this->document(2, 'application', 'none', 'alu_clerk', '2023-10-31 09:00:00', 'initial_case_filing'),
+            $this->document(3, 'notice_publication', 'none', 'alu_clerk', '2024-01-12 09:00:00', 'initial_case_filing'),
+            $this->document(4, 'motion', 'none', 'external_attorney', '2025-03-10 09:00:00', 'subsequent_filing'),
+            $this->document(5, 'order', 'none', 'hu_admin', '2025-02-27 09:00:00', 'hearing_unit_issuance'),
+            $this->document(6, 'affidavit', 'none', 'alu_clerk', '2024-02-12 09:00:00', 'initial_case_filing'),
         ]));
 
         $this->assertSame([
@@ -40,21 +40,35 @@ class DocumentHierarchyTest extends TestCase
     public function test_application_is_first_child_even_when_another_alu_document_is_older(): void
     {
         $groups = DocumentHierarchy::groups(new Collection([
-            $this->document(1, 'request_pre_hearing', 'request_pre_hearing', 'alu_atty', '2025-02-17 09:00:00'),
-            $this->document(2, 'notice_publication', 'none', 'alu_atty', '2023-01-01 09:00:00'),
-            $this->document(3, 'application', 'none', 'alu_atty', '2023-10-31 09:00:00'),
+            $this->document(1, 'request_pre_hearing', 'request_pre_hearing', 'alu_atty', '2025-02-17 09:00:00', 'initial_case_filing'),
+            $this->document(2, 'notice_publication', 'none', 'alu_atty', '2023-01-01 09:00:00', 'initial_case_filing'),
+            $this->document(3, 'application', 'none', 'alu_atty', '2023-10-31 09:00:00', 'initial_case_filing'),
         ]));
 
         $this->assertSame([3, 2], $groups[1]['documents']->pluck('id')->all());
     }
 
-    private function document(int $id, string $docType, string $pleadingType, string $uploaderRole, string $uploadedAt): stdClass
+    public function test_alu_document_filed_after_acceptance_is_top_level(): void
+    {
+        $groups = DocumentHierarchy::groups(new Collection([
+            $this->document(1, 'request_to_docket', 'request_to_docket', 'alu_paralegal', '2026-01-01 09:00:00', 'initial_case_filing'),
+            $this->document(2, 'application', 'none', 'alu_paralegal', '2026-01-01 09:01:00', 'initial_case_filing'),
+            $this->document(3, 'motion', 'none', 'alu_atty', '2026-02-01 09:00:00', 'subsequent_filing'),
+        ]));
+
+        $this->assertSame(0, $groups[0]['level']);
+        $this->assertSame([3], $groups[2]['documents']->pluck('id')->all());
+        $this->assertSame(0, $groups[2]['level']);
+    }
+
+    private function document(int $id, string $docType, string $pleadingType, string $uploaderRole, string $uploadedAt, ?string $filingContext = null): stdClass
     {
         $document = new stdClass();
         $document->id = $id;
         $document->doc_type = $docType;
         $document->pleading_type = $pleadingType;
         $document->uploaded_at = new \DateTimeImmutable($uploadedAt);
+        $document->filing_context = $filingContext;
         $document->uploader = new class($uploaderRole) {
             public function __construct(private readonly string $role)
             {

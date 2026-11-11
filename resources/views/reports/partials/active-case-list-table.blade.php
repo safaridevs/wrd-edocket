@@ -22,10 +22,10 @@
                 <td class="{{ $tdCaptionClass ?? 'min-w-[280px] px-6 py-4 text-sm text-gray-900' }}">{{ $case->caption }}</td>
                 <td class="{{ $tdClass ?? 'whitespace-nowrap px-6 py-4 text-sm text-gray-600' }}">{{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</td>
                 <td class="{{ $tdClass ?? 'whitespace-nowrap px-6 py-4 text-sm text-gray-600' }}">
-                    <div>{{ ucfirst(str_replace('_', ' ', $case->status)) }}</div>
+                    <div>{{ $case->workflow_status_label }}</div>
                     @if($case->hu_display_status)
                         <div class="text-xs text-gray-500">
-                            HU: {{ \App\Models\CaseModel::HU_DISPLAY_STATUSES[$case->hu_display_status] ?? ucfirst(str_replace('_', ' ', $case->hu_display_status)) }}
+                            Hearing Unit: {{ \App\Models\CaseModel::HU_DISPLAY_STATUSES[$case->hu_display_status] ?? ucfirst(str_replace('_', ' ', $case->hu_display_status)) }}
                         </div>
                     @endif
                 </td>

@@ -4,12 +4,30 @@ namespace App\Services;
 
 use App\Models\CaseModel;
 use App\Models\Notification;
+use App\Models\Person;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
+    public function notifyCounselParticipationChanged(Person $counsel, CaseModel $case, bool $added): Notification
+    {
+        $hearingNumber = $case->case_no ?: (string) $case->id;
+        $title = $added ? 'Entry of Appearance' : 'Motion to Withdraw as Counsel';
+        $message = $added
+            ? "You have been added to the Parties Entitled to Notice in Hearing Number {$hearingNumber}"
+            : "You have been removed from the Parties Entitled to Notice in Hearing Number {$hearingNumber}";
+
+        return $this->notify(
+            $counsel,
+            $added ? 'counsel_entry_of_appearance' : 'counsel_withdrawal',
+            $title,
+            $message,
+            $case
+        );
+    }
+
     public function notifyEmailAddress(string $email, string $type, string $title, string $message, ?CaseModel $case = null, bool $logAudit = true): Notification
     {
         $emailStatus = 'pending';

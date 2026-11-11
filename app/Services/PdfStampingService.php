@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\User;
+use DateTimeInterface;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
@@ -16,22 +17,29 @@ class PdfStampingService
 
     public function stampDocument(Document $document, $case): bool
     {
-        $stampText = $this->buildStampText($document, auth()->user());
+        $user = auth()->user();
+        $isPendingIssuance = $this->isHearingUnitUpload($document) && !$document->approved;
+        $stampAt = $isPendingIssuance ? now() : ($document->uploaded_at ?? now());
+        $stampText = $this->buildStampText($document, $user, $stampAt, $isPendingIssuance);
 
-        $success = $this->stampPdf($document, auth()->user());
+        if ($isPendingIssuance) {
+            $this->preserveIssuanceSource($document);
+        }
+
+        $success = $this->stampPdf($document, $user, $stampAt, $isPendingIssuance);
 
         if ($success) {
             $document->update([
                 'stamped' => true,
                 'stamp_text' => $stampText,
-                'stamped_at' => now()
+                'stamped_at' => $stampAt
             ]);
         }
         
         return $success;
     }
 
-    public function stampPdf(Document $document, User $user): bool
+    public function stampPdf(Document $document, User $user, ?DateTimeInterface $stampAt = null, bool $pendingIssuance = false): bool
     {
         if ($document->mime !== 'application/pdf') {
             \Log::error('Document is not PDF: ' . $document->mime);
@@ -45,7 +53,7 @@ class PdfStampingService
             $originalPath = $this->getDocumentPath($document);
             \Log::info('Original PDF path: ' . $originalPath);
 
-            return $this->stampSourcePdf($originalPath, $document, $user, 'original');
+            return $this->stampSourcePdf($originalPath, $document, $user, 'original', $stampAt, $pendingIssuance);
         } catch (\Exception $e) {
             \Log::error('PDF stamping failed: ' . $e->getMessage());
             \Log::error('Stack trace: ' . $e->getTraceAsString());
@@ -62,7 +70,7 @@ class PdfStampingService
                 ]);
 
                 $convertedPath = $this->pdfConversionService->convertForStamping($originalPath);
-                $result = $this->stampSourcePdf($convertedPath, $document, $user, 'converted');
+                $result = $this->stampSourcePdf($convertedPath, $document, $user, 'converted', $stampAt, $pendingIssuance);
 
                 \Log::info('PDF stamping succeeded after conversion fallback', [
                     'document_id' => $document->id,
@@ -82,13 +90,57 @@ class PdfStampingService
         }
     }
 
-    private function stampSourcePdf(string $sourcePath, Document $document, User $user, string $sourceLabel): bool
+    public function finalizeHearingUnitIssuance(Document $document, User $user, DateTimeInterface $issuedAt): bool
+    {
+        $sourcePath = Storage::disk('private')->exists($this->issuanceSourceUri($document))
+            ? Storage::disk('private')->path($this->issuanceSourceUri($document))
+            : $this->getDocumentPath($document);
+
+        $convertedPath = null;
+
+        try {
+            $success = $this->stampSourcePdf($sourcePath, $document, $user, 'issuance source', $issuedAt, false);
+        } catch (\Exception $originalException) {
+            try {
+                \Log::warning('Retrying final Hearing Unit issuance stamp after conversion fallback', [
+                    'document_id' => $document->id,
+                    'storage_uri' => $document->storage_uri,
+                    'original_error' => $originalException->getMessage(),
+                ]);
+
+                $convertedPath = $this->pdfConversionService->convertForStamping($sourcePath);
+                $success = $this->stampSourcePdf($convertedPath, $document, $user, 'converted issuance source', $issuedAt, false);
+            } catch (\Exception $fallbackException) {
+                throw new \RuntimeException($this->mapStampingErrorMessage($fallbackException), previous: $fallbackException);
+            } finally {
+                if ($convertedPath && file_exists($convertedPath)) {
+                    @unlink($convertedPath);
+                }
+            }
+        }
+
+        if ($success) {
+            $document->update([
+                'stamp_text' => $this->buildStampText($document, $user, $issuedAt),
+                'stamped_at' => $issuedAt,
+            ]);
+        }
+
+        return $success;
+    }
+
+    public function discardIssuanceSource(Document $document): void
+    {
+        Storage::disk('private')->delete($this->issuanceSourceUri($document));
+    }
+
+    private function stampSourcePdf(string $sourcePath, Document $document, User $user, string $sourceLabel, ?DateTimeInterface $stampAt = null, bool $pendingIssuance = false): bool
     {
         $stampedPath = null;
 
         try {
             $pageCount = $this->preflightPdf($sourcePath);
-            $stampedPath = $this->createStampedPdf($sourcePath, $document, $user, $pageCount);
+            $stampedPath = $this->createStampedPdf($sourcePath, $document, $user, $pageCount, $stampAt, $pendingIssuance);
             \Log::info("Stamped PDF created from {$sourceLabel} source at: " . $stampedPath);
 
             $this->validateStampedPdf($stampedPath, $pageCount);
@@ -145,7 +197,7 @@ class PdfStampingService
         return $pageCount;
     }
 
-    private function createStampedPdf(string $originalPath, Document $document, User $user, int $pageCount): string
+    private function createStampedPdf(string $originalPath, Document $document, User $user, int $pageCount, ?DateTimeInterface $stampAt = null, bool $pendingIssuance = false): string
     {
         $pdf = new Fpdi();
         $pdf->SetAutoPageBreak(false);
@@ -172,7 +224,7 @@ class PdfStampingService
 
                 // Add stamp to first page only
                 if ($pageNo === 1) {
-                    $this->addStampToPage($pdf, $document, $user, $size);
+                    $this->addStampToPage($pdf, $document, $user, $size, $stampAt, $pendingIssuance);
                 }
             }
         } catch (\Exception $e) {
@@ -215,7 +267,7 @@ class PdfStampingService
         }
     }
 
-    private function addStampToPage(Fpdi $pdf, Document $document, User $user, array $pageSize): void
+    private function addStampToPage(Fpdi $pdf, Document $document, User $user, array $pageSize, ?DateTimeInterface $stampAt = null, bool $pendingIssuance = false): void
     {
         // Use points directly (TCPDF native units)
         $pageWidth = $pageSize['width'];
@@ -228,7 +280,7 @@ class PdfStampingService
         $pdf->SetFont('helvetica', 'B', 8);
         $pdf->SetTextColor(255, 0, 0);
 
-        $stampText = $this->buildStampText($document, $user);
+        $stampText = $this->buildStampText($document, $user, $stampAt, $pendingIssuance);
 
         // Calculate text width
         $lines = explode("\n", $stampText);
@@ -276,10 +328,11 @@ class PdfStampingService
         \Log::info('File replaced. New size: ' . $newSize . ' bytes');
     }
 
-    private function buildStampText(Document $document, User $user): string
+    private function buildStampText(Document $document, User $user, ?DateTimeInterface $stampAt = null, bool $pendingIssuance = false): string
     {
-        $stampDate = $document->uploaded_at->format('F d, Y');
-        $stampTime = $document->uploaded_at->format('g:i A');
+        $effectiveAt = $stampAt ?? $document->uploaded_at ?? now();
+        $stampDate = $effectiveAt->format('F d, Y');
+        $stampTime = $effectiveAt->format('g:i A');
         $initials = $user->initials ?? 'HU';
 
         if ($this->isHearingUnitUpload($document)) {
@@ -292,6 +345,22 @@ class PdfStampingService
     private function isHearingUnitUpload(Document $document): bool
     {
         return (bool) $document->uploader?->isHearingUnit();
+    }
+
+    private function preserveIssuanceSource(Document $document): void
+    {
+        $uri = $this->issuanceSourceUri($document);
+        if (Storage::disk('private')->exists($uri)) {
+            return;
+        }
+
+        $sourcePath = $this->getDocumentPath($document);
+        Storage::disk('private')->put($uri, file_get_contents($sourcePath));
+    }
+
+    private function issuanceSourceUri(Document $document): string
+    {
+        return "hearing-unit-issuance-sources/{$document->id}/source.pdf";
     }
 
     private function mapStampingErrorMessage(\Throwable $e): string

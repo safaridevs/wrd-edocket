@@ -12,12 +12,7 @@ class PartyContactController extends Controller
 {
     public function edit()
     {
-        $person = Person::where('email', Auth::user()->email)->first();
-        if (!$person) {
-            abort(404, 'Contact information not found.');
-        }
-        
-        return view('party.edit-contact', compact('person'));
+        return redirect(route('profile.edit').'#contact-information');
     }
 
     public function update(Request $request)

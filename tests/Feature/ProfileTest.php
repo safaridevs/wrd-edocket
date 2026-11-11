@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Person;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,6 +20,73 @@ class ProfileTest extends TestCase
             ->get('/profile');
 
         $response->assertOk();
+    }
+
+    public function test_profile_page_uses_the_consolidated_contact_editor(): void
+    {
+        $user = User::factory()->create();
+        Person::create([
+            'type' => 'individual',
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $user->email,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/profile')
+            ->assertOk()
+            ->assertSee('Save Contact Information')
+            ->assertDontSee('Account Identity');
+    }
+
+    public function test_contact_update_synchronizes_account_name_phone_and_initials(): void
+    {
+        $user = User::factory()->create([
+            'name' => 'Old Name',
+            'phone' => '505-000-0000',
+            'initials' => 'ON',
+        ]);
+        $person = Person::create([
+            'type' => 'individual',
+            'first_name' => 'Old',
+            'last_name' => 'Name',
+            'email' => $user->email,
+        ]);
+
+        $response = $this->actingAs($user)->patch('/profile/legal-service', [
+            'first_name' => 'New',
+            'middle_name' => null,
+            'last_name' => 'Name',
+            'suffix' => null,
+            'title' => 'Paralegal',
+            'phone_mobile' => '505-111-1111',
+            'phone_office' => '505-222-2222',
+            'initials' => 'NN',
+            'address_line1' => '1 Main Street',
+            'address_line2' => null,
+            'city' => 'Santa Fe',
+            'state' => 'NM',
+            'zip' => '87505',
+        ]);
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $this->assertSame('505-111-1111', $person->refresh()->phone_mobile);
+        $this->assertSame('505-222-2222', $person->phone_office);
+        $this->assertSame('New Name', $user->refresh()->name);
+        $this->assertSame('505-222-2222', $user->phone);
+        $this->assertSame('NN', $user->initials);
+    }
+
+    public function test_old_party_contact_page_redirects_to_profile_contact_section(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/party/contact/edit')
+            ->assertRedirect('/profile#contact-information');
     }
 
     public function test_profile_information_can_be_updated(): void

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Register - OSE E-Docket System</title>
+    <title>Register - OSE E-Docket</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -21,7 +21,7 @@
                         </a>
                     </div>
                     <h2 class="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
-                    <p class="text-gray-600">Join the OSE E-Docket system to manage your water rights cases</p>
+                    <p class="text-gray-600">Join OSE E-Docket to manage your water rights cases</p>
                 </div>
 
                 <!-- Registration Form -->

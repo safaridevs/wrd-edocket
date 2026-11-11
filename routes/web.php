@@ -6,11 +6,11 @@ use App\Http\Controllers\CasePartyController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\CaseInitiationController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\CaseMediaController;
 use App\Models\CaseModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -45,6 +45,8 @@ Route::get('/', function (Request $request) {
 Route::get('public/cases', [\App\Http\Controllers\PublicCaseController::class, 'index'])->name('public.cases.index');
 Route::get('public/cases/{case}', [\App\Http\Controllers\PublicCaseController::class, 'show'])->name('public.cases.show');
 Route::get('public/documents/{document}/download', [\App\Http\Controllers\PublicCaseController::class, 'downloadDocument'])->name('public.documents.download');
+Route::get('public/cases/{case}/media/{media}/view', [CaseMediaController::class, 'publicView'])->name('public.case-media.view');
+Route::get('public/cases/{case}/media/{media}/download', [CaseMediaController::class, 'publicDownload'])->name('public.case-media.download');
 Route::get('documents/search', [DocumentController::class, 'search'])->name('documents.search');
 
 Route::get('/dashboard', function () {
@@ -59,6 +61,9 @@ Route::middleware('auth')->group(function () {
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/active-cases/print', [ReportController::class, 'activeCasesPrint'])->name('reports.active-cases.print');
     Route::get('reports/active-cases/pdf', [ReportController::class, 'activeCasesPdf'])->name('reports.active-cases.pdf');
+    Route::get('reports/case-documents', [ReportController::class, 'caseDocuments'])->name('reports.case-documents');
+    Route::get('reports/case-documents/print', [ReportController::class, 'caseDocumentsPrint'])->name('reports.case-documents.print');
+    Route::get('reports/case-documents/pdf', [ReportController::class, 'caseDocumentsPdf'])->name('reports.case-documents.pdf');
 
     
     // E-Docket Routes
@@ -70,6 +75,8 @@ Route::middleware('auth')->group(function () {
     Route::get('cases/{case}/edit', [CaseController::class, 'edit'])->middleware('permission:create_case')->name('cases.edit');
     Route::put('cases/{case}', [CaseController::class, 'update'])->middleware('permission:create_case')->name('cases.update');
     Route::delete('cases/{case}', [CaseController::class, 'destroy'])->middleware('permission:create_case')->name('cases.destroy');
+    Route::get('cases/{case}/consolidate', [CaseController::class, 'consolidateForm'])->name('cases.consolidate');
+    Route::post('cases/{case}/consolidate', [CaseController::class, 'consolidate'])->name('cases.consolidate.store');
 
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])->middleware('permission:apply_stamp')->name('documents.approve');
     
@@ -96,6 +103,10 @@ Route::middleware('auth')->group(function () {
     Route::post('cases/{case}/documents/{document}/replace-hu-upload', [CaseController::class, 'replacePendingHuDocument'])->name('cases.documents.replace-hu-upload');
     Route::post('cases/{case}/documents/{document}/issue-stamped', [CaseController::class, 'issueStampedDocument'])->name('cases.documents.issue-stamped');
     Route::delete('cases/{case}/documents/{document}', [CaseController::class, 'destroyDocument'])->name('cases.documents.destroy');
+    Route::post('cases/{case}/media', [CaseMediaController::class, 'store'])->name('cases.media.store');
+    Route::get('cases/{case}/media/{media}/view', [CaseMediaController::class, 'view'])->name('cases.media.view');
+    Route::get('cases/{case}/media/{media}/download', [CaseMediaController::class, 'download'])->name('cases.media.download');
+    Route::delete('cases/{case}/media/{media}', [CaseMediaController::class, 'destroy'])->name('cases.media.destroy');
 });
 
 // API routes (outside auth middleware)
@@ -165,10 +176,6 @@ Route::middleware('auth')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/mark-read', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::get('notifications/unread-count', [NotificationController::class, 'getUnreadCount'])->name('notifications.unread-count');
-    
-    // Case Initiation (ALU Law Clerk)
-    Route::get('cases/initiate', [CaseInitiationController::class, 'create'])->middleware('permission:create_case')->name('cases.initiate');
-    Route::post('cases/initiate', [CaseInitiationController::class, 'store'])->middleware('permission:create_case');
     
     // Admin routes
     Route::get('admin/users', [AdminController::class, 'users'])->middleware('permission:manage_users')->name('admin.users');

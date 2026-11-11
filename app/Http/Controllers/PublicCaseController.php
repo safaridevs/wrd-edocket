@@ -58,6 +58,7 @@ class PublicCaseController extends Controller
         $case->load([
             'parties.person',
             'oseFileNumbers',
+            'media.attachedBy',
             'documents' => function($query) {
                 // Only show accepted and stamped documents
                 $query->where('approved', true)->where('stamped', true);

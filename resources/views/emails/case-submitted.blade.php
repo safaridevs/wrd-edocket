@@ -58,10 +58,10 @@
                 <li>The Hearing Unit will review your submission</li>
                 <li>You will receive notification when the case is accepted or rejected</li>
                 <li>If rejected, you can make corrections and resubmit</li>
-                <li>You can track the status in the E-Docket system</li>
+                <li>You can track the status in OSE E-Docket</li>
             </ul>
             
-            <p>You can view your case status at any time by logging into the E-Docket system.</p>
+            <p>You can view your case status at any time by logging into OSE E-Docket.</p>
         </div>
         
         <div class="footer">

@@ -52,6 +52,7 @@ class DocumentController extends Controller
 
     public function download(Document $document)
     {
+        $this->authorizeDocumentAccess($document);
         $filePath = $this->documentService->downloadDocument($document);
 
         return Response::download($filePath, $document->original_filename);
@@ -59,6 +60,7 @@ class DocumentController extends Controller
 
     public function preview(Document $document)
     {
+        $this->authorizeDocumentAccess($document);
         $filePath = $this->documentService->downloadDocument($document);
 
         return Response::file($filePath, [
@@ -74,5 +76,17 @@ class DocumentController extends Controller
         }
 
         return back()->with('error', 'Unable to approve document.');
+    }
+
+    private function authorizeDocumentAccess(Document $document): void
+    {
+        $user = Auth::user();
+        $document->loadMissing(['case', 'uploader.roleRelation']);
+
+        abort_unless($user && $user->canAccessCase($document->case), 403);
+
+        if (!$user->isHearingUnit() && $document->isPendingHearingUnitDocument()) {
+            abort(404);
+        }
     }
 }
