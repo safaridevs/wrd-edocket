@@ -11,6 +11,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\CaseMediaController;
+use App\Http\Controllers\EntryOfAppearanceController;
 use App\Models\CaseModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -49,6 +50,15 @@ Route::get('public/cases/{case}/media/{media}/view', [CaseMediaController::class
 Route::get('public/cases/{case}/media/{media}/download', [CaseMediaController::class, 'publicDownload'])->name('public.case-media.download');
 Route::get('documents/search', [DocumentController::class, 'search'])->name('documents.search');
 
+Route::get('entry-of-appearance', [EntryOfAppearanceController::class, 'create'])->name('entry-of-appearances.create');
+Route::post('entry-of-appearance', [EntryOfAppearanceController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('entry-of-appearances.store');
+Route::get('entry-of-appearance/submitted', [EntryOfAppearanceController::class, 'submitted'])->name('entry-of-appearances.submitted');
+Route::get('entry-of-appearance/{appearance}/verify/{hash}', [EntryOfAppearanceController::class, 'verify'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('entry-of-appearances.verify');
+
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -64,6 +74,11 @@ Route::middleware('auth')->group(function () {
     Route::get('reports/case-documents', [ReportController::class, 'caseDocuments'])->name('reports.case-documents');
     Route::get('reports/case-documents/print', [ReportController::class, 'caseDocumentsPrint'])->name('reports.case-documents.print');
     Route::get('reports/case-documents/pdf', [ReportController::class, 'caseDocumentsPdf'])->name('reports.case-documents.pdf');
+
+    Route::get('admin/entry-of-appearances', [EntryOfAppearanceController::class, 'index'])->name('admin.entry-of-appearances.index');
+    Route::get('admin/entry-of-appearances/{appearance}', [EntryOfAppearanceController::class, 'show'])->name('admin.entry-of-appearances.show');
+    Route::post('admin/entry-of-appearances/{appearance}/approve', [EntryOfAppearanceController::class, 'approve'])->name('admin.entry-of-appearances.approve');
+    Route::post('admin/entry-of-appearances/{appearance}/reject', [EntryOfAppearanceController::class, 'reject'])->name('admin.entry-of-appearances.reject');
 
     
     // E-Docket Routes

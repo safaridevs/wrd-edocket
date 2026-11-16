@@ -203,6 +203,15 @@
     </div>
     @endif
 
+    <div class="mt-8 rounded-lg border border-blue-200 bg-blue-50 p-6 text-center">
+        <h3 class="text-lg font-semibold text-blue-950">Are you an attorney appearing for a party in this case?</h3>
+        <p class="mt-2 text-sm text-blue-800">Submit an Entry of Appearance for Hearing Number {{ $case->case_no }}.</p>
+        <a href="{{ route('entry-of-appearances.create', ['case_number' => $case->case_no]) }}"
+           class="mt-4 inline-flex items-center rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
+            Enter an Appearance
+        </a>
+    </div>
+
     <!-- Back to Search -->
     <div class="mt-8 text-center">
         <a href="{{ route('public.cases.index') }}"

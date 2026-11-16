@@ -32,6 +32,7 @@
                 <div class="flex items-center space-x-4">
                     <a href="{{ route('public.cases.index') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Cases</a>
                     <a href="{{ route('documents.search') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Documents</a>
+                    <a href="{{ route('entry-of-appearances.create') }}" class="hidden md:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Enter an Appearance</a>
                     @guest
                         <a href="{{ route('login') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-semibold text-sm whitespace-nowrap">Login</a>
                     @endguest
@@ -79,6 +80,7 @@
                     <div class="text-blue-100 text-sm space-y-2">
                         <a href="{{ route('public.cases.index') }}" class="block hover:text-white transition-colors">🔍 Search Cases</a>
                         <a href="{{ route('documents.search') }}" class="block hover:text-white transition-colors">Search Documents</a>
+                        <a href="{{ route('entry-of-appearances.create') }}" class="block hover:text-white transition-colors">Entry of Appearance</a>
                         @guest
                             <a href="{{ route('login') }}" class="block hover:text-white transition-colors">👤 Login</a>
                             <a href="{{ route('register') }}" class="block hover:text-white transition-colors">📝 Register Account</a>
@@ -86,7 +88,7 @@
                         @auth
                             <a href="{{ route('dashboard') }}" class="block hover:text-white transition-colors">📋 Dashboard</a>
                         @endauth
-                        <a href="#" class="block hover:text-white transition-colors">📋 Forms & Applications</a>
+                        <a href="{{ route('entry-of-appearances.create') }}" class="block hover:text-white transition-colors">📋 Forms &amp; Applications</a>
                     </div>
                 </div>
             </div>

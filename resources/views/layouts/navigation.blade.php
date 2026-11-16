@@ -17,8 +17,9 @@
                     $canViewFilingHistory = Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']);
                     $canManageUsers = Auth::user()->canManageUsers();
                     $canManageDocumentTypes = Auth::user()->hasAnyRole(['hu_admin']);
+                    $canManageAppearanceRequests = Auth::user()->isHUAdmin();
                     $hasCaseWork = Auth::user()->canCreateCase() || $canViewReports || $canViewFilingHistory;
-                    $hasAdministration = $canManageUsers || $canManageDocumentTypes;
+                    $hasAdministration = $canManageUsers || $canManageDocumentTypes || $canManageAppearanceRequests;
                 @endphp
                 <div class="hidden sm:-my-px sm:ms-8 sm:flex sm:items-center sm:gap-6">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
@@ -70,6 +71,9 @@
                                 @endif
                                 @if($canManageDocumentTypes)
                                     <x-dropdown-link :href="route('admin.document-types')">Document Types</x-dropdown-link>
+                                @endif
+                                @if($canManageAppearanceRequests)
+                                    <x-dropdown-link :href="route('admin.entry-of-appearances.index')">Appearance Requests</x-dropdown-link>
                                 @endif
                             </x-slot>
                         </x-dropdown>
@@ -223,6 +227,12 @@
             @if($canManageDocumentTypes)
                 <x-responsive-nav-link :href="route('admin.document-types')" :active="request()->routeIs('admin.document-types')">
                     {{ __('Document Types') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if($canManageAppearanceRequests)
+                <x-responsive-nav-link :href="route('admin.entry-of-appearances.index')" :active="request()->routeIs('admin.entry-of-appearances.*')">
+                    {{ __('Appearance Requests') }}
                 </x-responsive-nav-link>
             @endif
 
