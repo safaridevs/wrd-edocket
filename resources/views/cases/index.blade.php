@@ -54,7 +54,7 @@
                                 <option value="">All Types</option>
                                 @foreach($allowedTypes as $type)
                                     <option value="{{ $type }}" @selected(request('type') === $type)>
-                                        {{ ucfirst($type) }}
+                                        {{ \App\Models\CaseModel::CASE_TYPE_LABELS[$type] ?? ucwords(str_replace('_', ' ', $type)) }}
                                     </option>
                                 @endforeach
                             </select>
@@ -130,7 +130,7 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {{ ucfirst($case->case_type) }}
+                                {{ $case->case_type_label }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">

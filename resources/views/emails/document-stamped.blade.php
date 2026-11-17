@@ -39,7 +39,7 @@
             <div class="case-info">
                 <h3 style="margin-top: 0; color: #1e40af;">Case Details</h3>
                 <p><strong>Case Number:</strong> {{ $case->case_no }}</p>
-                <p><strong>Case Type:</strong> {{ ucfirst($case->case_type) }}</p>
+                <p><strong>Case Type:</strong> {{ $case->case_type_label }}</p>
                 <p><strong>Caption:</strong> {{ $case->caption }}</p>
             </div>
 

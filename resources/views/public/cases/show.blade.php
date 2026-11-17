@@ -17,7 +17,7 @@
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ $case->case_no }}</h1>
                 <div class="flex items-center space-x-3">
-                    <span class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</span>
+                    <span class="text-sm text-gray-600">{{ $case->case_type_label }} Case</span>
                     <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full {{ $case->visible_status_badge_class }}">
                         {{ $case->visible_status_label }}
                     </span>

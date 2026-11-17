@@ -38,7 +38,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Case type</label>
                             <select name="case_type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                                @foreach(['aggrieved' => 'Aggrieved', 'protested' => 'Protested', 'compliance' => 'Compliance'] as $value => $label)
+                                @foreach(\App\Models\CaseModel::CASE_TYPE_LABELS as $value => $label)
                                     <option value="{{ $value }}" @selected(old('case_type', $case->case_type) === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>

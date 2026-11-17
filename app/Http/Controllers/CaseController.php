@@ -111,7 +111,7 @@ class CaseController extends Controller
 
         $cases = $query->latest()->paginate(15)->withQueryString();
 
-        $allowedTypes = ['aggrieved', 'protested', 'compliance'];
+        $allowedTypes = CaseModel::caseTypes();
 
         return view('cases.index', compact('cases', 'allowedStatuses', 'allowedTypes', 'scope'));
     }
@@ -490,7 +490,7 @@ class CaseController extends Controller
         $validated = $request->validate([
             'source_case_ids' => ['required', 'array', 'min:1'],
             'source_case_ids.*' => ['integer', 'distinct', 'exists:cases,id', Rule::notIn([$case->id])],
-            'case_type' => ['required', Rule::in(['aggrieved', 'protested', 'compliance'])],
+            'case_type' => ['required', Rule::in(CaseModel::caseTypes())],
             'order_date' => ['required', 'date'],
             'reason' => ['nullable', 'string', 'max:2000'],
             'confirmation' => ['accepted'],
@@ -598,7 +598,7 @@ class CaseController extends Controller
         }
 
         $validated = $request->validate([
-            'case_type' => 'required|in:aggrieved,protested,compliance',
+            'case_type' => ['required', Rule::in(CaseModel::caseTypes())],
             'caption' => 'required|string',
             'ose_numbers' => 'nullable|array',
             'ose_numbers.*.basin_code_from' => 'nullable|string|exists:ose_basin_codes,initial',

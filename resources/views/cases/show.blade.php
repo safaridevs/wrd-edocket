@@ -106,7 +106,7 @@
                             </div>
                         @endif
                         <h3 class="text-lg font-medium">{{ $case->case_no }}</h3>
-                        <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
+                        <p class="text-sm text-gray-600">{{ $case->case_type_label }} Case</p>
                         <div class="mt-2 flex items-center gap-2">
                             <span class="inline-block px-2 py-1 text-xs rounded-full {{ $case->visible_status_badge_class }}">
                                 {{ $case->visible_status_label }}

@@ -124,7 +124,7 @@
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                                             <div>
-                                                <strong>Case Type:</strong> {{ ucfirst($case->case_type) }}
+                                                <strong>Case Type:</strong> {{ $case->case_type_label }}
                                             </div>
                                             <div>
                                                 <strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}

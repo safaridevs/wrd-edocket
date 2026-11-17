@@ -40,7 +40,7 @@
                         <option value="">All Case Types</option>
                         @foreach($allowedTypes as $type)
                             <option value="{{ $type }}" @selected(request('type') === $type)>
-                                {{ ucfirst(str_replace('_', ' ', $type)) }}
+                                {{ \App\Models\CaseModel::CASE_TYPE_LABELS[$type] ?? ucwords(str_replace('_', ' ', $type)) }}
                             </option>
                         @endforeach
                     </select>
@@ -106,7 +106,7 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>
-                                    <strong>Case Type:</strong> {{ ucfirst($case->case_type) }}
+                                    <strong>Case Type:</strong> {{ $case->case_type_label }}
                                 </div>
                                 <div>
                                     <strong>Filed:</strong> {{ $case->created_at->format('M j, Y') }}

@@ -11,7 +11,7 @@
                 <h3 class="text-lg font-medium mb-4">Case Information</h3>
                 <div class="grid grid-cols-2 gap-4">
                     <div><strong>Case No:</strong> {{ $case->case_no }}</div>
-                    <div><strong>Type:</strong> {{ ucfirst($case->case_type) }}</div>
+                    <div><strong>Type:</strong> {{ $case->case_type_label }}</div>
                     <div><strong>Status:</strong> {{ $case->workflow_status_label }}</div>
                     <div><strong>Submitted:</strong> {{ $case->submitted_at?->format('M j, Y g:i A') }}</div>
                 </div>

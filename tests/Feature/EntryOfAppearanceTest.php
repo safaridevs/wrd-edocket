@@ -135,7 +135,7 @@ class EntryOfAppearanceTest extends TestCase
         $case = CaseModel::create([
             'case_no' => 'HU-26-001',
             'caption' => 'In the Matter of ACME',
-            'case_type' => 'hearing',
+            'case_type' => 'aggrieved',
             'status' => 'active',
             'created_by_user_id' => $creator->id,
         ]);

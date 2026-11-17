@@ -66,18 +66,12 @@
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Case Type *</label>
                     <div class="space-y-2">
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="aggrieved" {{ old('case_type', $case->case_type) == 'aggrieved' ? 'checked' : '' }} required class="mr-2">
-                            Aggrieved
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="protested" {{ old('case_type', $case->case_type) == 'protested' ? 'checked' : '' }} required class="mr-2">
-                            Protested
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="case_type" value="compliance" {{ old('case_type', $case->case_type) == 'compliance' ? 'checked' : '' }} required class="mr-2">
-                            Compliance Action
-                        </label>
+                        @foreach(\App\Models\CaseModel::CASE_TYPE_LABELS as $value => $label)
+                            <label class="flex items-center">
+                                <input type="radio" name="case_type" value="{{ $value }}" {{ old('case_type', $case->case_type) === $value ? 'checked' : '' }} required class="mr-2">
+                                {{ $label }}
+                            </label>
+                        @endforeach
                     </div>
                 </div>
 

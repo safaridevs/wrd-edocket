@@ -32,7 +32,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <h4 class="text-lg font-semibold text-slate-950">Application</h4>
-                <p class="mt-2 text-sm leading-6 text-slate-600">Add the application packet for aggrieved or protested cases.</p>
+                <p class="mt-2 text-sm leading-6 text-slate-600">Add the application packet for aggrieved, protested, or rule promulgation cases.</p>
             </div>
             <button type="button" onclick="showCreateDocumentModal('application')" class="inline-flex items-center justify-center rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
                 Upload

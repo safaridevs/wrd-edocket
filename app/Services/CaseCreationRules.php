@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CaseModel;
 use Illuminate\Validation\Validator;
 
 class CaseCreationRules
@@ -12,7 +13,7 @@ class CaseCreationRules
     public function validationRules(?string $caseType): array
     {
         $rules = [
-            'case_type' => 'required|in:aggrieved,protested,compliance',
+            'case_type' => 'required|in:' . implode(',', CaseModel::caseTypes()),
             'caption' => 'required|string',
             'wrd_office' => 'required|in:albuquerque,santa_fe',
             'parties' => 'required|array|min:1',

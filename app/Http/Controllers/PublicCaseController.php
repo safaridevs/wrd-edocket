@@ -11,7 +11,7 @@ class PublicCaseController extends Controller
 {
     public function index(Request $request)
     {
-        $allowedTypes = ['aggrieved', 'protested', 'compliance'];
+        $allowedTypes = CaseModel::caseTypes();
 
         $query = CaseModel::where('status', 'active')
             ->with(['parties.person', 'oseFileNumbers'])

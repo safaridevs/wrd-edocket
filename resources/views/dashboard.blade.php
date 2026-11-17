@@ -288,7 +288,7 @@
                                                     <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">{{ $displayApplicants }}</p>
                                                 @endif
                                                 <h4 class="text-lg font-semibold text-gray-900">{{ $case->case_no }}</h4>
-                                                <p class="text-sm text-gray-600">{{ ucfirst($case->case_type) }} Case</p>
+                                                <p class="text-sm text-gray-600">{{ $case->case_type_label }} Case</p>
                                             </div>
                                             <div class="flex flex-col items-end gap-1">
                                                 <span class="px-3 py-1 text-xs font-semibold rounded-full {{ $case->visible_status_badge_class }}">

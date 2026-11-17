@@ -28,7 +28,7 @@
                 <h3>📋 Case Information</h3>
                 <p><strong>Case Number:</strong> {{ $case->case_no }}</p>
                 <p><strong>Caption:</strong> {{ $case->caption }}</p>
-                <p><strong>Case Type:</strong> {{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</p>
+                <p><strong>Case Type:</strong> {{ $case->case_type_label }}</p>
                 <p><strong>Submitted:</strong> {{ $case->submitted_at->format('F j, Y \\a\\t g:i A') }}</p>
             </div>
             

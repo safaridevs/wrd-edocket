@@ -65,7 +65,7 @@
                 <h3 class="text-lg font-medium mb-2">{{ $case->case_no }}</h3>
                 <p class="text-sm text-gray-600">{{ $case->caption }}</p>
                 <div class="mt-2 flex space-x-4 text-sm">
-                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</span>
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">{{ $case->case_type_label }}</span>
                     <span class="{{ $case->visible_status_badge_class }} px-2 py-1 rounded">{{ $case->visible_status_label }}</span>
                     @if($case->hu_display_status)
                         <span class="{{ $case->hu_display_status_badge_class }} px-2 py-1 rounded"

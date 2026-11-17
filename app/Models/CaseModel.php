@@ -12,6 +12,13 @@ class CaseModel extends Model
 {
     protected $table = 'cases';
 
+    public const CASE_TYPE_LABELS = [
+        'aggrieved' => 'Aggrieved',
+        'protested' => 'Protested',
+        'compliance' => 'Compliance Action or Contemplated Action',
+        'rule_promulgation' => 'Rule Promulgation',
+    ];
+
     public const ALU_DOCUMENT_UPLOADER_ROLES = [
         'alu_mgr',
         'alu_clerk',
@@ -44,6 +51,17 @@ class CaseModel extends Model
         'consolidated_at' => 'datetime',
         'metadata' => 'array'
     ];
+
+    public static function caseTypes(): array
+    {
+        return array_keys(self::CASE_TYPE_LABELS);
+    }
+
+    public function getCaseTypeLabelAttribute(): string
+    {
+        return self::CASE_TYPE_LABELS[$this->case_type]
+            ?? ucwords(str_replace('_', ' ', (string) $this->case_type));
+    }
 
     public function scopeAccessibleToContractAttorney(Builder $query, User $user): Builder
     {

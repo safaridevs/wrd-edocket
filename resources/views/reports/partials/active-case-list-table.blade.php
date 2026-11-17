@@ -20,7 +20,7 @@
                     @endif
                 </td>
                 <td class="{{ $tdCaptionClass ?? 'min-w-[280px] px-6 py-4 text-sm text-gray-900' }}">{{ $case->caption }}</td>
-                <td class="{{ $tdClass ?? 'whitespace-nowrap px-6 py-4 text-sm text-gray-600' }}">{{ ucfirst(str_replace('_', ' ', $case->case_type)) }}</td>
+                <td class="{{ $tdClass ?? 'whitespace-nowrap px-6 py-4 text-sm text-gray-600' }}">{{ $case->case_type_label }}</td>
                 <td class="{{ $tdClass ?? 'whitespace-nowrap px-6 py-4 text-sm text-gray-600' }}">
                     <div>{{ $case->workflow_status_label }}</div>
                     @if($case->hu_display_status)
