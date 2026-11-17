@@ -55,7 +55,7 @@
                 <div>
                     <span class="text-gray-500">Role:</span>
                         <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                        {{ ucwords(str_replace('_', ' ', $user->getCurrentRole())) }}
+                        {{ \App\View\RoleLabel::format($user->getCurrentRole()) }}
                     </span>
                 </div>
                 <div>

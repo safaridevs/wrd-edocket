@@ -22,7 +22,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo">OSE E-Docket System</div>
+            <div class="logo">OSE E-Docket</div>
             <div class="subtitle">New Mexico Office of the State Engineer</div>
         </div>
 
@@ -53,13 +53,13 @@
             <!-- Important Notice -->
             <div class="important">
                 <h4 style="margin-top: 0; color: #92400e;">📋 Important Notice</h4>
-                <p style="margin-bottom: 0;">This case is now accepted and ready for hearing. You may continue to file additional documents through the E-Docket system as needed for the proceedings.</p>
+                <p style="margin-bottom: 0;">This case is now accepted and ready for hearing. You may continue to file additional documents through OSE E-Docket as needed for the proceedings.</p>
             </div>
 
             <!-- Next Steps -->
             <h3 style="color: #1e40af;">Next Steps</h3>
             <ul>
-                <li>Review the accepted case details in the E-Docket system</li>
+                <li>Review the accepted case details in OSE E-Docket</li>
                 <li>Submit any additional required documents</li>
                 <li>Await further hearing scheduling information</li>
                 <li>Contact the Hearing Unit with any questions</li>
@@ -79,7 +79,7 @@
                 <li><strong>Office Hours:</strong> Monday - Friday, 8:00 AM - 5:00 PM</li>
             </ul>
 
-            <p style="margin-top: 30px;">Thank you for using the OSE E-Docket system.</p>
+            <p style="margin-top: 30px;">Thank you for using OSE E-Docket.</p>
             
             <p>Sincerely,<br>
             <strong>New Mexico Office of the State Engineer</strong><br>
@@ -90,7 +90,7 @@
         <div class="footer">
             <p><strong>New Mexico Office of the State Engineer</strong></p>
             <p>1680 Hickman Loop, Las Cruces, NM 88005</p>
-            <p>This is an automated message from the OSE E-Docket system. Please do not reply to this email.</p>
+            <p>This is an automated message from OSE E-Docket. Please do not reply to this email.</p>
             <p>For technical support, contact: <a href="mailto:{{ config('edocket.contact.support_email') }}">{{ config('edocket.contact.support_email') }}</a></p>
         </div>
     </div>

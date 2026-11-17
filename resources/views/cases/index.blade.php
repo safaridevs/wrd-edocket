@@ -9,7 +9,7 @@
                 @elseif(($scope ?? request('scope')) === 'my_cases')
                     My Cases
                 @elseif(auth()->user()->isHUAdmin() || auth()->user()->isHULawClerk())
-                    Filed Pleadings
+                    All Cases
                 @else
                     My Cases
                 @endif
@@ -39,10 +39,11 @@
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700">Status</label>
                             <select name="status" class="mt-1 block w-full border-gray-300 rounded-md">
-                                <option value="">All Statuses</option>
+                                <option value="">All</option>
                                 @foreach($allowedStatuses as $status)
+                                    @continue($status === 'archived')
                                     <option value="{{ $status }}" @selected(request('status') === $status)>
-                                        {{ ucfirst(str_replace('_', ' ', $status)) }}
+                                        {{ $status === 'submitted_to_hu' ? 'Submitted to Hearing Unit' : ucfirst(str_replace('_', ' ', $status)) }}
                                     </option>
                                 @endforeach
                             </select>

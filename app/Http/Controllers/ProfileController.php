@@ -53,6 +53,7 @@ class ProfileController extends Controller
             'title' => 'nullable|string|max:255',
             'phone_mobile' => 'nullable|string|max:20',
             'phone_office' => 'nullable|string|max:20',
+            'initials' => 'nullable|string|max:10',
             'address_line1' => 'nullable|string|max:255',
             'address_line2' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
@@ -79,7 +80,11 @@ class ProfileController extends Controller
             $updates['suffix'] = null;
         }
 
-        DB::transaction(function () use ($person, $updates, $user) {
+        $initials = array_key_exists('initials', $validated)
+            ? $validated['initials']
+            : $user->initials;
+
+        DB::transaction(function () use ($person, $updates, $user, $initials) {
             $before = $person->only(array_keys($updates));
             $person->fill($updates);
             $after = $person->only(array_keys($updates));
@@ -92,20 +97,33 @@ class ProfileController extends Controller
                 ])
                 ->all();
 
-            if ($changes === []) {
+            $userUpdates = [
+                'name' => $person->full_name,
+                'phone' => $updates['phone_office'] ?: $updates['phone_mobile'],
+                'initials' => $initials,
+            ];
+            $changedUserFields = collect($userUpdates)
+                ->filter(fn ($value, string $field) => (string) ($user->{$field} ?? '') !== (string) ($value ?? ''))
+                ->all();
+
+            if ($changes === [] && $changedUserFields === []) {
                 return;
             }
 
-            $person->save();
+            if ($changes !== []) {
+                $person->save();
+            }
 
             $userNameChange = null;
-            if ($person->email === $user->email && $user->name !== $person->full_name) {
+            if (array_key_exists('name', $changedUserFields)) {
                 $userNameChange = [
                     'before' => $user->name,
-                    'after' => $person->full_name,
+                    'after' => $userUpdates['name'],
                 ];
+            }
 
-                $user->update(['name' => $person->full_name]);
+            if ($changedUserFields !== []) {
+                $user->update($changedUserFields);
             }
 
             AuditService::logLegalServiceProfileUpdated($user, $person->id, $changes, $userNameChange);

@@ -70,7 +70,7 @@
             <div class="summary-value">{{ $summary['active'] }}</div>
         </td>
         <td>
-            <div class="summary-label">HU Display Status</div>
+            <div class="summary-label">Hearing Unit Display Status</div>
             <div class="summary-value">{{ $summary['with_hu_display_status'] }}</div>
         </td>
     </tr>

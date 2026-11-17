@@ -82,7 +82,7 @@
 </div>
 
 <div class="mb-6">
-    <label class="block text-sm font-medium text-gray-700 mb-2">Assign ALU Clerks / Paralegals</label>
+    <label class="block text-sm font-medium text-gray-700 mb-2">ALU Paralegals</label>
     <div class="rounded-lg border bg-gray-50 p-4" data-assignment-multiselect data-placeholder="Select clerks or paralegals">
         <div class="relative">
             <button type="button"
@@ -140,7 +140,7 @@
 
         <div data-assignment-selected class="mt-3 flex flex-wrap gap-2"></div>
         <p data-assignment-empty class="mt-2 text-sm text-gray-500">No clerks or paralegals selected.</p>
-        <p class="text-xs text-gray-500 mt-2">Select one or more ALU clerks or paralegals to assign to this case</p>
+        <p class="text-xs text-gray-500 mt-2">Select one or more ALU paralegals that should receive notifications for this case</p>
     </div>
     @error('assigned_clerks')
         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

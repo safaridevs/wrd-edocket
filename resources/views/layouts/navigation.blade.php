@@ -7,7 +7,7 @@
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('welcome') }}" class="flex items-center space-x-2">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-8 w-auto">
-                        <span class="font-bold text-gray-800">E-Docket</span>
+                        <span class="font-bold text-gray-800">OSE E-Docket</span>
                     </a>
                 </div>
 
@@ -17,8 +17,9 @@
                     $canViewFilingHistory = Auth::user()->hasAnyRole(['hu_admin', 'hu_clerk']);
                     $canManageUsers = Auth::user()->canManageUsers();
                     $canManageDocumentTypes = Auth::user()->hasAnyRole(['hu_admin']);
+                    $canManageAppearanceRequests = Auth::user()->isHUAdmin();
                     $hasCaseWork = Auth::user()->canCreateCase() || $canViewReports || $canViewFilingHistory;
-                    $hasAdministration = $canManageUsers || $canManageDocumentTypes;
+                    $hasAdministration = $canManageUsers || $canManageDocumentTypes || $canManageAppearanceRequests;
                 @endphp
                 <div class="hidden sm:-my-px sm:ms-8 sm:flex sm:items-center sm:gap-6">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
@@ -71,6 +72,9 @@
                                 @if($canManageDocumentTypes)
                                     <x-dropdown-link :href="route('admin.document-types')">Document Types</x-dropdown-link>
                                 @endif
+                                @if($canManageAppearanceRequests)
+                                    <x-dropdown-link :href="route('admin.entry-of-appearances.index')">Appearance Requests</x-dropdown-link>
+                                @endif
                             </x-slot>
                         </x-dropdown>
                     @endif
@@ -83,7 +87,7 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none transition ease-in-out duration-150">
-                            <div>{{ session('impersonated_role') ? 'As: ' . ucfirst(str_replace('_', ' ', session('impersonated_role'))) : 'Switch Role' }}</div>
+                            <div>{{ session('impersonated_role') ? 'As: ' . \App\View\RoleLabel::format(session('impersonated_role')) : 'Switch Role' }}</div>
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -97,7 +101,7 @@
                                 @csrf
                                 <input type="hidden" name="role" value="{{ $role }}">
                                 <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    {{ ucfirst(str_replace('_', ' ', $role)) }}
+                                    {{ \App\View\RoleLabel::format($role) }}
                                 </button>
                             </form>
                         @endforeach
@@ -139,7 +143,7 @@
                         @endphp
 
                         @if($hasPersonRecord)
-                            <x-dropdown-link :href="route('party.contact.edit')">
+                            <x-dropdown-link :href="route('profile.edit').'#contact-information'">
                                 {{ __('Contact Information') }}
                             </x-dropdown-link>
                         @endif
@@ -226,6 +230,12 @@
                 </x-responsive-nav-link>
             @endif
 
+            @if($canManageAppearanceRequests)
+                <x-responsive-nav-link :href="route('admin.entry-of-appearances.index')" :active="request()->routeIs('admin.entry-of-appearances.*')">
+                    {{ __('Appearance Requests') }}
+                </x-responsive-nav-link>
+            @endif
+
         </div>
 
         <!-- Responsive Settings Options -->
@@ -245,7 +255,7 @@
                 @endphp
 
                 @if($hasPersonRecord)
-                    <x-responsive-nav-link :href="route('party.contact.edit')">
+                    <x-responsive-nav-link :href="route('profile.edit').'#contact-information'">
                         {{ __('Contact Information') }}
                     </x-responsive-nav-link>
                 @endif

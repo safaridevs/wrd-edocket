@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'OSE E-Docket') }} - Public Records Search</title>
+    <title>OSE E-Docket - Public Records Search</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -24,7 +24,7 @@
                     <div class="flex items-center space-x-3">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-12 w-auto">
                         <div>
-                            <h1 class="text-xl font-bold text-gray-900">New Mexico OSE</h1>
+                            <h1 class="text-xl font-bold text-gray-900">OSE E-Docket</h1>
                             <p class="text-sm text-blue-600 font-medium">Public Records Search</p>
                         </div>
                     </div>
@@ -32,6 +32,7 @@
                 <div class="flex items-center space-x-4">
                     <a href="{{ route('public.cases.index') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Cases</a>
                     <a href="{{ route('documents.search') }}" class="hidden sm:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Search Documents</a>
+                    <a href="{{ route('entry-of-appearances.create') }}" class="hidden md:block text-gray-600 hover:text-blue-600 font-medium transition-colors">Enter an Appearance</a>
                     @guest
                         <a href="{{ route('login') }}" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg font-semibold text-sm whitespace-nowrap">Login</a>
                     @endguest
@@ -55,7 +56,7 @@
                 <div>
                     <div class="flex items-center space-x-3 mb-4">
                         <img src="{{ asset('images/ose-logo.png') }}" alt="OSE Logo" class="h-8 w-auto opacity-90">
-                        <h3 class="text-lg font-bold">New Mexico OSE</h3>
+                        <h3 class="text-lg font-bold">OSE E-Docket</h3>
                     </div>
                     <p class="text-blue-100 text-sm leading-relaxed">
                         Protecting, conserving, and managing New Mexico's water resources for current and future generations.
@@ -79,6 +80,7 @@
                     <div class="text-blue-100 text-sm space-y-2">
                         <a href="{{ route('public.cases.index') }}" class="block hover:text-white transition-colors">🔍 Search Cases</a>
                         <a href="{{ route('documents.search') }}" class="block hover:text-white transition-colors">Search Documents</a>
+                        <a href="{{ route('entry-of-appearances.create') }}" class="block hover:text-white transition-colors">Entry of Appearance</a>
                         @guest
                             <a href="{{ route('login') }}" class="block hover:text-white transition-colors">👤 Login</a>
                             <a href="{{ route('register') }}" class="block hover:text-white transition-colors">📝 Register Account</a>
@@ -86,7 +88,7 @@
                         @auth
                             <a href="{{ route('dashboard') }}" class="block hover:text-white transition-colors">📋 Dashboard</a>
                         @endauth
-                        <a href="#" class="block hover:text-white transition-colors">📋 Forms & Applications</a>
+                        <a href="{{ route('entry-of-appearances.create') }}" class="block hover:text-white transition-colors">📋 Forms &amp; Applications</a>
                     </div>
                 </div>
             </div>

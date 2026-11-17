@@ -110,7 +110,7 @@
                             📧 Notify Parties
                         </button>
                         @endif
-                        @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || auth()->user()->canManageDraftCase($case)))
+                        @if(auth()->user()->canManageCaseParties($case))
                         <button onclick="showAddPartyModal()" class="bg-green-500 text-white px-4 py-2 rounded-md text-sm hover:bg-green-600">
                             + Add Party
                         </button>
@@ -161,7 +161,7 @@
                                         <div class="mt-3 pl-4 border-l-2 border-green-200">
                                             <div class="flex justify-between items-start mb-1">
                                                 <div class="text-sm font-medium text-green-800">Attorney:</div>
-                                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || auth()->user()->canManageDraftCase($case)))
+                                                @if(auth()->user()->canManageAttorneysForCase($case))
                                                 <div class="flex items-center space-x-3">
                                                     <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
                                                         Manage Attorney(s)
@@ -187,7 +187,7 @@
                                             @endforeach
                                         </div>
                                     @else
-                                        @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || auth()->user()->canManageDraftCase($case)))
+                                        @if(auth()->user()->canManageAttorneysForCase($case))
                                         <div class="mt-2">
                                             <button onclick="manageAttorney({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-xs">
                                                 + Add Attorney
@@ -196,7 +196,7 @@
                                         @endif
                                     @endif
                                 </div>
-                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || auth()->user()->canManageDraftCase($case)))
+                                @if(auth()->user()->canManageCaseParties($case))
                                 <div class="flex space-x-2">
                                     <button onclick="editParty({{ $party->id }})" class="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
                                     <button onclick="removeParty({{ $party->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
@@ -237,7 +237,7 @@
                                         @endif
                                     </div>
                                 </div>
-                                @if(!in_array($case->status, ['closed', 'archived']) && (auth()->user()->isHearingUnit() || auth()->user()->canManageDraftCase($case)))
+                                @if(auth()->user()->canManageCaseParties($case))
                                 <div class="flex space-x-2">
                                     <button onclick="removeParty({{ $paralegal->id }})" class="text-red-600 hover:text-red-800 text-sm">Remove</button>
                                 </div>
@@ -391,6 +391,7 @@
                                 </div>
                             </div>
 
+                            @if(auth()->user()->canManageAttorneysForCase($case))
                             <!-- Attorney Fields -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Attorney Representation (Optional)</label>
@@ -454,6 +455,7 @@
                                     </div>
                                 </div>
                             </div>
+                            @endif
                         </div>
                         <div class="flex justify-end space-x-3 mt-6">
                             <button type="button" onclick="hideAddPartyModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
@@ -543,14 +545,16 @@
             if (select.value === 'individual') {
                 individualFields.classList.remove('hidden');
                 companyFields.classList.add('hidden');
-                companyNote.classList.add('hidden');
+                companyNote?.classList.add('hidden');
             } else if (select.value === 'company') {
                 individualFields.classList.add('hidden');
                 companyFields.classList.remove('hidden');
-                companyNote.classList.remove('hidden');
+                companyNote?.classList.remove('hidden');
                 // Always show attorney fields for companies
-                addAttorneyCheckbox.checked = true;
-                attorneyFields.classList.remove('hidden');
+                if (addAttorneyCheckbox && attorneyFields) {
+                    addAttorneyCheckbox.checked = true;
+                    attorneyFields.classList.remove('hidden');
+                }
             }
         }
 

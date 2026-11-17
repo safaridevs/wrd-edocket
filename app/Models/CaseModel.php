@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CaseModel extends Model
 {
@@ -30,7 +31,8 @@ class CaseModel extends Model
         'case_no', 'caption', 'case_type', 'status', 'reynolds_report_url',
         'created_by_user_id', 'updated_by_user_id', 'assigned_attorney_id', 'assigned_hydrology_expert_id', 'assigned_alu_clerk_id', 'assigned_wrd_id', 'metadata',
         'submitted_at', 'accepted_at', 'closed_at', 'archived_at', 'closed_by_user_id', 'archived_by_user_id', 'closure_reason',
-        'hu_display_status', 'hu_display_status_note', 'hu_display_status_updated_by', 'hu_display_status_updated_at'
+        'hu_display_status', 'hu_display_status_note', 'hu_display_status_updated_by', 'hu_display_status_updated_at',
+        'consolidated_into_case_id', 'consolidated_by_user_id', 'consolidated_at',
     ];
 
     protected $casts = [
@@ -39,8 +41,37 @@ class CaseModel extends Model
         'closed_at' => 'datetime',
         'archived_at' => 'datetime',
         'hu_display_status_updated_at' => 'datetime',
+        'consolidated_at' => 'datetime',
         'metadata' => 'array'
     ];
+
+    public function scopeAccessibleToContractAttorney(Builder $query, User $user): Builder
+    {
+        $email = strtolower(trim((string) $user->email));
+
+        return $query->where(function (Builder $caseQuery) use ($user, $email) {
+            $caseQuery->where('created_by_user_id', $user->id)
+                ->orWhereHas('assignments', function (Builder $assignmentQuery) use ($user) {
+                    $assignmentQuery->where('user_id', $user->id)
+                        ->whereIn('assignment_type', ['alu_atty', 'alu_attorney']);
+                });
+
+            if ($email !== '') {
+                $caseQuery->orWhere(function (Builder $privateCaseQuery) use ($email) {
+                    $privateCaseQuery->where('status', '!=', 'draft')
+                        ->whereHas('parties', function (Builder $partyQuery) use ($email) {
+                            $partyQuery->where('role', 'counsel')
+                                ->where(function (Builder $capacityQuery) {
+                                    $capacityQuery->where('representation_capacity', CaseParty::CAPACITY_PRIVATE_COUNSEL)
+                                        ->orWhereNull('representation_capacity');
+                                })->whereHas('person', function (Builder $personQuery) use ($email) {
+                                    $personQuery->whereRaw('LOWER(email) = ?', [$email]);
+                                });
+                        });
+                });
+            }
+        });
+    }
 
     // Handle JSON for SQL Server compatibility
     public function getMetadataAttribute($value)
@@ -81,10 +112,10 @@ class CaseModel extends Model
                 'phone' => '(505) 469-9662',
             ],
             'santa_fe' => [
-                'address' => '407 Galisteo St STE 102',
+                'address' => '2905 Rodeo Park Drive East, Building 5',
                 'city' => 'Santa Fe',
                 'state' => 'NM',
-                'zip' => '87501',
+                'zip' => '87505',
                 'phone' => '(505) 827-6120',
             ],
             default => [],
@@ -177,6 +208,14 @@ class CaseModel extends Model
             ->withTimestamps();
     }
 
+    public function contractParalegals()
+    {
+        return $this->belongsToMany(User::class, 'case_assignments', 'case_id', 'user_id')
+            ->wherePivot('assignment_type', CaseAssignment::TYPE_CONTRACT_PARALEGAL)
+            ->withPivot('assigned_at', 'assigned_by')
+            ->withTimestamps();
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(CaseAssignment::class, 'case_id');
@@ -193,6 +232,40 @@ class CaseModel extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(Document::class, 'case_id');
+    }
+
+    public function consolidation(): HasOne
+    {
+        return $this->hasOne(CaseConsolidation::class, 'combined_case_id');
+    }
+
+    public function consolidationSource(): HasOne
+    {
+        return $this->hasOne(CaseConsolidationSource::class, 'source_case_id');
+    }
+
+    public function consolidatedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'consolidated_into_case_id');
+    }
+
+    public function isConsolidatedSource(): bool
+    {
+        return $this->consolidated_into_case_id !== null;
+    }
+
+    public function isCombinedCase(): bool
+    {
+        if ($this->relationLoaded('consolidation')) {
+            return $this->consolidation !== null;
+        }
+
+        return $this->consolidation()->exists();
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(CaseMedia::class, 'case_id');
     }
 
     public function pendingAluDocumentsForAcceptance(): HasMany
@@ -219,6 +292,11 @@ class CaseModel extends Model
     public function parties(): HasMany
     {
         return $this->hasMany(CaseParty::class, 'case_id');
+    }
+
+    public function partyHistory(): HasMany
+    {
+        return $this->hasMany(CaseParty::class, 'case_id')->withTrashed();
     }
 
     public function serviceList(): HasMany
@@ -258,7 +336,14 @@ class CaseModel extends Model
 
     public function getWorkflowStatusLabelAttribute(): string
     {
-        return ucwords(str_replace('_', ' ', $this->status));
+        if ($this->isConsolidatedSource()) {
+            return 'Consolidated';
+        }
+
+        return match ($this->status) {
+            'submitted_to_hu' => 'Submitted to Hearing Unit',
+            default => ucwords(str_replace('_', ' ', $this->status)),
+        };
     }
 
     public function getVisibleStatusLabelAttribute(): string
@@ -273,6 +358,10 @@ class CaseModel extends Model
 
     public function getWorkflowStatusBadgeClassAttribute(): string
     {
+        if ($this->isConsolidatedSource()) {
+            return 'bg-indigo-100 text-indigo-800';
+        }
+
         return match ($this->status) {
             'active' => 'bg-green-100 text-green-800',
             'draft' => 'bg-gray-100 text-gray-800',
@@ -341,6 +430,10 @@ class CaseModel extends Model
 
     public function canUserUploadDocuments($user): bool
     {
+        if ($this->isConsolidatedSource()) {
+            return false;
+        }
+
         $currentRole = method_exists($user, 'getCurrentRole') ? $user->getCurrentRole() : $user->role;
 
         // ALU and HU staff can always upload

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">HU Review - {{ $case->case_no }}</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Hearing Unit Review - {{ $case->case_no }}</h2>
     </x-slot>
 
     <div class="py-12">
@@ -12,7 +12,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div><strong>Case No:</strong> {{ $case->case_no }}</div>
                     <div><strong>Type:</strong> {{ ucfirst($case->case_type) }}</div>
-                    <div><strong>Status:</strong> {{ ucfirst(str_replace('_', ' ', $case->status)) }}</div>
+                    <div><strong>Status:</strong> {{ $case->workflow_status_label }}</div>
                     <div><strong>Submitted:</strong> {{ $case->submitted_at?->format('M j, Y g:i A') }}</div>
                 </div>
                 <div class="mt-4">
