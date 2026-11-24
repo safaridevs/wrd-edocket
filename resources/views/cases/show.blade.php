@@ -581,7 +581,7 @@
                             <div class="p-3 cursor-pointer" onclick="togglePartyDetails({{ $aluPartyIndex }})">
                                 <div class="flex justify-between items-center">
                                     <div>
-                                        <div class="font-medium">Water Right Division</div>
+                                        <div class="font-medium">Water Rights Division</div>
                                         <div class="text-sm text-gray-600">Administrative Litigation Unit</div>
                                         @if($case->wrd_office_label)
                                             <div class="text-xs text-gray-500">{{ $case->wrd_office_label }}</div>
@@ -622,7 +622,7 @@
                                                 @endforeach
                                             </div>
                                         @else
-                                            <p class="text-sm text-gray-500">No ALU attorneys are assigned to represent Water Right Division on this case.</p>
+                                            <p class="text-sm text-gray-500">No ALU attorneys are assigned to represent Water Rights Division on this case.</p>
                                         @endif
                                     </div>
                                 </div>
